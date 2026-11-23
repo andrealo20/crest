@@ -23,6 +23,9 @@ export function holdOpen(on: boolean) {
   if (isNotchWindow) setPinned(holds.get() > 0);
 }
 
+/** Whether something holds the notch open; in a bar's window its panel stays open meanwhile as the window loses the focus (BarPanel.tsx). */
+export const held = () => holds.get() > 0;
+
 /*
  * After work done away from the notch (a colour picked elsewhere on the screen) the result should stay in view, and
  * switching to a narrower or shorter tool (the dock, the wheel, a link in a tool) can leave the pointer outside the new

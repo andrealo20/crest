@@ -87,14 +87,18 @@ export const widgetWidth = (width: number, k: number, pad: number | null): numbe
 /** The widgets on the bar, reading left, center, right. */
 export const barWidgets = (zones: Record<Zone, BarItem[]>): PartId[] => [...zones.left, ...zones.center, ...zones.right].filter(isWidget);
 
+/** The panel's tools that still need their switch in the notch, which records the clipboard's history only while one of them is on (main.tsx). */
+const NOTCH_SWITCHED: readonly string[] = ["clipboard", "ask"];
+
 /**
  * Whether a button of `tool` shows on the bar and in Add tool: one the notch opens only while the tool is on there, since the notch
- * opens its first tool in place of one switched off (Notch.tsx:105-108); one the panel opens, and Find on screen, a page without a
- * switch, always. Never one the bar does not offer: another window gets the settings' raw JSON from a storage event, without
- * normalizeZones (storeCore.ts:51-57).
+ * opens its first tool in place of one switched off (Notch.tsx:105-108), and so the Clipboard and Ask (NOTCH_SWITCHED); one the panel
+ * opens, and Find on screen, a page without a switch, always. Never one the bar does not offer: another window gets the settings' raw
+ * JSON from a storage event, without normalizeZones (storeCore.ts:51-57).
  */
 export const toolShown = (tool: string, tools: readonly ToolSwitch[]): boolean =>
-  TOOL_BUTTONS.includes(tool) && (opensInBar({ kind: "tool", tool }) || tool === "find" || tools.some((x) => x.id === tool && x.enabled));
+  TOOL_BUTTONS.includes(tool) &&
+  ((opensInBar({ kind: "tool", tool }) && !NOTCH_SWITCHED.includes(tool)) || tool === "find" || tools.some((x) => x.id === tool && x.enabled));
 
 /** The zones the bar draws and fits: without the buttons whose tool cannot open (toolShown). */
 export function shownZones(zones: Record<Zone, BarItem[]>, tools: readonly ToolSwitch[]): Record<Zone, BarItem[]> {

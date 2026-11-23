@@ -453,9 +453,17 @@ pub fn capture_state(app: AppHandle) -> RecState {
     current(&app.state::<CaptureState>())
 }
 
+/// Whether `label`'s window may record `source`: a bar's Recorder records sound only, so the bar's page never films the screen.
+fn may_record(label: &str, source: &str) -> bool {
+    source == "audio" || !crate::taskbar::bar::is_bar_label(label)
+}
+
 /// `source`: an id from `capture_sources`, or "audio" for sound only. `border`: keep Windows' yellow capture frame.
 #[tauri::command]
-pub async fn capture_start(source: String, fps: u32, mic: bool, system: bool, border: bool, app: AppHandle) -> Result<(), String> {
+pub async fn capture_start(source: String, fps: u32, mic: bool, system: bool, border: bool, app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    if !may_record(window.label(), &source) {
+        return Err("denied".into());
+    }
     let dir = if source == "audio" { audio_dir(&app) } else { recordings_dir(&app) }.ok_or("no-folder")?;
     if app.state::<CaptureState>().busy() || app.state::<CaptureState>().starting.swap(true, Ordering::SeqCst) {
         return Err("busy".into());
@@ -862,6 +870,13 @@ mod affinity_tests {
         assert!(std::ptr::eq(glass_flag(&s, "taskbar").unwrap(), &s.bar_live));
         assert!(std::ptr::eq(glass_flag(&s, "taskbar-1").unwrap(), &s.bar_live));
         assert!(glass_flag(&s, "settings").is_none() && glass_flag(&s, "mirror-1").is_none());
+    }
+
+    #[test]
+    fn a_bar_records_sound_only() {
+        assert!(may_record("taskbar", "audio") && may_record("taskbar-2", "audio"));
+        assert!(!may_record("taskbar", "monitor:1") && !may_record("taskbar-2", "window:42"));
+        assert!(may_record("notch", "monitor:1") && may_record("notch", "audio"));
     }
 }
 

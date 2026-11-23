@@ -6,6 +6,7 @@ import { t } from "../../../i18n";
 import { NotchShape } from "../../../notch/NotchShape";
 import { monitorMetrics } from "../../../notch/monitor";
 import { sizeExtra, sizeOverride } from "../../../notch/size";
+import { held } from "../../../notch/useNotchState";
 import { isNative, onNativeBlur } from "../../../platform/native";
 import { taskbar } from "../../../platform/services";
 import { settings } from "../../../settings/store";
@@ -215,8 +216,9 @@ function Panel({
     };
     addEventListener("keydown", onKey);
     addEventListener("pointerdown", onDown);
-    // Windows' location prompt takes the focus while the Wi-Fi page waits for it (WifiPage.tsx).
-    const offBlur = onNativeBlur(() => panelHeld.get() || closePanel());
+    // Windows' location prompt takes the focus while the Wi-Fi page waits for it (WifiPage.tsx), and a tool's picker while it holds the
+    // notch open (holdOpen): Colour's eyedropper, the Launcher's file dialog.
+    const offBlur = onNativeBlur(() => panelHeld.get() || held() || closePanel());
     // The bar hides with the hide hotkey or over a full-screen app, and its panel with it. On this window only: with a bar on each
     // monitor, another bar hiding must not close this one's panel.
     const offShown = isNative ? getCurrentWebviewWindow().listen<boolean>("taskbar://shown", (e) => !e.payload && closePanel()) : null;

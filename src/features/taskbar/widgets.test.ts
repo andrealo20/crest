@@ -142,6 +142,8 @@ test("a tool button shows while its tool can open, and the bar draws only those"
   assert.equal(toolShown("ask", switches), true);
   assert.equal(toolShown("clipboard", switches), false); // the notch would open another tool
   assert.equal(toolShown("vault", switches), false); // missing from the list counts as off
+  assert.equal(toolShown("trading", switches), true); // the panel's too, missing from the list
+  assert.equal(toolShown("ask", [{ id: "ask", enabled: false }]), false); // the notch records the clipboard for Ask only while it is on
   assert.equal(toolShown("find", switches), true); // a page, no switch
   assert.equal(toolShown("xyz", switches), false); // an id that skipped normalizeZones (storeCore.ts:51-57 hands over raw JSON)
   const zones: Record<Zone, BarItem[]> = { left: ["tool:clipboard", "tool:ask"], center: ["start", "apps"], right: ["tool:notes", "weather", "crest"] };
@@ -154,7 +156,7 @@ test("Add tool offers the tools not on the bar, those of the notch only while on
   assert.equal(offered.includes("clipboard"), false);
   assert.ok(offered.includes("notes") && offered.includes("media") && offered.includes("find"));
   const factory = TOOL_IDS.map((id) => ({ id, enabled: !DEFAULT_OFF.has(id) }));
-  assert.equal(addableTools(TASKBAR_DEFAULTS.zones, factory).length, 18);
+  assert.equal(addableTools(TASKBAR_DEFAULTS.zones, factory).length, 24);
   assert.ok(addableTools(TASKBAR_DEFAULTS.zones, factory).every((id) => TOOL_BUTTONS.includes(id)));
 });
 

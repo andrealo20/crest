@@ -1,5 +1,5 @@
 import { askNotch } from "../lib/tauriTransport";
-import { isNotchWindow } from "../lib/windowKind";
+import { isNotchWindow, isTaskbarWindow } from "../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -1978,9 +1978,12 @@ export const windowShell = {
   hideFromCapture: (on: boolean) => {
     if (isNative) void invoke("sharing_hide", { on }).catch(() => {});
   },
-  /** The window was hidden (hide shortcut or a rule) or shown again; the notch may stay open meanwhile. */
+  /**
+   * The window was hidden (hide shortcut or a rule) or shown again; the notch may stay open meanwhile. Never in a bar's window: its
+   * tools (Camera, Agents, Clocks) keep going while the notch hides, and its panel closes with its own bar (BarPanel.tsx).
+   */
   onHidden: (handler: (hidden: boolean) => void): (() => void) => {
-    if (!isNative) return () => {};
+    if (!isNative || isTaskbarWindow) return () => {};
     const off = listen<boolean>("notch://hidden", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },

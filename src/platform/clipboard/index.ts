@@ -1,4 +1,4 @@
-import { isNotchWindow } from "../../lib/windowKind";
+import { isNotchWindow, isTaskbarWindow } from "../../lib/windowKind";
 import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -34,7 +34,7 @@ interface ClipboardSource {
   text(id: number): Promise<string | null>;
   subscribe(listener: () => void): () => void;
   copy(id: number): Promise<void>;
-  /** Copies, then pastes into the app that had the keyboard before the notch opened. False: there was none (or a Mac has not allowed Crest to press keys), so it is only copied. */
+  /** Copies, then pastes into the app that had the keyboard before the notch (or the bar's panel) opened. False: there was none (or a Mac has not allowed Crest to press keys), so it is only copied. */
   paste(id: number): Promise<boolean>;
   remove(id: number): void;
   clear(): void;
@@ -49,15 +49,22 @@ function createNative(): ClipboardSource {
     items = next;
     listeners.forEach((l) => l());
   };
-  // Only the notch keeps the history; another window would load every thumbnail for nothing.
-  if (isNotchWindow) {
+  let loaded = false;
+  const load = () => {
+    if (loaded) return;
+    loaded = true;
     void invoke<ClipItem[]>("clipboard_list").then(set);
     void listen<ClipItem[]>("clipboard://update", (e) => set(e.payload));
-  }
+  };
+  // The notch keeps the history from the start, a bar's window from the first Clipboard or Ask in its panel (subscribe); another
+  // window would load every thumbnail for nothing.
+  // shortcut: a bar keeps the history until its page reloads; drop it as the panel closes if its memory ever shows.
+  if (isNotchWindow) load();
 
   return {
     get: () => items,
     subscribe(listener) {
+      if (isTaskbarWindow) load();
       listeners.add(listener);
       return () => listeners.delete(listener);
     },

@@ -857,14 +857,15 @@ pub fn taskbar_release() {
 }
 
 /// The keyboard goes back to the app in front, or to the last one if only Start has been in front since; to none after the
-/// desktop or a Crest window (`LAST_APP`). On the main thread: `taskbar_release`, and the Start button's click that closed
-/// Start (start.rs).
-pub(crate) fn release() {
+/// desktop or a Crest window (`LAST_APP`). On the main thread: `taskbar_release`, the Start button's click that closed
+/// Start (start.rs) and a paste from the bar's Clipboard (clipboard.rs). Returns the window brought forward, None when none was.
+pub(crate) fn release() -> Option<isize> {
     let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
     let usable = |h: isize| listed.contains(&h) && !unsafe { IsIconic(HWND(h as _)) }.as_bool();
-    if let Some(target) = release_target(active_now(&listed), Some(LAST_APP.load(Ordering::SeqCst)), usable) {
-        let _ = activate(HWND(target as _));
-    }
+    let target = HWND(release_target(active_now(&listed), Some(LAST_APP.load(Ordering::SeqCst)), usable)? as _);
+    activate(target).ok()?;
+    // A dialog the app has open comes forward in its place (`activate`).
+    Some(unsafe { GetLastActivePopup(target) }.0 as isize)
 }
 
 /// Icons of listed apps without Start entries, from their exe, cached per group. Only listed groups: the page never names a

@@ -23,10 +23,17 @@ export interface OpenPanel {
 export const BAR_TOOLS: readonly string[] = ["media", "timer", "usage", "system", "notices", "overview", "shelf", "weather", "discord", "github", "leetcode", "calendar"];
 /**
  * The tools that open in the bar's panel: the widgets' (BAR_TOOLS), six that keep their data in the saved stores every window shares
- * (storeCore.ts), which work there as they are, and the Converter, which reads the public rates itself; the notch runs nothing for
- * those seven (barPanels.ts reads BAR_TOOLS).
+ * (storeCore.ts), which work there as they are, the Converter, which reads the public rates itself, and the pinned tools that run whole
+ * in the bar's window with the commands it may call (lib.rs TASKBAR_ALLOWED): the Depot, the Calculator, Agents, Colour, the Camera,
+ * the Clipboard, Ask (a conversation of its own), the Launcher and the Recorder. The notch runs nothing for any but the widgets'
+ * (barPanels.ts reads BAR_TOOLS). The Vault and the Terminal (secrets and the shell), Capture, the Teleprompter and Find on screen
+ * (the whole screen or the notch) open in the notch.
  */
-export const PANEL_TOOLS: readonly string[] = [...BAR_TOOLS, "notes", "todos", "water", "scratchpad", "habits", "clocks", "convert"];
+export const PANEL_TOOLS: readonly string[] = [
+  ...BAR_TOOLS,
+  ...["notes", "todos", "water", "scratchpad", "habits", "clocks", "convert"],
+  ...["trading", "calc", "agents", "colour", "camera", "clipboard", "ask", "launcher", "recorder"],
+];
 
 /** The tool's id, or the kind ("tray", "apps", "quick") for any other content: the panel crossfades when it changes. */
 export const panelKey = (c: PanelContent) => (c.kind === "tool" ? c.tool : c.kind);

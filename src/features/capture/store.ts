@@ -35,8 +35,12 @@ function apply(s: CaptureRecState) {
   }
 }
 
-/** Follows recordings started or ended anywhere (a closed window ends one on its own). */
+let following = false;
+
+/** Follows recordings started or ended anywhere (a closed window ends one on its own): the notch from the start, a bar's window from its Recorder's first open. */
 export function startCapture() {
+  if (following) return;
+  following = true;
   capture.onState(apply);
   void capture.state().then(apply);
 }

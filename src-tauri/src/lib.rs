@@ -172,7 +172,9 @@ const SETTINGS_DENIED: &[&str] = &[
 /// Bluetooth page (taskbar/bluetooth.rs), the window previews over an app's button (taskbar/preview.rs), the jump list of an
 /// app's menu and its rows opened, and the Recently opened button's list (taskbar/jumplist.rs), the keyboard after one of its Windows keys (`taskbar_focus`), the Recycle Bin
 /// (taskbar/recycle.rs), the drives of its disk space widget, opening one and its Scan now (taskbar/disks.rs), the window and group menus and the previews' order (taskbar/tasks.rs), and what the notch's
-/// tools in its panel read or do on a click, the Converter's public rates among them (`portfolio_prices`). Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
+/// tools in its panel read or do on a click, the Converter's public rates among them (`portfolio_prices`), and the pinned tools that run
+/// there whole: the Depot's accounts (never a key's value), Agents, Colour's picker, the Clipboard's history, Ask's chat, the Launcher's
+/// apps and the Recorder (sound only, capture/mod.rs `capture_start`). Its settings reach Rust only through the notch (`taskbar_apply`, `taskbar_auto_hide`,
 /// `taskbar_tray_on`, `taskbar_spread`, `taskbar_all_desktops`, `taskbar_end_task`).
 const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_hit_rects", "taskbar_windows", "taskbar_window", "taskbar_icons", "taskbar_release", "launcher_open", "launcher_icons",
@@ -193,6 +195,10 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
     "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
     "taskbar_window_order", "taskbar_disks", "taskbar_disk_open", "taskbar_disk_scan", "taskbar_disk_scan_stop",
+    "secret_has", "portfolio_fetch", "portfolio_record", "agents_list", "colour_pick",
+    "clipboard_list", "clipboard_copy", "clipboard_paste", "clipboard_preview", "clipboard_text", "clipboard_delete", "clipboard_clear",
+    "ai_chat", "ai_cancel", "launcher_apps", "launcher_add_file",
+    "capture_list", "capture_details", "capture_start", "capture_stop", "capture_pause", "capture_state", "capture_delete",
 ];
 
 /// The notch window may call every command; the settings, timer, mirror and bar windows only what they need. Tauri lets every
@@ -1274,7 +1280,7 @@ mod tests {
         // The bar reads the power state for its glass, but never sets what the status alerts watch.
         assert!(ok("taskbar", "status_seed") && ok("taskbar-1", "status_seed") && !ok("taskbar", "status_configure"));
         assert!(ok("notch", "status_bar") && !ok("taskbar", "status_bar") && !ok("taskbar-1", "status_bar") && !ok("settings", "status_bar"));
-        assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && !ok("taskbar", "launcher_apps") && ok("taskbar-1", "taskbar_panel"));
+        assert!(ok("taskbar", "taskbar_panel") && ok("taskbar", "taskbar_ask") && ok("taskbar-1", "taskbar_panel"));
         // A settings window claiming a bar's panel would keep the notch's sources running.
         assert!(!ok("settings", "taskbar_panel") && !ok("settings", "taskbar_ask") && !ok("timer", "taskbar_ask"));
         // The tools' code reads the installed translation pairs as it loads in the bar (offlineEngine.ts).
@@ -1322,9 +1328,25 @@ mod tests {
         assert!(ok("taskbar", "audio_outputs") && ok("taskbar", "audio_set_output") && ok("taskbar", "brightness_get") && ok("taskbar", "brightness_set"));
         assert!(ok("taskbar", "focus_get") && ok("taskbar", "focus_set") && ok("taskbar", "quick_get") && ok("taskbar", "quick_radio"));
         assert!(ok("taskbar", "quick_dark") && ok("taskbar", "mic_mute") && ok("taskbar", "quick_power") && ok("taskbar", "web_search"));
-        // The bar's Converter reads the public reference rates itself; the accounts and the crypto widget's coin are the notch's.
+        // The bar's Converter and Calculator read the public reference rates themselves; the crypto widget's coin is the notch's.
         assert!(ok("taskbar", "portfolio_prices") && ok("taskbar-1", "portfolio_prices"));
-        assert!(!ok("taskbar", "portfolio_fetch") && !ok("taskbar", "portfolio_coin") && ok("notch", "portfolio_coin"));
+        assert!(!ok("taskbar", "portfolio_coin") && ok("notch", "portfolio_coin"));
+        // The bar's Depot asks which keys are stored, reads the accounts with them and records its history, as the notch's does. It
+        // never stores, reads or forgets a key: that is the settings' (secret_set, portfolio_forget), and the Vault's secrets stay
+        // the notch's alone.
+        assert!(ok("taskbar", "secret_has") && ok("taskbar", "portfolio_fetch") && ok("taskbar", "portfolio_record") && ok("taskbar-1", "portfolio_fetch"));
+        assert!(!ok("taskbar", "secret_set") && !ok("taskbar", "portfolio_forget") && !ok("taskbar", "secret_get"));
+        assert!(super::TASKBAR_ALLOWED.iter().all(|c| !c.starts_with("vault_") && !c.starts_with("terminal_")));
+        // The bar's Agents lists the sessions, its Colour picks from the screen with the bar's window as the loupe's owner.
+        assert!(ok("taskbar", "agents_list") && ok("taskbar", "colour_pick"));
+        // Its Clipboard reads the history, copies, pastes and deletes from it; what the history records stays the notch's to set.
+        assert!(["clipboard_list", "clipboard_copy", "clipboard_paste", "clipboard_preview", "clipboard_text", "clipboard_delete", "clipboard_clear"].iter().all(|c| ok("taskbar", c)));
+        assert!(!ok("taskbar", "clipboard_mode"));
+        // Its Ask streams its own conversation and stops it.
+        assert!(ok("taskbar", "ai_chat") && ok("taskbar", "ai_cancel"));
+        // Its Recorder lists, starts (sound only, capture_start), pauses, stops and deletes recordings; screenshots are the notch's.
+        assert!(["capture_list", "capture_details", "capture_start", "capture_stop", "capture_pause", "capture_state", "capture_delete"].iter().all(|c| ok("taskbar", c)));
+        assert!(!ok("taskbar", "capture_shot") && !ok("taskbar", "capture_sources") && !ok("taskbar", "find_scan"));
         // Keep awake's state lives in the notch, which shows it in the closed notch: a bar that set it in Rust would leave the notch
         // showing the old state, so the bar asks the notch (taskbar_ask).
         assert!(!ok("taskbar", "keep_awake_set"));
@@ -1339,8 +1361,9 @@ mod tests {
         // longer has, and the settings window pins nothing.
         assert!(["taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal"].iter().all(|c| ok("taskbar", c) && ok("taskbar-1", c) && !ok("settings", c)));
         assert!(ok("notch", "taskbar_own_pins_keep") && !ok("taskbar", "taskbar_own_pins_keep") && !ok("settings", "taskbar_own_pins_keep"));
-        // Only the notch's Launcher pins an app from its file.
-        assert!(ok("notch", "launcher_add_file") && !ok("taskbar", "launcher_add_file") && !ok("settings", "launcher_add_file"));
+        // The Launcher lists the Start menu's apps and pins an app from its file, in the notch or the bar; its Alt+1 to Alt+6 are the
+        // notch's (launcher_shortcuts, refused above).
+        assert!(ok("notch", "launcher_add_file") && ok("taskbar", "launcher_add_file") && ok("taskbar", "launcher_apps") && !ok("settings", "launcher_add_file"));
         assert!(ok("taskbar", "taskbar_front") && ok("taskbar-1", "taskbar_front") && !ok("taskbar", "taskbar_auto_hide"));
         assert!(ok("notch", "taskbar_auto_hide") && !ok("settings", "taskbar_auto_hide"));
         // The tray's spy runs while the notch says a bar shows the tray, as it applies the bar's other settings.

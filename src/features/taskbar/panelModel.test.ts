@@ -159,14 +159,21 @@ test("a page goes back to the panel when its radio is gone, and stays while it i
   assert.equal(pageAfter("mixer", { wifi: null, bluetooth: null }), "mixer");
 });
 
-test("the six tools on saved stores and the Converter open in the panel too, the half-working and notch-only ones and Find on screen in the notch", () => {
+test("the six tools on saved stores and the Converter open in the panel too, the notch-only ones and Find on screen in the notch", () => {
   // The Converter reads the public rates itself, as in the notch.
   const saved = ["notes", "todos", "water", "scratchpad", "habits", "clocks", "convert"];
   for (const id of saved) assert.equal(opensInBar(tool(id)), true, id);
   // The notch runs nothing for them: barPanels.ts reads BAR_TOOLS.
   for (const id of saved) assert.equal(BAR_TOOLS.includes(id), false, id);
-  for (const id of ["clipboard", "ask", "trading", "vault", "terminal", "capture", "recorder", "camera", "calc", "launcher", "colour", "teleprompter", "agents", "find"]) assert.equal(opensInBar(tool(id)), false, id);
-  assert.equal(PANEL_TOOLS.length, 19);
+  // Secrets and the shell, the full-screen tools and Find on screen, a page, stay in the notch.
+  for (const id of ["vault", "terminal", "capture", "teleprompter", "find"]) assert.equal(opensInBar(tool(id)), false, id);
+  assert.equal(PANEL_TOOLS.length, 28);
+});
+
+test("the pinned tools that work in the bar's window open in its panel too, with nothing of the notch's", () => {
+  const own = ["trading", "calc", "agents", "colour", "camera", "clipboard", "ask", "launcher", "recorder"];
+  for (const id of own) assert.equal(opensInBar(tool(id)), true, id);
+  for (const id of own) assert.equal(BAR_TOOLS.includes(id), false, id);
 });
 
 test("the main bar's clock opens a panel of its own in the bar, Crest's notices over its calendar", () => {

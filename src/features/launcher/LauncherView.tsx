@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, X } from "../../ui/iconset";
 import { content } from "../../design/motion";
+import { isTaskbarWindow } from "../../lib/windowKind";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
@@ -25,7 +26,7 @@ const PICKER_LIMIT = 60;
  *
  * Click starts the app. "+" (also in the header) opens the picker: every Start menu entry,
  * detected AI apps first; a click pins or unpins. An app without one comes from its file: "Add from file", or
- * dropped on the open Launcher (`appDrop`).
+ * dropped on the open Launcher in the notch (`appDrop`).
  */
 export function LauncherView() {
   const l = settings.use().launcher;
@@ -40,6 +41,8 @@ export function LauncherView() {
   }, [picking]);
   useEffect(() => () => requestSize("launcher", null), []);
   useEffect(() => {
+    // The bar's window refuses every drop (taskbar/window/main.tsx): its Launcher takes none, as its Shelf.
+    if (isTaskbarWindow) return;
     appDrop.set(true);
     return () => appDrop.set(false);
   }, []);
