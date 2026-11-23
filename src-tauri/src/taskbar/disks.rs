@@ -20,7 +20,7 @@ use windows::core::{GUID, PCWSTR};
 // The veto kinds go by the module path: bare constant names in a match trip the upper case lint.
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     self as pnp, CM_Get_DevNode_Registry_PropertyW, CM_Get_Device_Interface_ListW, CM_Get_Device_Interface_List_SizeW, CM_Get_Device_Interface_PropertyW,
-    CM_Get_Parent, CM_Locate_DevNodeW, CM_Request_Device_EjectW, CM_DEVCAP_REMOVABLE, CM_DRP_CAPABILITIES, CM_GET_DEVICE_INTERFACE_LIST_PRESENT,
+    CM_Get_Parent, CM_Locate_DevNodeW, CM_Request_Device_EjectW, CM_DEVCAP_DOCKDEVICE, CM_DEVCAP_REMOVABLE, CM_DRP_CAPABILITIES, CM_GET_DEVICE_INTERFACE_LIST_PRESENT,
     CM_LOCATE_DEVNODE_NORMAL, CONFIGRET, CR_ACCESS_DENIED, CR_SUCCESS, PNP_VETO_TYPE,
 };
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_InstanceId, DEVPROPTYPE};
@@ -183,15 +183,22 @@ fn disk_instance(number: u32) -> Option<Vec<u16>> {
     }
 }
 
-/// Whether Windows lets the node be removed while running: a USB device, a card.
-fn removable(node: u32) -> bool {
+/// The node's capabilities (CM_DEVCAP_*), none when they cannot be read.
+fn caps(node: u32) -> u32 {
     let (mut caps, mut len) = (0u32, 4u32);
     let read = unsafe { CM_Get_DevNode_Registry_PropertyW(node, CM_DRP_CAPABILITIES, None, Some((&mut caps as *mut u32).cast()), &mut len, 0) };
-    read == CR_SUCCESS && caps & CM_DEVCAP_REMOVABLE.0 != 0
+    if read == CR_SUCCESS { caps } else { 0 }
 }
 
-/// The node to eject for a letter: its disk's, or the first above it Windows calls removable. "unknown" for a drive gone,
-/// "fixed" for one spanning disks or with nothing removable above it (a card reader built in).
+/// Which node to eject, from the capabilities of the disk's node and those above it: the disk or the device right above it (the USB
+/// drive, the card reader), the first Windows lets go while running, never a dock. Never higher: a hub, a monitor's or a dock's is
+/// removable from its port too, and ejecting it takes the keyboard, the network and every other drive on it.
+fn eject_pick(caps: &[u32]) -> Option<usize> {
+    caps.iter().take(2).position(|&c| c & CM_DEVCAP_REMOVABLE.0 != 0 && c & CM_DEVCAP_DOCKDEVICE.0 == 0)
+}
+
+/// The node to eject for a letter (eject_pick). "unknown" for a drive gone, "fixed" for one spanning disks or with nothing to eject
+/// (a card reader built in, or on a port its hub keeps).
 fn eject_node(letter: &str) -> Result<u32, String> {
     let number = extents(letter).ok_or("unknown")?.ok_or("fixed")?;
     let id = disk_instance(number).ok_or("unknown")?;
@@ -199,14 +206,10 @@ fn eject_node(letter: &str) -> Result<u32, String> {
     if unsafe { CM_Locate_DevNodeW(&mut node, PCWSTR(id.as_ptr()), CM_LOCATE_DEVNODE_NORMAL) } != CR_SUCCESS {
         return Err("unknown".into());
     }
-    while !removable(node) {
-        let mut parent = 0u32;
-        if unsafe { CM_Get_Parent(&mut parent, node, 0) } != CR_SUCCESS {
-            return Err("fixed".into());
-        }
-        node = parent;
-    }
-    Ok(node)
+    let mut parent = 0u32;
+    let nodes = if unsafe { CM_Get_Parent(&mut parent, node, 0) } == CR_SUCCESS { vec![node, parent] } else { vec![node] };
+    let caps: Vec<u32> = nodes.iter().map(|&n| caps(n)).collect();
+    eject_pick(&caps).map(|i| nodes[i]).ok_or_else(|| "fixed".into())
 }
 
 /// An app's file name from a veto's name (a path, or a name alone), at most 64 characters.
@@ -689,6 +692,18 @@ mod tests {
     }
 
     #[test]
+    fn eject_takes_the_drive_and_never_a_hub_or_a_dock() {
+        let (rem, dock) = (CM_DEVCAP_REMOVABLE.0, CM_DEVCAP_DOCKDEVICE.0);
+        // A USB stick: its disk is not removable, the USB device right above it is.
+        assert_eq!(eject_pick(&[0, rem, rem]), Some(1));
+        assert_eq!(eject_pick(&[rem, rem]), Some(0));
+        // A card reader on a port its hub keeps: only the hub, further up, is removable, and it holds the keyboard too.
+        assert_eq!(eject_pick(&[0, 0, rem]), None);
+        assert_eq!(eject_pick(&[0, rem | dock]), None);
+        assert_eq!(eject_pick(&[]), None);
+    }
+
+    #[test]
     fn a_scan_thread_gets_its_settings_back() {
         let now = || unsafe { (GetThreadPriority(GetCurrentThread()), GetThreadErrorMode()) };
         let before = now();
@@ -733,9 +748,7 @@ mod live {
             loop {
                 let mut name = [0u16; 256];
                 let _ = unsafe { CM_Get_Device_IDW(node, &mut name, 0) };
-                let (mut caps, mut len) = (0u32, 4u32);
-                let _ = unsafe { CM_Get_DevNode_Registry_PropertyW(node, CM_DRP_CAPABILITIES, None, Some((&mut caps as *mut u32).cast()), &mut len, 0) };
-                eprintln!("{}: {} caps {caps:#x} removable {}", d.letter, String::from_utf16_lossy(&name).trim_end_matches('\0'), removable(node));
+                eprintln!("{}: {} caps {:#x}", d.letter, String::from_utf16_lossy(&name).trim_end_matches('\0'), caps(node));
                 let mut parent = 0u32;
                 if unsafe { CM_Get_Parent(&mut parent, node, 0) } != CR_SUCCESS {
                     break;
