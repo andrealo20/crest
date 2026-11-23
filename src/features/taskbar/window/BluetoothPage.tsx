@@ -9,8 +9,11 @@ import { PAGE_ROW } from "../panelModel";
 import { btLine, btRows, btView, type BtDevice } from "../quickPages";
 import { QuickPageFrame, away } from "./QuickPage";
 
-/** The quick panel's Bluetooth page: the paired devices, connected first with their battery, each opening Bluetooth in Settings. */
-export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
+/**
+ * The quick panel's Bluetooth page: the paired devices, connected first with their battery, each opening Bluetooth in Settings. `on` is
+ * null until the radios are read: opened from the Device batteries widget, the panel mounts fresh and has not read them yet.
+ */
+export function BluetoothPage({ on, job }: { on: boolean | null; job: SwitchJob }) {
   const [devices, setDevices] = useState<BtDevice[] | null>(null);
   const [failed, setFailed] = useState(false);
   // A failed read keeps the last list.
@@ -26,7 +29,7 @@ export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
 
   // Read when the page opens and when its switch turns the radio on, then on each device the alerts hear: never at intervals.
   useEffect(() => {
-    if (on) read();
+    if (on === true) read();
   }, [on]);
   useEffect(() => taskbar.onBluetooth(read), []);
 
@@ -35,7 +38,7 @@ export function BluetoothPage({ on, job }: { on: boolean; job: SwitchJob }) {
   return (
     <QuickPageFrame
       title={t("Bluetooth")}
-      actions={<RadioSwitch kind="bluetooth" on={on} job={job} />}
+      actions={<RadioSwitch kind="bluetooth" on={on === true} job={job} />}
       note={job.note}
       footer={{ label: t("Weitere Bluetooth-Geräte"), onClick: () => away(() => taskbar.settings("bluetooth")) }}
     >

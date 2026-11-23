@@ -16,7 +16,7 @@ Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no acc
 - A crash log (`crash.log` in the `logs` folder), written only when the app crashes or hits an uncaught error. It is not sent anywhere.
 - Windows' battery report, made only when you click the battery's health in the Hardware tool: Windows writes it to `%TEMP%\crest\battery-report.html`, Crest opens it, and the next click replaces it. It holds the PC's name, the battery's serial number and its usage history. It is not sent anywhere.
 
-The clipboard history and the history of live notices are kept in memory only and are gone when Crest quits.
+The clipboard history and the history of live notices are kept in memory only, and so are the temperatures of the last 10 minutes the bar's Temperatures widget draws; all are gone when Crest quits.
 
 Send to phone (Shelf) opens a small web server on your computer's local network address, only when you press it. It serves the files you picked to whoever opens its link, which holds a random token and is shown as a QR code, and stops after 10 minutes, when the Shelf closes or when you stop it; a download already running finishes. It is plain HTTP, so the files are not encrypted on the Wi-Fi, and nothing goes through a server of anyone else or leaves your network. Your firewall may ask to allow it.
 

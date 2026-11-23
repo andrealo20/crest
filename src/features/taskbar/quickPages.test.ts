@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { afterConnect, btLine, btRows, btView, wifiAction, wifiRows, wifiView, type BtDevice, type WifiNetwork } from "./quickPages.ts";
+import { BT_LOW, BT_RINGS, afterConnect, btLine, btLow, btRows, btShown, btView, wifiAction, wifiRows, wifiView, type BtDevice, type WifiNetwork } from "./quickPages.ts";
 
 const net = (p: Partial<WifiNetwork>): WifiNetwork => ({ ssid: "Home", bars: 3, kind: "personal", saved: false, connected: false, ...p });
 
@@ -72,6 +72,8 @@ test("the Bluetooth page lists the paired devices once its radio is on and they 
   assert.equal(btView(true, [], false), "empty");
   assert.equal(btView(true, [dev({})], false), "list");
   assert.equal(btView(true, [dev({})], true), "list"); // a failed reread keeps the last list
+  // Opened from the Device batteries widget, before the radios are read: loading, not "Bluetooth is off".
+  assert.equal(btView(null, null, false), "loading");
   assert.equal(btRows("failed", 0), 1);
   assert.equal(btRows("list", 3), 3);
   assert.equal(btRows("empty", 0), 1);
@@ -81,4 +83,21 @@ test("a connected device says so with its battery, a paired one says nothing", (
   assert.deepEqual(btLine(dev({ connected: true, battery: 80 })), ["Verbunden · {p} %", { p: 80 }]);
   assert.deepEqual(btLine(dev({ connected: true })), ["Verbunden"]);
   assert.equal(btLine(dev({})), null);
+});
+
+test("Device batteries draws the connected devices that report a battery: the lowest alone, or the four lowest by name", () => {
+  const list = [
+    dev({ id: "p", name: "Paired", battery: 5 }),
+    dev({ id: "n", name: "No battery", connected: true }),
+    ...[["e", "Earbuds", 50], ["m", "Mouse", 15], ["k", "Keyboard", 70], ["c", "Controller", 15], ["h", "Headset", 90]].map(([id, name, battery]) =>
+      dev({ id: id as string, name: name as string, connected: true, battery: battery as number }),
+    ),
+  ];
+  // Two at 15: the name decides.
+  assert.deepEqual(btShown(list, "lowest").map((d) => d.id), ["c"]);
+  assert.deepEqual(btShown(list, "devices").map((d) => d.id), ["c", "e", "k", "m"]);
+  assert.equal(BT_RINGS, 4);
+  assert.deepEqual(btShown([dev({ connected: true })], "lowest"), []);
+  assert.ok(btLow(20) && !btLow(21));
+  assert.equal(BT_LOW, 20);
 });

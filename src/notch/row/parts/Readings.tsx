@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Lightning, LockSimple, SignOut, Thermometer, type Icon } from "../../../ui/iconset";
+import { ArrowDown, ArrowUp, Fan, Lightning, LockSimple, SignOut, Thermometer, type Icon } from "../../../ui/iconset";
 import { t } from "../../../i18n";
 import { fps, useFpsPolling } from "../../../features/system/gaming";
 import { batteryLevel } from "../../../features/system/battery";
@@ -11,9 +11,13 @@ import { activeTheme } from "../../../features/themes/store";
 import type { ClosedSettings } from "../parts";
 import { CAPTION_FONT, measureTabular, measureText } from "../measure";
 
-export type ReadingId = "fps" | "cpu" | "ram" | "gpu" | "down" | "up" | "power" | "battery" | "temp";
-/** `source`: which sensor a temperature comes from; `estimate`: power summed from parts, not measured. */
-export interface Reading { id: ReadingId; value: number | null; level: Level; source?: "cpu" | "gpu"; estimate?: boolean }
+/** `fan`: a fan's speed, only on the bar's Temperatures widget (the closed row shows no fans). */
+export type ReadingId = "fps" | "cpu" | "ram" | "gpu" | "down" | "up" | "power" | "battery" | "temp" | "fan";
+/**
+ * `source`: which sensor a temperature or which fan a speed comes from; `estimate`: power summed from parts, not measured; `percent`: a fan
+ * in percent of its top speed (NVML) rather than rpm.
+ */
+export interface Reading { id: ReadingId; value: number | null; level: Level; source?: "cpu" | "gpu" | "case"; estimate?: boolean; percent?: boolean }
 
 export const READING_GAP = 6;
 /** MARK: the C / G letter after the thermometer. */
@@ -21,14 +25,18 @@ const DIAL = 16, DIAL_GAP = 3, GLYPH = 11, MARK = 6;
 const LETTER: Partial<Record<ReadingId, string>> = { cpu: "C", ram: "M", gpu: "G" };
 /** Settings, Tools, Hardware, "Coloured icons". Tuned for the black closed notch; a theme that paints the closed notch keeps its own ink. */
 export const ICON_COLORS: Partial<Record<ReadingId, string>> = {
-  cpu: "#ff665e", ram: "#9d7aff", gpu: "#00b38f", down: "#3ec7ff", up: "#ff48b0", power: "#ffb511", battery: "#00c26a", temp: "#ff7c2f",
+  cpu: "#ff665e", ram: "#9d7aff", gpu: "#00b38f", down: "#3ec7ff", up: "#ff48b0", power: "#ffb511", battery: "#00c26a", temp: "#ff7c2f", fan: "#4fc3f7",
 };
-const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp, power: Lightning, temp: Thermometer };
+const GLYPHS: Partial<Record<ReadingId, Icon>> = { down: ArrowDown, up: ArrowUp, power: Lightning, temp: Thermometer, fan: Fan };
+/** A thermometer or a fan carries the letter of its sensor; a case fan none. */
+const marked = (id: ReadingId) => id === "temp" || id === "fan";
 
 /** Each reading reserves its widest figure (tabular digits are each as wide as an 8), so the row never shifts. */
-const widest = (id: ReadingId) => (id === "down" || id === "up" ? WIDEST.rate : id === "power" ? WIDEST.watts : id === "temp" ? WIDEST.temp : WIDEST.percent);
-export const digits = (id: ReadingId) => measureTabular(widest(id).replace(/[0-9]/g, "8"));
-const lead = (id: ReadingId) => (id === "fps" ? measureText("FPS", CAPTION_FONT) : id === "battery" ? BATTERY_W : LETTER[id] ? DIAL : id === "temp" ? GLYPH + MARK : GLYPH);
+const widest = (id: ReadingId) => (id === "down" || id === "up" ? WIDEST.rate : id === "power" ? WIDEST.watts : id === "temp" ? WIDEST.temp : id === "fan" ? WIDEST.fan : WIDEST.percent);
+const tabular = (id: ReadingId) => measureTabular(widest(id).replace(/[0-9]/g, "8"));
+/** A fan's room holds its rpm or NVML's "100%", whichever is wider in the font. */
+export const digits = (id: ReadingId) => (id === "fan" ? Math.max(tabular("fan"), tabular("cpu")) : tabular(id));
+const lead = (id: ReadingId) => (id === "fps" ? measureText("FPS", CAPTION_FONT) : id === "battery" ? BATTERY_W : LETTER[id] ? DIAL : marked(id) ? GLYPH + MARK : GLYPH);
 export const readingWidth = (id: ReadingId) => lead(id) + DIAL_GAP + digits(id);
 
 /** Once the GPU has answered with a number it has counters; before that (or never, without them) it stays out of the row. */
@@ -66,8 +74,10 @@ export function useReadings(closed: ClosedSettings, gaming: boolean): Reading[] 
   return list;
 }
 
-const text = ({ id, value: v, estimate }: Reading) => {
+const text = ({ id, value: v, estimate, percent }: Reading) => {
   if (v === null) return "-";
+  // Revolutions without a unit: the label says it.
+  if (id === "fan") return percent ? `${Math.round(v)}%` : `${Math.round(v)}`;
   if (id === "down" || id === "up") return compactRate(v);
   // "~" as in the tool: a sum of parts, not a measurement.
   if (id === "power") return `${estimate ? "~" : ""}${compactWatts(v)}W`;
@@ -77,6 +87,12 @@ const text = ({ id, value: v, estimate }: Reading) => {
 
 /** What a screen reader says for a reading; FPS has its word on screen. */
 function spoken(r: Reading): string | undefined {
+  if (r.id === "fan") {
+    const fan = t(r.source === "gpu" ? "GPU-Lüfter" : r.source === "case" ? "Gehäuselüfter" : "CPU-Lüfter");
+    if (r.value === null) return `${fan} -`;
+    const n = Math.round(r.value);
+    return `${fan} ${r.percent ? t("{p} %", { p: n }) : t("{n} U/min", { n })}`;
+  }
   const name =
     r.id === "down" ? t("Download") : r.id === "up" ? t("Upload") : r.id === "power" ? t("Leistung") : r.id === "battery" ? t("Akku")
     : r.id === "temp" ? t(r.source === "gpu" ? "GPU-Temperatur" : "CPU-Temperatur") : r.id === "cpu" || r.id === "ram" || r.id === "gpu" ? r.id.toUpperCase() : null;
@@ -105,10 +121,10 @@ export function ReadingView({ reading }: { reading: Reading }) {
         ) : G ? (
           <span className="flex shrink-0 items-center" aria-hidden>
             <G size={GLYPH} weight="bold" />
-            {/* C or G: which sensor the temperature is from. */}
-            {id === "temp" && (
+            {/* C or G: which sensor the temperature or the fan is from; none for a case fan, in the same room. */}
+            {marked(id) && (
               <span className="text-[8px] leading-none font-bold" style={{ width: MARK }}>
-                {LETTER[source ?? "cpu"]}
+                {source === "case" ? "" : LETTER[source ?? "cpu"]}
               </span>
             )}
           </span>

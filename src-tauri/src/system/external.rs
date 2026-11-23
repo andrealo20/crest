@@ -1,6 +1,7 @@
 //! CPU and GPU temperature and power from a monitoring program the user already runs, for PCs where Windows gives
 //! Crest no CPU temperature: HWiNFO's shared memory ("Shared Memory Support"), else LibreHardwareMonitor's (or
-//! OpenHardwareMonitor's) WMI namespace, else Core Temp's shared memory (the CPU only). All are read on a thread of
+//! OpenHardwareMonitor's) WMI namespace, else Core Temp's shared memory (the CPU only). From the first two also the fans: the
+//! CPU's, the board's fastest other one and each GPU's, for the bar's Temperatures widget. All are read on a thread of
 //! their own, so a hung WMI never stalls the sampler, which only takes the last reading. None is ever written to.
 
 use std::collections::HashMap;
@@ -31,6 +32,9 @@ pub struct Reading {
     source: &'static str,
     cpu_temp: Option<f64>,
     cpu_watts: Option<f64>,
+    /// Fans in rpm: the board's CPU fan, and its fastest other one that runs (no CPU, GPU or pump fan).
+    cpu_fan: Option<f64>,
+    case_fan: Option<f64>,
     gpus: Vec<Gpu>,
 }
 
@@ -39,6 +43,8 @@ pub struct Gpu {
     name: String,
     temp: Option<f64>,
     watts: Option<f64>,
+    /// Its fastest fan in rpm.
+    fan: Option<f64>,
 }
 
 #[derive(Default)]
@@ -70,7 +76,8 @@ enum Source {
     CoreTemp,
 }
 
-/// A reading with at least one value; a WMI namespace can still answer, empty, after its program has closed.
+/// A reading with at least one value; a WMI namespace can still answer, empty, after its program has closed. Fans alone make no
+/// reading: the temperatures are what the source is picked for.
 fn has_values(r: &Reading) -> bool {
     r.cpu_temp.is_some() || r.cpu_watts.is_some() || r.gpus.iter().any(|g| g.temp.is_some() || g.watts.is_some())
 }
@@ -120,12 +127,15 @@ fn run(rx: Receiver<()>, latest: Arc<Mutex<Option<(Instant, Reading)>>>) {
 enum Device {
     Cpu,
     Gpu(String),
+    /// The board's fan headers (its Super I/O chip, a laptop's controller): only fans are taken from it.
+    Board,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 enum Kind {
     Temp,
     Power,
+    Fan,
 }
 
 #[derive(Debug)]
@@ -159,6 +169,17 @@ const LHM: Labels = Labels {
     gpu_power: &["GPU Package", "GPU Power"],
 };
 
+/// A board's CPU fan header by its usual names, matched whole and without case, in this order.
+const CPU_FANS: &[&str] = &["CPU", "CPU Fan", "CPU_FAN", "CPU Fan #1", "CPU Fan 1"];
+
+fn fans<'a>(entries: &'a [Entry], device: &'a Device) -> impl Iterator<Item = &'a Entry> {
+    entries.iter().filter(move |e| &e.device == device && e.kind == Kind::Fan)
+}
+
+fn fastest<'a>(fans: impl Iterator<Item = &'a Entry>) -> Option<f64> {
+    fans.map(|e| e.value).max_by(f64::total_cmp)
+}
+
 fn pick(source: &'static str, entries: &[Entry], labels: &Labels) -> Reading {
     let find = |device: &Device, kind: Kind, wanted: &[&str]| {
         wanted.iter().find_map(|l| entries.iter().find(|e| &e.device == device && e.kind == kind && e.label.eq_ignore_ascii_case(l)).map(|e| e.value))
@@ -167,14 +188,22 @@ fn pick(source: &'static str, entries: &[Entry], labels: &Labels) -> Reading {
     for e in entries {
         if let Device::Gpu(name) = &e.device {
             if !gpus.iter().any(|g| &g.name == name) {
-                gpus.push(Gpu { name: name.clone(), temp: find(&e.device, Kind::Temp, labels.gpu_temp), watts: find(&e.device, Kind::Power, labels.gpu_power) });
+                gpus.push(Gpu { name: name.clone(), temp: find(&e.device, Kind::Temp, labels.gpu_temp), watts: find(&e.device, Kind::Power, labels.gpu_power), fan: fastest(fans(entries, &e.device)) });
             }
         }
     }
+    let cpu_fan = CPU_FANS.iter().find_map(|l| fans(entries, &Device::Board).find(|e| e.label.eq_ignore_ascii_case(l)).map(|e| e.value));
+    // A second CPU fan (CPU_OPT), a laptop controller's GPU fan or an AIO pump at 2-3000 rpm is no case fan.
+    let case_fan = fastest(fans(entries, &Device::Board).filter(|e| {
+        let l = e.label.to_ascii_lowercase();
+        e.value > 0.0 && !l.starts_with("cpu") && !l.starts_with("gpu") && !l.contains("pump")
+    }));
     Reading {
         source,
         cpu_temp: find(&Device::Cpu, Kind::Temp, labels.cpu_temp),
         cpu_watts: find(&Device::Cpu, Kind::Power, labels.cpu_power),
+        cpu_fan,
+        case_fan,
         gpus,
     }
 }
@@ -190,7 +219,9 @@ const HEADER: usize = 44;
 const SENSOR_MIN: usize = 264;
 /// Reading element: type, sensor index, id, original label (128), user label (128), unit (16), then value at 284.
 const READING_MIN: usize = 316;
+/// SENSOR_READING_TYPE: temperature 1, voltage 2, fan 3, current 4, power 5.
 const TYPE_TEMP: u32 = 1;
+const TYPE_FAN: u32 = 3;
 const TYPE_POWER: u32 = 5;
 
 fn hwinfo() -> Option<Reading> {
@@ -225,7 +256,7 @@ fn text(b: &[u8]) -> String {
     String::from_utf8_lossy(&b[..end]).trim().to_string()
 }
 
-/// Every CPU and GPU temperature and power reading, or None when anything in the layout does not add up.
+/// Every CPU and GPU temperature and power reading and every fan, or None when anything in the layout does not add up.
 fn hwinfo_entries(buf: &[u8]) -> Option<Vec<Entry>> {
     if buf.len() < HEADER || u32_at(buf, 0) != SIGNATURE {
         return None;
@@ -250,6 +281,7 @@ fn hwinfo_entries(buf: &[u8]) -> Option<Vec<Entry>> {
         let kind = match u32_at(r, 0) {
             TYPE_TEMP => Kind::Temp,
             TYPE_POWER => Kind::Power,
+            TYPE_FAN => Kind::Fan,
             _ => continue,
         };
         let name = text(&buf[s_at + sensor * s_size + 8..][..128]);
@@ -258,6 +290,8 @@ fn hwinfo_entries(buf: &[u8]) -> Option<Vec<Entry>> {
             Device::Cpu
         } else if let Some(rest) = name.strip_prefix("GPU [").and_then(|n| n.split_once("]: ")).map(|(_, r)| r) {
             Device::Gpu(rest.split(':').next().unwrap_or(rest).trim().to_string())
+        } else if kind == Kind::Fan {
+            Device::Board
         } else {
             continue;
         };
@@ -267,6 +301,8 @@ fn hwinfo_entries(buf: &[u8]) -> Option<Vec<Entry>> {
             // HWiNFO shares values in the unit it shows.
             Kind::Temp if unit.ends_with('F') => value = (value - 32.0) * 5.0 / 9.0,
             Kind::Power if unit != "W" => continue,
+            // A fan in percent is its duty, another reading.
+            Kind::Fan if unit != "RPM" => continue,
             _ => {}
         }
         if value.is_finite() {
@@ -344,7 +380,7 @@ fn core_temp_reading(buf: &[u8], current: bool) -> Option<Reading> {
     }
     let power = current && buf.len() >= CT_EX_LEN && u32_at(buf, CT_VERSION) >= 2 && buf[CT_POWER_SUPPORTED] != 0;
     let cpu_watts = power.then(|| (0..cpus).map(|c| f32_at(CT_POWER + c * 4)).sum::<f64>()).filter(|w| w.is_finite() && *w > 0.0);
-    Some(Reading { source: "Core Temp", cpu_temp: hottest, cpu_watts, gpus: Vec::new() })
+    Some(Reading { source: "Core Temp", cpu_temp: hottest, cpu_watts, cpu_fan: None, case_fan: None, gpus: Vec::new() })
 }
 
 // ---------- LibreHardwareMonitor / OpenHardwareMonitor ----------
@@ -364,23 +400,30 @@ unsafe fn wmi_connect() -> Option<(&'static str, IWbemServices, HashMap<String, 
 
 /// One query per refresh.
 unsafe fn wmi_read(source: &'static str, services: &IWbemServices, names: &HashMap<String, String>) -> Option<Reading> {
-    let rows = unsafe { rows(services, "SELECT Parent, Name, SensorType, Value FROM Sensor WHERE SensorType='Temperature' OR SensorType='Power'") }?;
+    let rows = unsafe { rows(services, "SELECT Parent, Name, SensorType, Value FROM Sensor WHERE SensorType='Temperature' OR SensorType='Power' OR SensorType='Fan'") }?;
     let entries: Vec<Entry> = rows
         .iter()
         .filter_map(|o| unsafe {
-            let kind = if prop_text(o, w!("SensorType"))? == "Temperature" { Kind::Temp } else { Kind::Power };
+            let kind = match prop_text(o, w!("SensorType"))?.as_str() {
+                "Temperature" => Kind::Temp,
+                "Power" => Kind::Power,
+                _ => Kind::Fan,
+            };
             wmi_entry(&prop_text(o, w!("Parent"))?, prop_text(o, w!("Name"))?, kind, prop_number(o, w!("Value"))?, names)
         })
         .collect();
     Some(pick(source, &entries, &LHM))
 }
 
-/// Parents: "/intelcpu/0", "/amdcpu/0"; "/gpu-nvidia/0", "/gpu-amd/0", "/gpu-intel/0" (OpenHardwareMonitor: "/nvidiagpu/0", "/atigpu/0").
+/// Parents: "/intelcpu/0", "/amdcpu/0"; "/gpu-nvidia/0", "/gpu-amd/0", "/gpu-intel/0" (OpenHardwareMonitor: "/nvidiagpu/0", "/atigpu/0");
+/// the board's Super I/O chip, "/lpc/nct6798d/0", gives only its fans.
 fn wmi_entry(parent: &str, label: String, kind: Kind, value: f64, names: &HashMap<String, String>) -> Option<Entry> {
     let device = if parent.contains("cpu/") {
         Device::Cpu
     } else if parent.contains("gpu") {
         Device::Gpu(names.get(parent).cloned().unwrap_or_else(|| parent.to_string()))
+    } else if kind == Kind::Fan {
+        Device::Board
     } else {
         return None;
     };
@@ -488,7 +531,41 @@ mod tests {
         // The board's "CPU Package" is not the processor's; Tctl/Tdie beats the die average.
         assert_eq!(r.cpu_temp, Some(64.5));
         assert_eq!(r.cpu_watts, Some(48.2));
-        assert_eq!(r.gpus, vec![Gpu { name: "NVIDIA GeForce RTX 3080".into(), temp: Some(60.0), watts: Some(220.0) }]);
+        assert_eq!(r.gpus, vec![Gpu { name: "NVIDIA GeForce RTX 3080".into(), temp: Some(60.0), watts: Some(220.0), fan: None }]);
+        assert_eq!((r.cpu_fan, r.case_fan), (None, None));
+    }
+
+    #[test]
+    fn fans_by_role() {
+        let fans = image(
+            &["System: ASUS", "CPU [#0]: AMD Ryzen 7 5800X: Enhanced", "GPU [#0]: NVIDIA GeForce RTX 3080: "],
+            &[
+                (0, TYPE_TEMP, "CPU Package", "\u{b0}C", 30.0),
+                (1, TYPE_TEMP, "CPU (Tctl/Tdie)", "\u{b0}C", 64.5),
+                (0, TYPE_FAN, "CPU", "RPM", 1240.0),
+                (0, TYPE_FAN, "CPU_OPT", "RPM", 900.0),
+                (0, TYPE_FAN, "Chassis1", "RPM", 720.0),
+                (0, TYPE_FAN, "Chassis2", "RPM", 0.0),
+                (0, TYPE_FAN, "AIO Pump", "RPM", 2800.0),
+                (2, TYPE_FAN, "GPU Fan1", "RPM", 860.0),
+                (2, TYPE_FAN, "GPU Fan2", "RPM", 880.0),
+                // Its duty in percent, another type: never a speed.
+                (2, 7, "GPU Fan1", "%", 35.0),
+            ],
+        );
+        let r = pick("HWiNFO", &hwinfo_entries(&fans).unwrap(), &HWINFO);
+        assert_eq!((r.cpu_fan, r.case_fan), (Some(1240.0), Some(720.0)));
+        assert_eq!(r.gpus[0].fan, Some(880.0));
+        // The board's own "CPU Package" stays out: only fans come from the board.
+        assert_eq!(r.cpu_temp, Some(64.5));
+    }
+
+    #[test]
+    fn board_fans_come_only_as_fans() {
+        let names = HashMap::new();
+        assert_eq!(wmi_entry("/lpc/nct6798d/0", "Fan #1".into(), Kind::Fan, 700.0, &names).unwrap().device, Device::Board);
+        assert!(wmi_entry("/lpc/nct6798d/0", "Fan #1".into(), Kind::Temp, 40.0, &names).is_none());
+        assert_eq!(wmi_entry("/gpu-nvidia/0", "GPU Fan".into(), Kind::Fan, 1100.0, &names).unwrap().device, Device::Gpu("/gpu-nvidia/0".into()));
     }
 
     #[test]
@@ -525,7 +602,7 @@ mod tests {
             &LHM,
         );
         assert_eq!((r.cpu_temp, r.cpu_watts), (Some(70.0), Some(35.0)));
-        assert_eq!(r.gpus, vec![Gpu { name: "Radeon RX 7800 XT".into(), temp: Some(62.0), watts: None }]);
+        assert_eq!(r.gpus, vec![Gpu { name: "Radeon RX 7800 XT".into(), temp: Some(62.0), watts: None, fan: None }]);
         let names = HashMap::from([("/gpu-nvidia/0".to_string(), "NVIDIA GeForce RTX 4070".to_string())]);
         assert_eq!(wmi_entry("/gpu-nvidia/0", "GPU Core".into(), Kind::Temp, 50.0, &names).unwrap().device, Device::Gpu("NVIDIA GeForce RTX 4070".into()));
         assert_eq!(wmi_entry("/amdcpu/0", "Package".into(), Kind::Power, 20.0, &names).unwrap().device, Device::Cpu);
@@ -558,7 +635,7 @@ mod tests {
     fn core_temp_hottest_core_and_power() {
         let r = core_temp_reading(&core_temp_image(2, 2, &[45.0, 52.5, 48.0, 50.0], &[100, 100], false, false, &[20.0, 15.0]), true).unwrap();
         // Each CPU's package power, added up.
-        assert_eq!(r, Reading { source: "Core Temp", cpu_temp: Some(52.5), cpu_watts: Some(35.0), gpus: vec![] });
+        assert_eq!(r, Reading { source: "Core Temp", cpu_temp: Some(52.5), cpu_watts: Some(35.0), cpu_fan: None, case_fan: None, gpus: vec![] });
     }
 
     #[test]
@@ -579,10 +656,12 @@ mod tests {
     #[test]
     fn a_reading_without_values_is_no_reading() {
         // What a WMI namespace can still answer after its program has closed.
-        let empty = Reading { source: "LibreHardwareMonitor", cpu_temp: None, cpu_watts: None, gpus: vec![Gpu { name: "GPU".into(), temp: None, watts: None }] };
+        let empty = Reading { source: "LibreHardwareMonitor", cpu_temp: None, cpu_watts: None, cpu_fan: None, case_fan: None, gpus: vec![Gpu { name: "GPU".into(), temp: None, watts: None, fan: None }] };
         assert!(!has_values(&empty));
+        // Fans alone are no reading.
+        assert!(!has_values(&Reading { cpu_fan: Some(900.0), gpus: vec![Gpu { name: "GPU".into(), temp: None, watts: None, fan: Some(1200.0) }], ..empty.clone() }));
         assert!(has_values(&Reading { cpu_watts: Some(12.0), ..empty.clone() }));
-        assert!(has_values(&Reading { gpus: vec![Gpu { name: "GPU".into(), temp: Some(55.0), watts: None }], ..empty }));
+        assert!(has_values(&Reading { gpus: vec![Gpu { name: "GPU".into(), temp: Some(55.0), watts: None, fan: None }], ..empty }));
     }
 
     #[test]

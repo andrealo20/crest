@@ -70,4 +70,6 @@ test("the system store reads the closed row's extras while they show, and for th
   assert.deepEqual(systemWant(false, { ...r, net: false }, ["readings"], "net"), { ...off, temps: true, net: true });
   assert.deepEqual(systemWant(false, { ...r, net: false }, [], "net"), off);
   assert.deepEqual(systemWant(false, r, ["processes"], "dials"), { ...off, processes: true });
+  // The bar's Temperatures widget reads the temperatures alone, with the closed row off.
+  assert.deepEqual(systemWant(false, r, ["temps"], "dials"), { ...off, temps: true });
 });

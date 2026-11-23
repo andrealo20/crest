@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { Dial, ICON_COLORS, READING_GAP, ReadingView, digits, readingWidth, type Reading } from "../../../notch/row/parts/Readings";
 import { settings } from "../../../settings/store";
-import { schemeColor } from "../../system/levels";
+import { schemeColor, type Level } from "../../system/levels";
+import { tempLevel } from "../../system/temps";
+import { TEMP_FLOOR, TEMP_POINTS, TEMP_TOP, type Fans } from "../../system/thermals";
 import { activeTheme } from "../../themes/store";
 import type { BarFeed } from "../barStores";
 import { linePoints, netMax } from "../systemWidgets";
@@ -9,7 +11,8 @@ import { linePoints, netMax } from "../systemWidgets";
 /*
  * The hardware's versions on Crest's bar beside today's dials: CPU, RAM and GPU as bars, CPU's last 30 s as a line, and the network's
  * download and upload over the last 30 s as a line. The readings are the ones switched on for the notch (the network's line adds
- * download and upload); those a version has no shape for follow as today's dials. Fixed widths for their input.
+ * download and upload); those a version has no shape for follow as today's dials. Fixed widths for their input. Then the
+ * Temperatures widget: the last 10 minutes of the CPU's and the GPU's temperature as a line beside both now, or the fans.
  */
 
 const BARRED = ["cpu", "ram", "gpu"] as const;
@@ -125,3 +128,53 @@ export function NetLine({ readings, spark }: { readings: Reading[]; spark: BarFe
     ...rest(readings.filter((r) => !net(r))),
   ]);
 }
+
+type Temps = BarFeed["temps"];
+
+/** The series the line draws: one with a value now or a line this session (thermals.ts tempsFeed). */
+const tempSeries = (t: Temps) => ({ cpu: t.cpu !== null || t.cpuLine.length > 0, gpu: t.gpu !== null || t.gpuLine.length > 0 });
+
+export const tempLineWidth = (cpu: boolean, gpu: boolean) => LINE_W + LINE_GAP + sum([...(cpu ? [readingWidth("temp")] : []), ...(gpu ? [readingWidth("temp")] : [])]);
+
+/** A series as the line's points on the fixed scale, padded at its start so a line younger than 10 minutes grows in from the right. */
+function tempPoints(line: (number | null)[]) {
+  const padded = [...Array<null>(Math.max(0, TEMP_POINTS - line.length)).fill(null), ...line.slice(-TEMP_POINTS)];
+  return linePoints(padded.map((v) => (v === null ? null : v - TEMP_FLOOR)), TEMP_TOP - TEMP_FLOOR, LINE_W, LINE_H);
+}
+
+/**
+ * The last 10 minutes from 20 to 100 °C: the CPU over its faint area, the GPU fainter behind it, in the colour of the hotter one's level;
+ * then each temperature now as the closed row's reading. The caller draws it only with a series to show.
+ */
+export function TempLine({ temps: t }: { temps: Temps }) {
+  const colors = settings.use().system.colors;
+  const shown = tempSeries(t);
+  const level = Math.max(t.cpu === null ? 0 : tempLevel("cpu", t.cpu), t.gpu === null ? 0 : tempLevel("gpu", t.gpu)) as Level;
+  const c = shown.cpu ? tempPoints(t.cpuLine) : [], g = shown.gpu ? tempPoints(t.gpuLine) : [];
+  const reading = (source: "cpu" | "gpu", v: number | null): Reading => ({ id: "temp", value: v, level: v === null ? 0 : tempLevel(source, v), source });
+  return (
+    <span className="flex shrink-0 items-center" style={{ gap: LINE_GAP }}>
+      <svg width={LINE_W} height={LINE_H} viewBox={`0 0 ${LINE_W} ${LINE_H}`} className="shrink-0" style={{ color: schemeColor(colors, level) }} aria-hidden>
+        {c.length > 1 && <polygon points={`${c[0][0]},${LINE_H} ${polyline(c)} ${c[c.length - 1][0]},${LINE_H}`} fill="currentColor" fillOpacity={0.15} />}
+        {g.length > 1 && <polyline points={polyline(g)} fill="none" stroke="currentColor" strokeWidth={1.25} strokeOpacity={0.55} strokeLinejoin="round" strokeLinecap="round" />}
+        {c.length > 1 && <polyline points={polyline(c)} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />}
+      </svg>
+      {inRow([shown.cpu && <ReadingView key="cpu" reading={reading("cpu", t.cpu)} />, shown.gpu && <ReadingView key="gpu" reading={reading("gpu", t.gpu)} />])}
+    </span>
+  );
+}
+
+/** The temperatures' face and width; null without a series to show. */
+export function tempsBody(t: Temps): { node: ReactNode; width: number } | null {
+  const { cpu, gpu } = tempSeries(t);
+  return cpu || gpu ? { node: <TempLine temps={t} />, width: tempLineWidth(cpu, gpu) } : null;
+}
+
+/** The fans known, in the order CPU, GPU, case, as readings: a speed is neither good nor bad, so level 0. */
+export const fanReadings = (f: Fans): Reading[] =>
+  (["cpu", "gpu", "case"] as const).flatMap((source) => (f[source] === null ? [] : [{ id: "fan" as const, value: f[source], level: 0 as const, source, percent: source === "gpu" && f.gpuPercent === true }]));
+
+export const fansWidth = (n: number) => sum(Array<number>(n).fill(readingWidth("fan")));
+
+/** The fans as the closed row's readings, each with its glyph and letter. */
+export const FanReadings = ({ fans }: { fans: Fans }) => inRow(fanReadings(fans).map((r) => <ReadingView key={r.source} reading={r} />));

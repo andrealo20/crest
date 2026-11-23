@@ -1,6 +1,7 @@
 //! The quick panel's Bluetooth page: the paired devices, with their connection and battery, from the same read of Windows'
 //! device store the status alerts use (sysevents.rs `BT_PAIRED`). Never a watcher on association endpoints, which kept the
-//! radio searching for devices and broke Bluetooth audio on some PCs (issue #48). Only bars call it (`bar::from_bar`).
+//! radio searching for devices and broke Bluetooth audio on some PCs (issue #48). Bars call it for the page, and the notch for the
+//! Device batteries widget's source and the closed row's part; no other window (`bar::from_bar`).
 
 use serde::Serialize;
 use tauri::WebviewWindow;
@@ -46,7 +47,10 @@ fn rows(list: Vec<(BtRow, Option<GUID>)>) -> Vec<BtRow> {
 /// The paired devices, read once from the device store (no watcher, no radio search); the battery only for connected ones.
 #[tauri::command]
 pub async fn taskbar_bt_devices(window: WebviewWindow) -> Result<Vec<BtRow>, String> {
-    bar::from_bar(&window)?;
+    // The notch reads the list too, for the Device batteries widget's source and the closed row's part.
+    if window.label() != "notch" {
+        bar::from_bar(&window)?;
+    }
     crate::quick::blocking(|| {
         let all = DeviceInformation::FindAllAsyncWithKindAqsFilterAndAdditionalProperties(&HSTRING::from(sysevents::BT_PAIRED), &sysevents::bt_props(), DeviceInformationKind::Device)
             .and_then(|op| op.join())

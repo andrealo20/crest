@@ -78,7 +78,7 @@ export default function QuickPanel() {
         {page?.page === "wifi" ? (
           <WifiPage on={quick?.wifi === true} job={job} />
         ) : page?.page === "bluetooth" ? (
-          <BluetoothPage on={quick?.bluetooth === true} job={job} />
+          <BluetoothPage on={quick === null ? null : quick.bluetooth === true} job={job} />
         ) : page?.page === "mixer" ? (
           <MixerPage />
         ) : (

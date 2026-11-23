@@ -52,10 +52,10 @@ export const needleAngle = (percent: number | null) => -90 + Math.min(100, Math.
 /**
  * What the system store reads besides CPU, RAM and GPU outside the Hardware tool: the readings switched on for the notch while the
  * closed row shows them (`row`) or the bar's Hardware widget is on, the network for that widget's network line with NET off too,
- * and the process list for Top apps. `version`: the Hardware widget's version.
+ * the process list for Top apps, and the temperatures for Temperatures. `version`: the Hardware widget's version.
  */
 export function systemWant(row: boolean, r: ClosedSettings["readings"], bar: readonly string[], version: string): SystemWant {
   const on = row || bar.includes("readings");
   const netLine = bar.includes("readings") && version === "net";
-  return { net: (on && r.net) || netLine, temps: on && r.temp, power: on && r.power, battery: on && (r.battery || r.power), processes: bar.includes("processes") };
+  return { net: (on && r.net) || netLine, temps: (on && r.temp) || bar.includes("temps"), power: on && r.power, battery: on && (r.battery || r.power), processes: bar.includes("processes") };
 }
