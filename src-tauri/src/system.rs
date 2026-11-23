@@ -12,6 +12,9 @@
 //! - Network: cumulative byte counters of the hardware interfaces (GetIfTable2); the page computes the rate.
 //! - Temperatures, power, battery and drives: see `hw`; from HWiNFO, LibreHardwareMonitor or Core Temp when one runs: see `external`.
 //! - Ping: ICMP echo to 1.1.1.1 on its own thread (every 2 s, only while polled).
+//! - Local IP: the address Send to phone uses (phone_share.rs), only while the tool is shown.
+//!
+//! Two clicks in the tool start Windows' own tools: ipconfig in a Command Prompt, and the battery report (powercfg).
 
 mod external;
 mod hw;
@@ -172,6 +175,8 @@ pub struct Stats {
     gpu_mem_total: u64,
     /// Milliseconds; None = no reply.
     ping: Option<u64>,
+    /// This PC's address on its network, only while the tool is shown; None offline.
+    local_ip: Option<String>,
     /// Milliseconds since the probe started (monotonic), for rates.
     at: f64,
     /// Per logical processor, only while shown.
@@ -302,6 +307,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
         gpu_mem_used,
         gpu_mem_total,
         ping: (ping != NO_PING).then_some(ping),
+        local_ip: if full { crate::phone_share::lan_ip().or_else(crate::phone_share::route_ip).map(|ip| ip.to_string()) } else { None },
         at: p.started.elapsed().as_secs_f64() * 1000.0,
         cores,
         cpu_mhz,
@@ -330,6 +336,45 @@ pub async fn system_icon(path: String) -> Result<Option<String>, String> {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
     Ok(crate::mixer::icon_png(&path))
+}
+
+/// A program in System32 by its full path: a bare name is looked up next to crest.exe first, whose folder may be one
+/// other users can write to (see `crate::opener`).
+fn system32(exe: &str) -> std::path::PathBuf {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+    std::path::Path::new(&root).join("System32").join(exe)
+}
+
+/// The local IP's click: ipconfig in a new Command Prompt window that stays open (`/k`), in the user's folder.
+#[tauri::command]
+pub fn system_ipconfig() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+    let mut cmd = std::process::Command::new(system32("cmd.exe"));
+    cmd.arg("/k").arg(system32("ipconfig.exe")).creation_flags(CREATE_NEW_CONSOLE);
+    if let Some(home) = std::env::var_os("USERPROFILE") {
+        cmd.current_dir(home);
+    }
+    cmd.spawn().map(drop).map_err(|e| e.to_string())
+}
+
+/// The battery health's click: Windows' battery report, written by powercfg into Crest's temp folder (no console window),
+/// then opened in the default program for HTML. Takes a few seconds; the page says it is working meanwhile.
+#[tauri::command(async)]
+pub fn system_battery_report() -> Result<(), String> {
+    let dir = std::env::temp_dir().join("crest");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("battery-report.html");
+    // An old report must not pass for a new one when powercfg fails.
+    let _ = std::fs::remove_file(&path);
+    let mut cmd = std::process::Command::new(system32("powercfg.exe"));
+    cmd.arg("/batteryreport").arg("/output").arg(&path);
+    crate::convert::hide_console(&mut cmd);
+    let out = cmd.output().map_err(|e| e.to_string())?;
+    if !out.status.success() || !path.is_file() {
+        return Err("failed".into());
+    }
+    crate::open_url(&path.to_string_lossy())
 }
 
 impl Probe {

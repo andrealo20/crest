@@ -176,6 +176,8 @@ export interface SystemStats {
   gpuMemTotal: number;
   /** ms; null = no reply. */
   ping: number | null;
+  /** While the tool is shown: this PC's address on its network; null offline. */
+  localIp: string | null;
   /** ms since the probe started (monotonic), for rates. */
   at: number;
   /** Per logical processor while the tool is shown; `kind` 0 = the fastest kind of core. */
@@ -211,6 +213,10 @@ export interface SystemWant { net: boolean; temps: boolean; power: boolean; batt
 
 /** A program's icon as a PNG data URL. */
 export const systemIcon = (path: string): Promise<string | null> => (isNative ? invoke<string | null>("system_icon", { path }) : Promise.resolve(null));
+/** ipconfig in a new Command Prompt window (Windows). */
+export const openIpconfig = (): Promise<void> => (isNative ? invoke("system_ipconfig") : Promise.resolve());
+/** Windows' battery report, made by powercfg and opened in the default browser; rejects when it could not be made. */
+export const openBatteryReport = (): Promise<void> => (isNative ? invoke("system_battery_report") : new Promise((r) => setTimeout(r, 1500)));
 
 let mock = { cpu: 18, gpu: 32, ping: 14, rx: 0, tx: 0, at: 0 };
 /** `full = false`: CPU and RAM only (GPU and ping come back as null / 0) plus what `want` asks; `withGpu` adds the GPU without the ping. */
@@ -265,6 +271,7 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
     gpuMemUsed: full || withGpu ? 2.9 * gb + (mock.gpu / 100) * 3 * gb : 0,
     gpuMemTotal: 12 * gb,
     ping: full ? Math.round(mock.ping) : null,
+    localIp: full ? "192.168.1.23" : null,
   });
 }
 

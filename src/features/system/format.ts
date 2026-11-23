@@ -1,5 +1,5 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/MonitorFormat.cs.
-// Number formatting for the Hardware tool and the closed row's readings. Numbers and units come apart because the
+// Number formatting for the Hardware tool and the closed row's readings, and the check of the public IP the tool asks for. Numbers and units come apart because the
 // tool draws units smaller and lighter than their numbers. Pure, so it is tested without the app.
 
 import { isLanguage, localeFor } from "../../i18n/core.ts";
@@ -84,4 +84,21 @@ export function diskSize(bytes: number): string {
   if (v >= 999.5 * 1024 ** 3) return `${fig(v / 1024 ** 4)} TB`;
   if (v >= 999.5 * 1024 ** 2) return `${fig(v / 1024 ** 3)} GB`;
   return `${whole(v / 1024 ** 2)} MB`;
+}
+
+const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+
+/** The address in get.geojs.io's answer (`{ ip }`) when it is a well-formed IPv4 or IPv6 address, else null: a third party's text goes no further unchecked. */
+export function publicIpOf(answer: unknown): string | null {
+  const ip = typeof answer === "object" && answer !== null ? (answer as { ip?: unknown }).ip : undefined;
+  if (typeof ip !== "string") return null;
+  if (IPV4.test(ip)) return ip;
+  if (ip.length > 45 || !ip.includes(":") || !/^[0-9a-f:.]+$/i.test(ip)) return null;
+  // The URL parser knows every IPv6 form (::, embedded IPv4); the characters above keep anything else out of the brackets.
+  try {
+    new URL(`http://[${ip}]/`);
+    return ip;
+  } catch {
+    return null;
+  }
 }

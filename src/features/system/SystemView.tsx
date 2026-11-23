@@ -1,20 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "../../ui/iconset";
+import { AppWindow, ArrowDown, ArrowsDownUp, ArrowUp, BatteryHigh, CaretDown, Check, Cpu, HardDrives, Lightning, WifiHigh, X, type Icon } from "../../ui/iconset";
 import { GpuIcon, RamIcon } from "../../ui/icons";
 import { Segmented, Select } from "../../ui/controls";
 import { content, springs } from "../../design/motion";
 import { t } from "../../i18n";
-import { powerPlans, revealFile, systemIcon, type PowerPlans, type ProcReading } from "../../platform/services";
+import { openBatteryReport, openIpconfig, powerPlans, revealFile, systemIcon, type PowerPlans, type ProcReading } from "../../platform/services";
+import { isMac } from "../../platform/native";
+import { demo } from "../../dev/showcase-data";
 import { settings, updateSettings } from "../../settings/store";
 import { batteryLevel, healthLevel } from "./battery";
-import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, processShare, rate, watts } from "./format";
+import { compactRate, driveSizes, duration, ghz, gigabytes, processMemory, processShare, publicIpOf, rate, watts } from "./format";
 import { memoryLevel, nextGpu, ofRate, ofShare, schemeColor, type Level } from "./levels";
 import { tempLevel, degrees } from "./temps";
 import { HISTORY, holdProcesses, system, useSystemShown } from "./store";
 import { trendArea, trendLine } from "./hero";
 import { useHue, type Hue } from "../themes/hues";
 import { PortsEntry } from "../ports/PortsPanel";
+import { useCopy } from "../colour/ColourView";
 import { design } from "../../design/design";
 import { MaterialSystemLayout } from "./MaterialSystem";
 
@@ -25,10 +28,10 @@ import { MaterialSystemLayout } from "./MaterialSystem";
  *   │ ▤ RAM   13.4 / 32 GB                 ‾‾‾   42%│ ◧ Code               3.1 │
  *   │   ███████░░░░ cache 6.2 · commit 21 / 37 GB   │ …                        │
  *   │ ▦ GPU   RTX 4070 Ti · 3D · 54 °C     _╱╲   31%│ Drives                   │
- *   │ ⇅ Net   ↓ 12.3 MB/s ↑ 340 KB/s       ╱‾╲  12M │ C:  Samsung 990  ▓▓░ 41° │
+ *   │ ⇅ Net   ↓ 12.3 MB/s ↑ 340 KB/s [LAN] ╱‾╲  12M │ C:  Samsung 990  ▓▓░ 41° │
  *   │ ϟ Power Estimate · CPU 20 W [Plan ⌄] ‾╲_  38 W│                          │
  *   │ ▭ Bat.  2 h 40 min left · 88 %             66%│                          │
- *   │ ◠ Ping  1.1.1.1                      ___ 14 ms│                          │
+ *   │ ◠ Ping  1.1.1.1 [Public IP]          ___ 14 ms│                          │
  *   └───────────────────────────────────────────────┴──────────────────────────┘
  * Rows keep one minute of history as a line (store.ts collects from app start). Readings a machine cannot give
  * (battery on a desktop, power without any meter, temperatures without a sensor) are left out rather than shown as 0,
@@ -154,6 +157,7 @@ export function SystemView() {
             values={st.history.down}
             second={st.history.up}
             max={Math.max(1e6, ...st.history.down.filter(Number.isFinite), ...st.history.up.filter(Number.isFinite))}
+            control={s.localIp ? <LocalIpChip ip={s.localIp} /> : null}
             value={compactRate(net.down)}
             level={ofRate(Math.max(net.down, net.up))}
           />
@@ -195,6 +199,7 @@ export function SystemView() {
           hue="sky"
           label="Ping"
           detail="1.1.1.1"
+          control={<PublicIpChip />}
           tone={tone}
           values={st.history.ping}
           max={Math.max(60, ...st.history.ping.filter(Number.isFinite))}
@@ -317,11 +322,7 @@ function Row(props: {
               </span>
             )
           )}
-          {props.health && (
-            <span className="tabular shrink-0 font-medium" style={{ color: props.health.color }}>
-              {props.health.text}
-            </span>
-          )}
+          {props.health && <BatteryHealth health={props.health} className="tabular shrink-0 font-medium" />}
           {props.badge && <span className="shrink-0 rounded-[4px] bg-fill-2 px-1 text-[10px] text-label-2">{props.badge}</span>}
           {props.control}
         </span>
@@ -377,6 +378,103 @@ function MemoryBar(p: { used: number; cached: number; total: number; commit: num
         {t("Cache")} {gigabytes(p.cached)} · {t("Zugesichert")} {gigabytes(p.commit)} / {gigabytes(p.limit)} GB
       </span>
     </div>
+  );
+}
+
+/** A chip in a reading's detail, like the GPU badge, that is a button. */
+const CHIP = "pressable tabular flex shrink-0 items-center gap-0.5 rounded-[4px] bg-fill-2 px-1 text-[10px] text-label-2 outline-none hover:text-label focus-visible:ring-1 focus-visible:ring-label-3 material:rounded-full material:px-1.5";
+
+const copyLabel = (done: { ok: boolean } | null) => (done ? (done.ok ? t("Kopiert") : t("Kopieren fehlgeschlagen")) : t("Kopieren"));
+const Copied = ({ done }: { done: { ok: boolean } | null }) => (done ? done.ok ? <Check size={9} weight="bold" /> : <X size={9} weight="bold" className="text-red" /> : null);
+
+/** This PC's address on its network. A click opens ipconfig in a Command Prompt on Windows and copies the address on a Mac. */
+export function LocalIpChip({ ip }: { ip: string }) {
+  const [done, copy] = useCopy();
+  const label = `${t("Lokale IP")} ${ip} · ${isMac ? copyLabel(done) : t("Klicken für ipconfig in der Eingabeaufforderung")}`;
+  return (
+    <button type="button" dir="ltr" className={CHIP} aria-label={label} title={label} onClick={() => (isMac ? copy("ip", ip) : void openIpconfig().catch(() => {}))}>
+      {ip}
+      <Copied done={done} />
+    </button>
+  );
+}
+
+/** What get.geojs.io (the weather's service) sees as this PC's address; a fixed documentation address in the demo. */
+async function publicIp(): Promise<string | null> {
+  if (demo) return "203.0.113.7";
+  try {
+    return publicIpOf(await (await fetch("https://get.geojs.io/v1/ip.json", { signal: AbortSignal.timeout(5000), cache: "no-store" })).json());
+  } catch {
+    return null;
+  }
+}
+
+/** The public address: asked for only on a click and kept only in this component, never saved; once shown, a click copies it. */
+export function PublicIpChip() {
+  const [state, setState] = useState<"idle" | "loading" | "failed" | { ip: string }>("idle");
+  const [done, copy] = useCopy();
+  if (typeof state === "object") {
+    const label = `${t("Öffentliche IP")} ${state.ip} · ${copyLabel(done)}`;
+    return (
+      <button type="button" dir="ltr" className={CHIP} aria-label={label} title={label} onClick={() => copy("ip", state.ip)}>
+        {state.ip}
+        <Copied done={done} />
+      </button>
+    );
+  }
+  const ask = () => {
+    setState("loading");
+    void publicIp().then((ip) => setState(ip ? { ip } : "failed"));
+  };
+  const text = state === "loading" ? t("Wird geladen …") : state === "failed" ? t("Erneut versuchen") : t("Öffentliche IP");
+  return (
+    <button
+      type="button"
+      className={CHIP}
+      aria-label={join([t("Öffentliche IP"), state === "idle" ? null : text])}
+      aria-busy={state === "loading"}
+      title={t("Fragt get.geojs.io nach deiner öffentlichen IP")}
+      onClick={state === "loading" ? undefined : ask}
+    >
+      {text}
+    </button>
+  );
+}
+
+/** The battery's health in its level's colour. On Windows a click makes and opens Windows' battery report; meanwhile, and when it fails, the text says so. */
+export function BatteryHealth({ health, className }: { health: { text: string; color: string }; className: string }) {
+  const [state, setState] = useState<"idle" | "working" | "failed">("idle");
+  const reset = useRef(0);
+  useEffect(() => () => window.clearTimeout(reset.current), []);
+  if (isMac)
+    return (
+      <span className={className} style={{ color: health.color }}>
+        {health.text}
+      </span>
+    );
+  const run = () => {
+    window.clearTimeout(reset.current);
+    setState("working");
+    openBatteryReport().then(
+      () => setState("idle"),
+      () => {
+        setState("failed");
+        reset.current = window.setTimeout(() => setState("idle"), 4000);
+      },
+    );
+  };
+  return (
+    <button
+      type="button"
+      className={`pressable rounded-[4px] outline-none hover:underline focus-visible:ring-1 focus-visible:ring-label-3 ${className}`}
+      style={{ color: state === "failed" ? "var(--color-red)" : state === "working" ? undefined : health.color }}
+      aria-live="polite"
+      aria-busy={state === "working"}
+      title={t("Klicken für den Akkubericht")}
+      onClick={state === "working" ? undefined : run}
+    >
+      {state === "working" ? t("Akkubericht wird erstellt …") : state === "failed" ? t("Akkubericht fehlgeschlagen") : health.text}
+    </button>
   );
 }
 
