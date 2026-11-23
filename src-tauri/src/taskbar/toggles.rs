@@ -1,9 +1,9 @@
-//! Windows buttons of the bar that switch something of Windows (design K): the desktop's icons and the mobile hotspot.
+//! Windows buttons of the bar that switch something of Windows: the desktop's icons and the mobile hotspot.
 //!
 //! - Desktop icons: read from the desktop's list window, which shows or hides with them however they were switched (the desktop's
 //!   menu included). A switch first sets the documented folder flag FWF_NOICONS on the desktop's view, found from another process
 //!   as in Raymond Chen's "Manipulating the positions of desktop icons" (The Old New Thing, 2013); if the list still shows as it
-//!   was, the desktop menu's own Show desktop icons command follows (decisions W11 and W16). Never a restart of Explorer.
+//!   was, the desktop menu's own Show desktop icons command follows, as Windows 11 may not act on the flag alone. Never a restart of Explorer.
 //! - Mobile hotspot: Windows.Networking.NetworkOperators' tethering manager on the internet profile, as Settings' Mobile hotspot
 //!   page. Only its state and how many devices use it: never the network's name or password (GetCurrentAccessPointConfiguration)
 //!   nor the devices themselves (GetTetheringClients). It needs no administrator and, outside a package, no capability.
@@ -266,11 +266,11 @@ mod tests {
 
 #[cfg(test)]
 mod live {
-    //! Reads only, never switches (decision W17): `cargo test --lib taskbar::toggles::live -- --ignored --nocapture`.
+    //! Reads only, never switches, so it is safe on any PC: `cargo test --lib taskbar::toggles::live -- --ignored --nocapture`.
     use super::*;
     use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 
-    /// K1: the desktop's list, its folder flags and the HideIcons value Explorer keeps for its menu.
+    /// The desktop's list, its folder flags and the HideIcons value Explorer keeps for its menu.
     #[test]
     #[ignore]
     fn reads_the_desktop_icons() {
@@ -286,7 +286,7 @@ mod live {
         eprintln!("HideIcons {:?}", read.is_ok().then_some(value));
     }
 
-    /// K2: the hotspot's capability and state, from this unpackaged process; turns nothing on.
+    /// The hotspot's capability and state, from this unpackaged process; turns nothing on.
     #[test]
     #[ignore]
     fn reads_the_hotspot() {

@@ -1,4 +1,4 @@
-//! The desktop's wallpaper (design H): Crest's collection or a folder the user picks, set per screen with the system's own way
+//! The desktop's wallpaper: Crest's collection or a folder the user picks, set per screen with the system's own way
 //! (IDesktopWallpaper on Windows, NSWorkspace on a Mac, macos/wallpaper.rs), with the system's own fade.
 //!
 //! The collection's full-size pictures are not in the installer: each one comes from the `wallpapers-1` prerelease of Crest's

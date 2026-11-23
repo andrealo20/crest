@@ -166,7 +166,7 @@ export function naturalWidth(items: RowItem[]): number {
 
 /**
  * Parts of a fixed width, the first to go when the row is too narrow; the title and carousels shrink instead. The second group's come
- * after the larger parts already here (decision W3).
+ * after the larger parts already here.
  */
 const DROP_ORDER = ["equalizer", "cover", "clock", "github", "leetcode", "weather", "downloads", "calendar", "script", "timeline", "screentime", "bluetooth", "temps"];
 

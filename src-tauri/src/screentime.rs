@@ -1,4 +1,4 @@
-//! Screen Time (design G): which app is in front, per local hour and day, kept only on this PC while the user has turned it on.
+//! Screen Time: which app is in front, per local hour and day, kept only on this PC while the user has turned it on.
 //! Off until then; the notch turns it on and off (`screentime_set`), the tool and the bar's panel read the days (`screentime_days`),
 //! the settings delete them (`screentime_clear`).
 //!

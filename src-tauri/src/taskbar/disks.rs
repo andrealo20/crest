@@ -2,7 +2,7 @@
 //! File Explorer by a letter this module listed or a folder its scan listed, never a path from the page, and Scan now, the largest
 //! folders of a drive or of such a folder. Read on a call only: the notch asks every few minutes for the widget and a bar as its
 //! panel opens; Crest hears no device change, so a drive plugged in shows on the next. A scan runs only on a press and saves
-//! nothing to disk. Eject (design K) safely removes a drive that plugs in, by a letter this module listed as removable, through
+//! nothing to disk. Eject safely removes a drive that plugs in, by a letter this module listed as removable, through
 //! Windows' own documented request (CM_Request_Device_EjectW), which asks the apps that hold it first.
 
 use std::collections::BTreeMap;
@@ -247,7 +247,7 @@ fn eject(letter: &str) -> Result<(), String> {
     veto_code(ret, veto, &String::from_utf16_lossy(&name[..name.iter().position(|&c| c == 0).unwrap_or(name.len())]))
 }
 
-/// Ejects a removable drive of the last listing by its letter (design K); the bar only. Rejects with veto_code's words, "unknown"
+/// Ejects a removable drive of the last listing by its letter; the bar only. Rejects with veto_code's words, "unknown"
 /// or "fixed". Off the main thread: Windows asks the apps that hold the drive and may wait seconds for them. Then the notch reads
 /// the drives again (`bar://disks`), so the disk widget drops it now and not at its next read.
 #[tauri::command]
@@ -724,7 +724,7 @@ mod tests {
 
 #[cfg(test)]
 mod live {
-    //! K3, reads only and ejects nothing (decision W17): `cargo test --lib taskbar::disks::live -- --ignored --nocapture`.
+    //! Reads only and ejects nothing, so it is safe on any PC: `cargo test --lib taskbar::disks::live -- --ignored --nocapture`.
     use super::*;
     use windows::Win32::Devices::DeviceAndDriverInstallation::CM_Get_Device_IDW;
 

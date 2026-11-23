@@ -1,5 +1,5 @@
 // Folders of pinned apps on Crest's bar: the saved shape, its repair and every write to it. Pure, so it is tested without the app around
-// it. The apps stay in `pinned`, flat; a folder only names some of them (crest-design 2026-11-23-cartelle-barra.md, section 2).
+// it. The apps stay in `pinned`, flat; a folder only names some of them.
 
 import type { Favorite } from "../launcher/apps.ts";
 import type { PinSlot } from "./model.ts";
@@ -26,7 +26,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 /**
  * Saved folders as valid ones: none from anything but an array, or before any app was pinned; a folder without a string id, or with an
  * id seen before, goes; its name trimmed and cut to FOLDER_NAME_MAX; its apps only pinned ids, once, each in the first folder that has
- * it; a folder left without apps goes, one with a single app stays (decision C1).
+ * it; a folder left without apps goes, one with a single app stays, since New folder starts from one app.
  */
 export function normalizeFolders(v: unknown, pinned: Favorite[] | null): Folder[] {
   if (!Array.isArray(v) || !pinned) return [];
@@ -48,7 +48,7 @@ export function normalizeFolders(v: unknown, pinned: Favorite[] | null): Folder[
   return out;
 }
 
-/** A new folder's name (decision C3): `label(1)` ("Ordner"), else `label(2)`, `label(3)` … , the first no folder is called; an unnamed one is called `label(1)`. */
+/** A new folder's name: `label(1)` ("Ordner"), else `label(2)`, `label(3)` … , the first no folder is called; an unnamed one is called `label(1)`. */
 export function nextName(folders: Folder[], label: (n: number) => string): string {
   const taken = new Set(folders.map((f) => f.name || label(1)));
   let n = 1;

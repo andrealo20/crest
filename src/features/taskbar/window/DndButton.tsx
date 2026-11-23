@@ -8,8 +8,8 @@ import { Item, type ItemProps } from "./Item";
 
 /**
  * Do not disturb: the bell filled while it is on, as Crest already reads it (focus_get, the quick panel's chip), read when the bar shows
- * and when the pointer comes onto the button, never at intervals. A click opens Windows' notification settings, where its switch is
- * (decision W6); Crest changes no state itself.
+ * and when the pointer comes onto the button, never at intervals. A click opens Windows' notification settings, where its switch is;
+ * Crest changes no state itself.
  */
 export function DndButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
   const [on, setOn] = useState<boolean | null>(null);

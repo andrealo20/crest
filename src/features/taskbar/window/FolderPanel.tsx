@@ -6,7 +6,7 @@ import { nextName, renameFolder } from "../folderModel";
 import { panel } from "../panel";
 import { setTaskbar } from "../store";
 
-/** A new folder's name in the current language (decision C3): "Ordner", then "Ordner 2", "Ordner 3" while the name is taken. */
+/** A new folder's name in the current language: "Ordner", then "Ordner 2", "Ordner 3" while the name is taken. */
 export const folderLabel = (n: number) => (n === 1 ? t("Ordner") : t("Ordner {n}", { n }));
 
 /** Folder `id` renamed: `text` trimmed and cut, or with nothing typed the default name no other folder has. Written only when it changes. */

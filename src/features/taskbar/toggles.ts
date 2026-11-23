@@ -1,4 +1,4 @@
-// The words of the bar's Windows buttons that switch something of Windows (design K): the desktop's icons, Eject and the mobile
+// The words of the bar's Windows buttons that switch something of Windows: the desktop's icons, Eject and the mobile
 // hotspot. Pure, with t() passed in, so it can be tested without the app around it.
 
 import type { Hotspot } from "../../platform/services";
@@ -72,6 +72,6 @@ export function ejectNote(code: string | null, name: string, tr: Tr): string {
   return tr(FAILED);
 }
 
-/** The Eject button's name: with no drive to eject it says so (decision W12); not read yet, its plain name. */
+/** The Eject button's name: with no drive to eject it says so; not read yet, its plain name. */
 export const ejectName = (removable: DiskDrive[] | null, tr: Tr): string =>
   removable && !removable.length ? `${tr("USB-Laufwerk auswerfen")}: ${tr("Kein USB-Laufwerk")}` : tr("USB-Laufwerk auswerfen");
