@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EPSILON, FRAME_MS, due, moved, rests } from "./pacing.ts";
+import { EPSILON, FRAME_MS, due, moved, napMs, rests } from "./pacing.ts";
 
 /**
  * The frames that draw over two seconds on a display at `hz`, as gaps in frames between them. The timestamps are off by up to
@@ -31,6 +31,15 @@ test("the Music tool's Spectrum and Wave keep about 60 fps, evenly", () => {
       const fps = hz / g[0];
       assert.ok(fps >= 55 && fps <= 75, `${look} at ${hz} Hz: ${fps.toFixed(1)} fps`);
     }
+});
+
+test("the four bars nap between drawn frames and wake before the next one that can draw, even on a 15.6 ms timer", () => {
+  // Windows' default timer tick, the most a timer may wait on battery.
+  const tick = 1000 / 64;
+  assert.ok(napMs(FRAME_MS.bars) > 0);
+  assert.ok(napMs(FRAME_MS.bars) + tick < FRAME_MS.bars);
+  // Spectrum and Wave draw every frame or every other at 144 Hz: no room for a nap, they keep requestAnimationFrame.
+  for (const look of ["spectrum", "wave"] as const) assert.ok(napMs(FRAME_MS[look]) <= 0, look);
 });
 
 test("a bar is written only once it moved by a visible amount", () => {

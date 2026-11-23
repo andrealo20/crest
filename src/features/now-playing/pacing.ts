@@ -14,6 +14,14 @@ export const FRAME_MS = { bars: 32, spectrum: 13, wave: 13 } as const;
 /** Whether the frame at `now` draws, the last one having drawn at `last`. */
 export const due = (now: number, last: number, every: number) => now - last >= every;
 
+/**
+ * How long the loop sleeps on a timer after a drawn frame (ms, from that frame's time) before asking for frames again, so the
+ * vsyncs in between do not wake the page for nothing (at 144 Hz, 2 of the 4 between two frames of the bars). 18 ms short of
+ * `every`: room for a timer that waits for Windows' 15.6 ms tick, as on battery, and for the frame request. At or below 0 there
+ * is no room, and the loop keeps requestAnimationFrame.
+ */
+export const napMs = (every: number) => every - 18;
+
 /** A move smaller than this does not show (0.02 px on a 12 px bar): it is not written, and the loop may sleep there. */
 export const EPSILON = 0.002;
 

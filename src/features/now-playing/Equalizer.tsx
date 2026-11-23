@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import { audioLevelsAvailable, subscribeLevels, subscribeSpectrum } from "../../platform/audio";
-import { FRAME_MS, due, moved, rests } from "./pacing";
+import { FRAME_MS, due, moved, napMs, rests } from "./pacing";
 import { wavePath } from "./shapes";
 
 /*
@@ -109,7 +109,9 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
     // What each bar shows; -1 before the first frame, which writes every bar.
     const drawn = Array<number>(count).fill(-1);
     const every = FRAME_MS[look];
+    const nap = napMs(every);
     let frame = 0;
+    let napping = 0;
     let stale = 0;
     let last = performance.now();
     let quiet = 0;
@@ -153,7 +155,16 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
       if (changed) wave.current?.setAttribute("d", wavePath(value, WAVE_WIDTH, height, WAVE_STROKE / 2 + 0.25));
 
       if (!rests(value, target, moving, sounding)) {
-        frame = requestAnimationFrame(tick);
+        if (nap <= 0) {
+          frame = requestAnimationFrame(tick);
+          return;
+        }
+        // Counted from the frame's time, so a tick that ran late in it still wakes before the next frame that can draw.
+        frame = 0;
+        napping = window.setTimeout(() => {
+          napping = 0;
+          frame = requestAnimationFrame(tick);
+        }, nap - (performance.now() - now));
         return;
       }
       frame = 0;
@@ -162,7 +173,8 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
     };
 
     const wakeUp = () => {
-      if (frame) return;
+      // Napping, the loop is awake and keeps its pacing: new levels wait for the next drawn frame.
+      if (frame || napping) return;
       window.clearTimeout(stale);
       last = performance.now();
       frame = requestAnimationFrame(tick);
@@ -171,6 +183,7 @@ export function Equalizer({ playing, height = 12, tint = "bg-accent", look = "ba
     wakeUp();
     return () => {
       cancelAnimationFrame(frame);
+      window.clearTimeout(napping);
       window.clearTimeout(stale);
       wake.current = () => {};
     };
