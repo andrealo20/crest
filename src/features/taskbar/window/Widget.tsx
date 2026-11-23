@@ -275,7 +275,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const track = useTrack(id);
   const own = useOwn(id, paused);
   const desc = useId();
-  const k = widgetScale(taskbar.height, taskbar.iconSize);
+  const k = widgetScale(taskbar.height, taskbar.iconSize, taskbar.widgetSize);
   const { node, width, drawn, tip } = widgetBody(id, {
     feed,
     paused,
@@ -305,9 +305,10 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
       width={widgetWidth(width, k, pill?.pad ?? null)}
       describedBy={desc}
       onClick={(e) => {
-        // The pointer in the face's own px: the 30 px cell is centred in the button at zoom k. None by keyboard or while the icon shows.
-        const r = e.currentTarget.getBoundingClientRect();
-        onClick(e, widgetKey(id, taskbar.variants, drawn && e.detail > 0 ? (e.clientX - r.left - r.width / 2) / k + width / 2 : null));
+        // The pointer in the face's own px, from the 30 px cell as drawn: at zoom k, and in the panel above the bar at Crest's scale too.
+        // None by keyboard or while the icon shows.
+        const r = document.getElementById(desc)?.getBoundingClientRect();
+        onClick(e, widgetKey(id, taskbar.variants, r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null));
       }}
       onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}

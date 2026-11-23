@@ -105,6 +105,12 @@ test("the look's settings are repaired and default to today's bar", () => {
   const bad = normalizeTaskbar({ shape: "dock", transparency: 400, glass: "yes", glassLook: "Plus" });
   assert.deepEqual([bad.shape, bad.transparency, bad.glass, bad.glassLook], ["floating", 100, false, "crest"]);
   assert.equal(normalizeTaskbar({ transparency: -5 }).transparency, 0);
+  // The widgets' size against the icons', percent: 100, today's, unless set.
+  assert.equal(d.widgetSize, 100);
+  assert.equal(normalizeTaskbar({ widgetSize: 85 }).widgetSize, 85);
+  assert.equal(normalizeTaskbar({ widgetSize: 200 }).widgetSize, 125);
+  assert.equal(normalizeTaskbar({ widgetSize: 10 }).widgetSize, 75);
+  assert.equal(normalizeTaskbar({ widgetSize: "90" }).widgetSize, 100);
   // The look outlives Glass switched off, so switching it back on brings the same look.
   assert.equal(normalizeTaskbar({ glass: false, glassLook: "plus" }).glassLook, "plus");
 });

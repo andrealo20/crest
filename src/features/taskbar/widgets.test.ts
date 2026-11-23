@@ -25,10 +25,18 @@ test("a widget opens its tool; the clock, the disk widget, the time progress, th
   assert.ok(isWidget("clock") && !isWidget("apps") && !isWidget("crest"));
 });
 
-test("widgets grow and shrink with the icons", () => {
-  assert.equal(widgetScale(44, 24), 1);
-  assert.equal(widgetScale(64, 40), 40 / 24);
-  assert.equal(widgetScale(32, 24), 20 / 24);
+test("widgets grow and shrink with the icons, and by their own size against them", () => {
+  assert.equal(widgetScale(44, 24, 100), 1);
+  assert.equal(widgetScale(64, 40, 100), 40 / 24);
+  assert.equal(widgetScale(32, 24, 100), 20 / 24);
+  assert.equal(widgetScale(44, 24, 125), 1.25);
+  // Three quarters at least, where the row's text is 9 px; icons already smaller keep their own scale.
+  assert.equal(widgetScale(44, 24, 75), 0.75);
+  assert.equal(widgetScale(44, 16, 75), 16 / 24);
+  assert.equal(widgetScale(44, 16, 125), ((16 / 24) * 125) / 100);
+  // Never larger than the largest icons the bar's height can draw.
+  assert.equal(widgetScale(32, 24, 125), 20 / 24);
+  assert.equal(widgetScale(44, 32, 125), 32 / 24);
 });
 
 test("weather and hardware sit in Stato's pill off Tiles, as wide as their content and the pill's two sides", () => {

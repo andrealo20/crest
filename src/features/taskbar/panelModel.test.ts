@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -38,6 +38,15 @@ test("the tray panel grows a row for every five icons, up to four rows, then scr
   assert.deepEqual(TRAY_SIZE(24, 6), { w: 224, h: 104 });
   assert.deepEqual(TRAY_SIZE(24, 40), { w: 224, h: 184 });
   assert.deepEqual(TRAY_SIZE(16, 40), { w: 184, h: 152 });
+});
+
+test("the hidden items' panel puts them in rows as wide as fit, as wide as its widest row, up to four rows, then scrolls", () => {
+  // One row: its items, the gaps between them and 12 px round them.
+  assert.deepEqual(WIDGETS_SIZE([64, 40], 44, 6), { w: 64 + 6 + 40 + 24, h: 44 + 24 });
+  // 3 * 176 + 2 * 6 = 540, past 480: the third starts a row.
+  assert.deepEqual(WIDGETS_SIZE([176, 176, 176], 44, 6), { w: 2 * 176 + 6 + 24, h: 2 * 44 + 6 + 24 });
+  // Ten take five rows, four of them shown.
+  assert.deepEqual(WIDGETS_SIZE(Array<number>(10).fill(176), 64, 2), { w: 2 * 176 + 2 + 24, h: 4 * 64 + 3 * 2 + 24 });
 });
 
 test("an item stays the same item while it shifts or resizes under its panel, and two items never are", () => {

@@ -2,7 +2,7 @@
 // opens, their size, and adding or removing one. Pure, so the rules are tested without the app around them.
 
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
-import { SYS_IDS, TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type SysId, type SysItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
+import { ICON, SYS_IDS, TASKBAR_DEFAULTS, TOOL_BUTTONS, WIDGET_VARIANTS, fitIcon, isObj, variantOf, type BarItem, type SysId, type SysItem, type TaskbarSettings, type ToolItem, type WidgetVariants, type Zone } from "./model.ts";
 import { opensInBar } from "./panelModel.ts";
 import type { BarLook } from "./look.ts";
 import type { PrivacyState } from "../../platform/services.ts";
@@ -69,8 +69,15 @@ export const widgetPanel = (id: PartId, primary: boolean): "disks" | "clock" | "
 /** Widgets with a right-click menu of their own over the Crest menu's rows (window/WidgetMenu.tsx). */
 export const hasWidgetMenu = (id: PartId): boolean => id === "title" || id === "stopwatch" || id === "todo";
 
-/** A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws. */
-export const widgetScale = (height: number, iconSize: number): number => fitIcon(height, iconSize) / TASKBAR_DEFAULTS.iconSize;
+/**
+ * A widget's size against the notch's: 1 with the default icons, growing and shrinking with the icons the bar draws, times the widgets'
+ * own size (`size`, percent). Never under 0.75, where the row's 12 px text is 9 px, unless the icons are smaller already, and never over
+ * the largest icons the bar's height draws, so the 30 px cell stays inside the bar.
+ */
+export const widgetScale = (height: number, iconSize: number, size: number): number => {
+  const k = fitIcon(height, iconSize) / TASKBAR_DEFAULTS.iconSize;
+  return Math.min(fitIcon(height, ICON[1]) / TASKBAR_DEFAULTS.iconSize, Math.max(Math.min(k, 0.75), (k * size) / 100));
+};
 
 /**
  * Whether a widget sits on Stato's pill: weather and hardware, which Andrea named, off Tiles, whose tile is already one. Windows 11's

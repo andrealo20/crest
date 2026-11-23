@@ -5,9 +5,19 @@ import { DOCK_HEIGHT } from "../../notch/geometry.ts";
 
 /**
  * What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel,
- * the disk widget's drives, the main bar's clock's Notices over Calendar, the search box's field or the crypto widget's coin over 7 days.
+ * the disk widget's drives, the main bar's clock's Notices over Calendar, the search box's field, the crypto widget's coin over 7 days
+ * or the widgets, tool buttons and Windows buttons the bar had no room for.
  */
-export type PanelContent = { kind: "tool"; tool: string } | { kind: "tray" } | { kind: "apps" } | { kind: "quick" } | { kind: "disks" } | { kind: "clock" } | { kind: "search" } | { kind: "crypto" };
+export type PanelContent =
+  | { kind: "tool"; tool: string }
+  | { kind: "tray" }
+  | { kind: "apps" }
+  | { kind: "quick" }
+  | { kind: "disks" }
+  | { kind: "clock" }
+  | { kind: "search" }
+  | { kind: "crypto" }
+  | { kind: "widgets" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
 export interface PanelAnchor {
   x: number;
@@ -79,6 +89,20 @@ export const PANEL_EDGE = 8;
  * with 12 px round them; one row at least, for the line it shows without icons, and four at most, past which it scrolls.
  */
 export const TRAY_SIZE = (icon: number, count: number) => ({ w: 5 * (icon + 16) + 24, h: Math.min(Math.max(Math.ceil(count / 5), 1), 4) * (icon + 16) + 24 });
+
+/**
+ * The hidden items' panel at 100 % for items `widths` wide, in rows as tall as the bar (`row`) and `gap` apart, as the bar has them: as
+ * many to a row as fit in 480 px, in their order, with 12 px round them; as wide as its widest row, four rows at most, past which it scrolls.
+ */
+export function WIDGETS_SIZE(widths: number[], row: number, gap: number): { w: number; h: number } {
+  const rows: number[] = [];
+  for (const w of widths) {
+    if (rows.length && rows[rows.length - 1] + gap + w <= 480) rows[rows.length - 1] += gap + w;
+    else rows.push(w);
+  }
+  const n = Math.min(Math.max(rows.length, 1), 4);
+  return { w: Math.max(0, ...rows) + 24, h: n * row + (n - 1) * gap + 24 };
+}
 
 /**
  * The quick panel's size at 100 %: 12 px round its rows, 10 px between them. The radios (56) and the brightness (40) only where they
