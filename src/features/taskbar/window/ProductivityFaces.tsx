@@ -6,30 +6,38 @@ import { fade } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { ROW } from "../../../notch/row/layout";
 import { CAPTION_FONT, measureTabular, measureText } from "../../../notch/row/measure";
+import { useMinuteTick } from "../../../notch/row/parts/Clock";
 import type { PartId } from "../../../notch/row/parts";
 import { settings } from "../../../settings/store";
-import { ClockClockwise, Flag, NotePencil } from "../../../ui/iconset";
+import { ClockClockwise, Coffee, Flag, NotePencil } from "../../../ui/iconset";
 import { noteLine } from "../../notes/line";
 import { note } from "../../notes/store";
+import { AWAKE_MINUTES, awakeLeft, awakeOn, formatLeftMinutes, type Awake } from "../../overview/awake";
+import { awake, startAwake, stopAwake } from "../../overview/store";
 import { lookTint } from "../../timer/looks";
 import { STOPWATCH_IDLE, elapsedOf, elapsedText, swPhase, type Stopwatch } from "../../timer/stopwatch";
 import { stopwatch, useSecondTick } from "../../timer/store";
 import { todoLine, type TodoLine } from "../../todos/model";
 import { todos } from "../../todos/store";
-import { SAMPLE_STOPWATCH, sampleNote, sampleTodo } from "../sampleFeed";
+import { variantOf } from "../model";
+import { SAMPLE_AT, SAMPLE_AWAKE, SAMPLE_STOPWATCH, sampleNote, sampleTodo } from "../sampleFeed";
+import { Row } from "./BarMenu";
 import type { Body, WidgetContext } from "./Widget";
 
 /**
- * What the stopwatch, the next to-do and the note preview read from their saved stores: the stopwatch and the time it is read at,
- * the open project's next task and the note's first line.
+ * What the stopwatch, the next to-do, the note preview and Keep awake read: the stopwatch and the time it is read at, the open
+ * project's next task and the note's first line from their saved stores, and Keep awake as the notch holds it (barStores feedStores).
  */
-export type Own = { stopwatch: Stopwatch; now: number; todo: TodoLine | null; note: string };
+export type Own = { stopwatch: Stopwatch; now: number; todo: TodoLine | null; note: string; awake: Awake };
 
 /** For a widget that does not read the store: nothing to hear, and a value that never changes. */
 const none = () => () => {};
 const idleStopwatch = () => STOPWATCH_IDLE;
 const noTodo = () => null;
 const noNote = () => "";
+const noAwake = () => null;
+const leftShown = () => variantOf(settings.get().taskbar.variants, "keepawake") === "left";
+const noLeft = () => false;
 
 // Worked out again only when the store's value is another one, so the snapshot stays the same object (useSyncExternalStore).
 let todoMemo: { state: unknown; line: TodoLine | null } = { state: null, line: null };
@@ -47,15 +55,19 @@ const noteNow = () => {
 };
 
 /**
- * The saved stores widget `id` draws from, undefined for one that reads none; `paused` while the bar rests. Each hears only its own
- * store, so typing a note re-renders no other widget, and only the running stopwatch ticks, on its own second, while the bar shows.
+ * The stores widget `id` draws from, undefined for one that reads none; `paused` while the bar rests. Each hears only its own store,
+ * so typing a note re-renders no other widget, and only the running stopwatch ticks, on its own second, while the bar shows. Keep
+ * awake's time left turns once a minute, only in the version that shows it and while a timed one is on.
  */
 export function useOwn(id: PartId, paused: boolean): Own | undefined {
   const s = useSyncExternalStore(id === "stopwatch" ? stopwatch.subscribe : none, id === "stopwatch" ? stopwatch.get : idleStopwatch);
   const now = useSecondTick(id === "stopwatch" && s.startedAt !== null && !paused, swPhase(s));
   const todo = useSyncExternalStore(id === "todo" ? todos.subscribe : none, id === "todo" ? todoNow : noTodo);
   const line = useSyncExternalStore(id === "note" ? note.subscribe : none, id === "note" ? noteNow : noNote);
-  return id === "stopwatch" || id === "todo" || id === "note" ? { stopwatch: s, now, todo, note: line } : undefined;
+  const a = useSyncExternalStore(id === "keepawake" ? awake.subscribe : none, id === "keepawake" ? awake.get : noAwake);
+  const left = useSyncExternalStore(id === "keepawake" ? settings.subscribe : none, id === "keepawake" ? leftShown : noLeft);
+  useMinuteTick(left && a?.endsAt != null && !paused);
+  return id === "stopwatch" || id === "todo" || id === "note" || id === "keepawake" ? { stopwatch: s, now, todo, note: line, awake: a } : undefined;
 }
 
 const SW_ICON = 17, SW_GAP = 4, FLAG = 11, FLAG_GAP = 2, LAPS_GAP = 6;
@@ -149,10 +161,43 @@ function NoteFace({ text }: { text: string }) {
   );
 }
 
+const CUP = 16, AWAKE_GAP = 4;
+
+/** Keep awake on: the cup, and in the version with the time left a timed one's hours and minutes, as wide as with every digit an 8. */
+function AwakeFace({ text }: { text: string | null }) {
+  return (
+    <span role="img" aria-label={t("PC bleibt wach")} className="flex shrink-0 items-center whitespace-nowrap text-label">
+      <Coffee size={CUP} weight="fill" className="shrink-0" />
+      {text && (
+        <span className="tabular text-footnote font-medium" style={{ marginInlineStart: AWAKE_GAP, width: digitsWidth(text) }}>
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Keep awake while on, the label above it saying how long is left or that it lasts until turned off; off, null, and widgetBody fades
+ * to the dimmed cup. Read at now, not at the last minute's tick: the icon version does not tick, and its label is read on a hover.
+ */
+function awakePart(ctx: WidgetContext): Body | null {
+  const a = ctx.sample ? SAMPLE_AWAKE : (ctx.own?.awake ?? null);
+  const now = ctx.sample ? SAMPLE_AT : Date.now();
+  if (!awakeOn(a, now)) return null;
+  const left = awakeLeft(a, now);
+  const text = left !== null && variantOf(ctx.variants, "keepawake") === "left" ? formatLeftMinutes(left) : null;
+  return {
+    node: <AwakeFace text={text} />,
+    width: CUP + (text ? AWAKE_GAP + digitsWidth(text) : 0),
+    tip: left === null ? t("An") : t("noch {time}", { time: formatLeftMinutes(left) }),
+  };
+}
+
 /** The stopwatch, the next to-do, the note's first line or Keep awake as the bar draws it; null while it has nothing to show. */
 export function productivityPart(id: "stopwatch" | "todo" | "note" | "keepawake", ctx: WidgetContext): Body | null {
   const { own, sample } = ctx;
-  if (id === "keepawake") return null;
+  if (id === "keepawake") return awakePart(ctx);
   if (id === "stopwatch") {
     const s = sample ? SAMPLE_STOPWATCH : own && { elapsed: elapsedOf(own.stopwatch, own.now), running: own.stopwatch.startedAt !== null, laps: own.stopwatch.laps.length };
     // Never started or reset: the dimmed icon.
@@ -168,7 +213,26 @@ export function productivityPart(id: "stopwatch" | "todo" | "note" | "keepawake"
   return text ? { node: <NoteFace text={text} />, width: NOTE_WIDTH } : null;
 }
 
-/** Keep awake's durations, Until turned off and Off over the widget's Crest menu rows (widgets.ts hasWidgetMenu). */
-export function AwakeRows(_props: { close: () => void; openTool: (tool: string) => void }) {
-  return null;
+/**
+ * Keep awake's durations and Until turned off, as Overview's tile offers them, the one on checked, then Off while it is on, over the
+ * widget's Crest menu rows (widgets.ts hasWidgetMenu). The bar asks the notch, which holds it (overview/store.ts).
+ */
+export function AwakeRows({ close }: { close: () => void; openTool: (tool: string) => void }) {
+  const a = awake.use();
+  // The notch turns a timed one off as it ends: off is null.
+  const on = a !== null;
+  const run = (action: () => void) => () => {
+    close();
+    action();
+  };
+  return (
+    <>
+      {AWAKE_MINUTES.map((m) => (
+        <Row key={m} label={m < 60 ? t("{n} Min.", { n: m }) : t("{n} Std.", { n: m / 60 })} checked={on && a.minutes === m} onClick={run(() => startAwake(m))} />
+      ))}
+      <Row label={t("Bis zum Ausschalten")} checked={on && a.minutes === null} onClick={run(() => startAwake(null))} />
+      <Row label={t("Aus")} disabled={!on} onClick={run(stopAwake)} />
+      <div className="h-px bg-separator my-1" />
+    </>
+  );
 }

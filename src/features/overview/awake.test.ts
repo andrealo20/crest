@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { awakeLeft, awakeOn, awakeStart, formatLeft } from "./awake.ts";
+import { awakeLeft, awakeOn, awakeStart, formatLeft, formatLeftMinutes } from "./awake.ts";
 
 test("timed keep awake ends on its own, until turned off does not", () => {
   const a = awakeStart(30, 1000);
@@ -24,4 +24,11 @@ test("time left reads as a clock", () => {
   assert.equal(formatLeft(30 * 60_000), "30:00");
   assert.equal(formatLeft(59_001), "1:00");
   assert.equal(formatLeft(1), "0:01");
+});
+
+test("the bar's widget reads hours and minutes, the minutes rounded up so it never shows 0:00 while on", () => {
+  assert.equal(formatLeftMinutes(65 * 60_000), "1:05");
+  assert.equal(formatLeftMinutes(59.5 * 60_000), "1:00");
+  assert.equal(formatLeftMinutes(30_000), "0:01");
+  assert.equal(formatLeftMinutes(1440 * 60_000), "24:00");
 });

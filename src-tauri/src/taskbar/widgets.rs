@@ -1,5 +1,5 @@
 //! The commands of the bar's widgets (Windows only): the page's hello, which has the notch send it the widgets' data, the
-//! clock's and the Notification centre button's click, and the settings pages of the quick panel and its pages.
+//! clock's and the Notification centre button's click, and the settings pages of the quick panel, its pages and the Windows buttons.
 
 use tauri::{AppHandle, Emitter, WebviewWindow};
 
@@ -40,6 +40,7 @@ fn settings_page(page: &str) -> Option<&'static str> {
         "night" => Some("ms-settings:nightlight"),
         "dnd" => Some("ms-settings:notifications"),
         "access" => Some("ms-settings:easeofaccess"),
+        "hotspot" => Some("ms-settings:network-mobilehotspot"),
         _ => None,
     }
 }
@@ -69,6 +70,7 @@ mod tests {
         assert_eq!(settings_page("night"), Some("ms-settings:nightlight"));
         assert_eq!(settings_page("dnd"), Some("ms-settings:notifications"));
         assert_eq!(settings_page("access"), Some("ms-settings:easeofaccess"));
+        assert_eq!(settings_page("hotspot"), Some("ms-settings:network-mobilehotspot"));
         assert_eq!(settings_page("ms-availablenetworks:"), None);
         assert_eq!(settings_page("ms-settings:privacy"), None);
         assert_eq!(settings_page(""), None);

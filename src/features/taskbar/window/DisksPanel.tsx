@@ -1,14 +1,15 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { spin } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { createStore } from "../../../lib/store";
 import { taskbar } from "../../../platform/services";
-import { CircleNotch, Folder, HardDrives, MagnifyingGlass, Plug } from "../../../ui/iconset";
+import { CircleNotch, Eject, Folder, HardDrives, MagnifyingGlass, Plug } from "../../../ui/iconset";
 import { diskSize } from "../../system/format";
 import { barFeed } from "../barStores";
 import { freshScan, lowSpace, orderDisks, scanProgress, scanRows, scanning, usedShare, type DiskDrive, type ScanLevel, type ScanState } from "../disks";
 import { DISK_ROW } from "../panelModel";
+import { diskName, ejectDrive } from "./EjectMenu";
 import { QuickPageFrame, away } from "./QuickPage";
 
 /** The drives the open panel lists: the widget's last read as it opens, then its own; null while it is closed. */
@@ -63,11 +64,14 @@ function rescan(): void {
  * The disk widget's panel above the bar, sized by DISKS_SIZE: every drive, internal ones first, then the ones that plug in, each with
  * its name, letter, free and total space and a bar filled to its use, red under 10 % free. Read as it opens, since Crest hears no
  * device change; a click opens the drive in File Explorer by its letter, which Rust checks against what it listed, and its Scan now
- * opens a scan's page in its place.
+ * opens a scan's page in its place. A drive that plugs in has Eject too: the bar shows no label over its buttons while a panel is
+ * open, so how it went shows in the row in place of its space, red for 3 s if it failed; once it can go the drives are read again
+ * and its row leaves.
  */
 export function DisksPanel() {
   const list = orderDisks(panelDisks.use() ?? []);
   const scan = diskScan.use();
+  const [said, setSaid] = useState<{ letter: string; text: string; failed: boolean } | null>(null);
   useEffect(() => {
     let on = true;
     panelDisks.set(barFeed.get().disks);
@@ -77,22 +81,35 @@ export function DisksPanel() {
       panelDisks.set(null);
     };
   }, []);
+  useEffect(() => {
+    if (!said?.failed) return;
+    const id = window.setTimeout(() => setSaid(null), 3000);
+    return () => window.clearTimeout(id);
+  }, [said]);
+  const eject = (d: DiskDrive) =>
+    void ejectDrive(d, (text, failed) => setSaid({ letter: d.letter, text, failed })).then(async (gone) => {
+      const l = gone ? await taskbar.disks() : null;
+      // Only while the panel is still open: closed, panelDisks stays null.
+      if (l && panelDisks.get()) panelDisks.set(l);
+    });
   if (scan) return <ScanPage state={scan} />;
   if (!list.length) return <p className="flex h-full items-center justify-center px-5 text-center text-caption text-label-3">{t("Wird gelesen …")}</p>;
   return (
     <div className="h-full overflow-y-auto p-2 [scrollbar-width:none]">
       {list.map((d) => {
         const Icon = d.removable ? Plug : HardDrives;
-        const name = `${d.name || (d.removable ? t("USB-Laufwerk") : t("Lokaler Datenträger"))} (${d.letter})`;
+        const name = diskName(d);
+        const answer = said?.letter === d.letter ? said : null;
         return (
           <DiskRow
             key={d.letter}
             icon={<Icon size={18} weight="regular" />}
             name={name}
-            detail={t("{free} frei von {total}", { free: diskSize(d.free), total: diskSize(d.total) })}
+            detail={answer ? answer.text : t("{free} frei von {total}", { free: diskSize(d.free), total: diskSize(d.total) })}
             share={usedShare(d)}
-            low={lowSpace(d)}
+            low={answer ? answer.failed : lowSpace(d)}
             onOpen={() => away(() => taskbar.diskOpen(d.letter))}
+            onEject={d.removable ? () => eject(d) : undefined}
             onScan={() => scanLevel(d.letter, [], { folder: null, title: name, of: Math.max(d.total - Math.max(d.free, 0), 0) }, false)}
           />
         );
@@ -172,10 +189,10 @@ function ScanPage({ state }: { state: ScanState }) {
 
 /**
  * A row of the disk panel, DISK_ROW tall: its icon, its name over a bar filled to `share` with `detail` beside it, red when `low`.
- * With `onOpen` the row is a button, and with `onScan` a round Scan now sits at its end. The detail sits by the bar, so the name
- * keeps the row's width and the button cuts it short no more than before.
+ * With `onOpen` the row is a button, and with `onScan` a round Scan now sits at its end, with `onEject` a round Eject before it. The
+ * detail sits by the bar, so the name keeps the row's width and the button cuts it short no more than before.
  */
-function DiskRow({ icon, name, detail, share, low = false, title, onOpen, onScan }: { icon: ReactNode; name: string; detail: string; share: number; low?: boolean; title?: string; onOpen?: () => void; onScan?: () => void }) {
+function DiskRow({ icon, name, detail, share, low = false, title, onOpen, onEject, onScan }: { icon: ReactNode; name: string; detail: string; share: number; low?: boolean; title?: string; onOpen?: () => void; onEject?: () => void; onScan?: () => void }) {
   const body = (
     <>
       <span className="flex w-[18px] shrink-0 justify-center text-label-2">{icon}</span>
@@ -198,6 +215,16 @@ function DiskRow({ icon, name, detail, share, low = false, title, onOpen, onScan
         </button>
       ) : (
         <span className="flex h-full min-w-0 flex-1 items-center gap-3 ps-3">{body}</span>
+      )}
+      {onEject && (
+        <button
+          aria-label={t("{name} auswerfen", { name })}
+          title={t("{name} auswerfen", { name })}
+          onClick={onEject}
+          className="pressable flex size-8 shrink-0 items-center justify-center rounded-full text-label-2 outline-none hover:bg-fill-2 hover:text-label focus-visible:bg-fill-2 focus-visible:text-label"
+        >
+          <Eject size={16} weight="regular" />
+        </button>
       )}
       {onScan ? (
         <button
