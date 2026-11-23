@@ -50,7 +50,7 @@ hello-crest/
 | `author`, `description` | Optional, up to 60 and 200 characters |
 | `icon` | Optional, one of the [icons](#icons) below (default `puzzle`). Crest draws it itself; no image is loaded from the plugin for the tool bar |
 | `entry` | The page the tool opens, an `.html` file in the folder |
-| `size` | The open notch's size for the tool, header and tool bar included: `w` 320 to 740, `h` 160 to 540 |
+| `size` | The open notch's size for the tool, header and tool bar included: `w` 320 to 740, `h` 160 to 540; a `w` narrower than the tool bar opens as wide as the bar where the monitor holds it ([features.md](features.md)) |
 | `permissions.network` | Up to 8 host names the plugin may fetch from, for example `api.github.com` |
 | `permissions.storage` | `true` for a key-value storage of its own |
 | `permissions.notices` | `true` to show notices in the closed notch |

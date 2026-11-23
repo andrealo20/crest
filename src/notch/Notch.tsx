@@ -815,7 +815,8 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
 
   // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock
   // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools. The panel is as
-  // wide as the bar at 42 px where the monitor holds it (geometry.ts openWidth), whose sizes are this bar's: change both.
+  // wide as the bar at 42 px, up to the widest panel, where the monitor holds it (geometry.ts openWidth), whose sizes are this bar's:
+  // change both (geometry.test.ts checks these classes).
   const strip = useRef<HTMLDivElement>(null);
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
