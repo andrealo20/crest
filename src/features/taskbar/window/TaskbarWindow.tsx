@@ -441,17 +441,23 @@ export function TaskbarWindow() {
   });
   useEffect(() => taskbar.onKey((k) => void keyHandler.current(k)), []);
 
-  /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
-  const openTool = (tool: string, button: HTMLElement) => {
-    const r = button.getBoundingClientRect();
-    togglePanel({ kind: "tool", tool }, { x: r.x, w: r.width });
+  /**
+   * The span on the bar a panel opens over, which BarPanel reads as the item it opened from: the button's own, or for a hidden item's
+   * cell, which sits in the hidden items' panel, the span of the button that shows them.
+   */
+  const spanOf = (button: HTMLElement) => {
+    const on = bar.current?.contains(button) ? button : (bar.current?.querySelector<HTMLElement>('[data-kind="widgets-more"]') ?? button);
+    const r = on.getBoundingClientRect();
+    return { x: r.x, w: r.width };
   };
+
+  /** Opens `tool` over its button, or closes it on a second click there: in the panel, or in the notch for a tool the panel does not show (openPanel). */
+  const openTool = (tool: string, button: HTMLElement) => togglePanel({ kind: "tool", tool }, spanOf(button));
 
   /** The search box's field, in the panel over its button. */
   const openSearch = (button: HTMLElement) => {
     setError(null);
-    const r = button.getBoundingClientRect();
-    togglePanel({ kind: "search" }, { x: r.x, w: r.width });
+    togglePanel({ kind: "search" }, spanOf(button));
   };
 
   /**
@@ -471,10 +477,9 @@ export function TaskbarWindow() {
     if (id === "stopwatch") return stopwatchActions.toggle();
     const own = widgetPanel(id, primary);
     if (own) {
-      const r = button.getBoundingClientRect();
       // Not on the click that closes it, or the closing panel would turn into the drives as it fades.
       if (own === "disks" && panel.get()?.content.kind !== "disks") dropStaleScan();
-      return togglePanel({ kind: own }, { x: r.x, w: r.width });
+      return togglePanel({ kind: own }, spanOf(button));
     }
     const tool = widgetTool(id);
     // Windows may refuse to open it; nothing changes then. The bar stays up while it comes to the front.
