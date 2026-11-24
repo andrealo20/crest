@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { altGrRisk } from "./hotkeys.ts";
-import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey, stripScroll } from "./model.ts";
+import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey, startTool, stripScroll } from "./model.ts";
 
 test("without a saved group the rules follow the old visibility setting", () => {
   assert.deepEqual(normalizeWindow(undefined).rules, WINDOW_DEFAULTS.rules);
@@ -106,4 +106,24 @@ test("a strip leaves the wheel alone when nothing is hidden or the wheel already
   assert.equal(stripScroll(0, 100, 1, false), 0);
   assert.equal(stripScroll(120, 30, 240, false), 0);
   assert.equal(stripScroll(0, 0, 240, false), 0);
+});
+
+test("the notch opens on the live activity, the tool open last or a tool of the user's choosing (#87)", () => {
+  assert.equal(normalizeWindow({}).openOn, "live");
+  assert.equal(normalizeWindow({ openOn: "last" }).openOn, "last");
+  assert.equal(normalizeWindow({ openOn: "timer" }).openOn, "timer");
+  assert.equal(normalizeWindow({ openOn: "plugin:my_tool" }).openOn, "plugin:my_tool");
+  for (const bad of ["../x", "", 5, null, "a".repeat(65)]) assert.equal(normalizeWindow({ openOn: bad }).openOn, "live");
+  const tools = ["media", "timer", "notes"];
+  // Live: the activity's tool (the song's), unless the notch reopens right after closing; nothing live keeps the last tool.
+  assert.equal(startTool("live", "media", tools, false), "media");
+  assert.equal(startTool("live", "media", tools, true), null);
+  assert.equal(startTool("live", null, tools, false), null);
+  // The last tool: never moved.
+  assert.equal(startTool("last", "media", tools, false), null);
+  // A chosen tool, whatever plays, and every time: also within the minute that otherwise resumes where the notch was.
+  assert.equal(startTool("timer", "media", tools, false), "timer");
+  assert.equal(startTool("timer", "media", tools, true), "timer");
+  // A chosen tool no longer in the tool bar: as live.
+  assert.equal(startTool("weather", "media", tools, false), "media");
 });

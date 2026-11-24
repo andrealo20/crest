@@ -19,7 +19,7 @@ import { Nest } from "./pet/Nest";
 import { powerState, statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
-import { cycle } from "../features/window/model";
+import { cycle, startTool } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
@@ -160,7 +160,11 @@ export function Notch() {
       if (target) navigate(target);
       // A fresh install opens on the setup until it is finished or skipped.
       else if (!settings.get().setup.done) navigate(setupTab.id);
-      else if (!resumed && live.id && visible.some((t) => t.id === live.id)) navigate(live.id);
+      else {
+        // The live activity's tool, the tool open last or the one chosen (Settings, Window: Opens on, #87).
+        const start = startTool(settings.get().behavior.openOn, live.id ?? null, visible.map((t) => t.id), resumed);
+        if (start) navigate(start);
+      }
       trayTab.current = null;
     }
     if (status !== "open" && prevStatus.current === "open") closedAt.current = Date.now();

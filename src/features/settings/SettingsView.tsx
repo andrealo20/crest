@@ -936,9 +936,14 @@ function Ask() {
   );
 }
 
-/** Open on hover or click, and the hover delay (also in the first-run setup). */
+/** Open on hover or click, the tool it opens on, and the hover delay (also in the first-run setup). */
 export function OpenRows() {
   const s = settings.use();
+  // The tools in the tool bar, in its order, as the Tools page names them.
+  const tools = s.tools.flatMap((x) => {
+    const tab = x.enabled ? findTab(x.id) : undefined;
+    return tab ? [{ value: x.id, label: t(tab.label) }] : [];
+  });
   return (
     <>
       <Row icon="touch_app" label={t("Öffnen")}>
@@ -952,6 +957,14 @@ export function OpenRows() {
             { value: "hover", label: t("Hover") },
             { value: "click", label: t("Klick") },
           ]}
+        />
+      </Row>
+      <Row icon="open_in_full" label={t("Öffnet auf")}>
+        <Select
+          value={s.behavior.openOn === "live" || s.behavior.openOn === "last" || tools.some((x) => x.value === s.behavior.openOn) ? s.behavior.openOn : "live"}
+          width="w-48"
+          options={[{ value: "live", label: t("Laufende Aktivität") }, { value: "last", label: t("Zuletzt geöffnetes Tool") }, ...tools]}
+          onChange={(openOn) => updateSettings((cur) => ({ behavior: { ...cur.behavior, openOn } }))}
         />
       </Row>
       <AnimatePresence initial={false}>

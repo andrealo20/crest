@@ -44,6 +44,8 @@ export interface WindowSettings {
   toolBar: "bottom" | "top";
   /** The tool bar's capsule behind the icons: its fill, or its glass over the glass (#76). */
   toolBarFill: boolean;
+  /** The tool an open without a target lands on: "live" (the live activity's, as before), "last" (the tool open last) or a tool's id (#87). */
+  openOn: string;
 }
 
 export const MAX_APP_RULES = 32;
@@ -66,6 +68,7 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   hoverParts: true,
   toolBar: "bottom",
   toolBarFill: true,
+  openOn: "live",
 };
 
 const BEHAVIORS: Behavior[] = ["normal", "line", "hide"];
@@ -159,7 +162,20 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
     hoverParts: bool(s.hoverParts, d.hoverParts),
     toolBar: s.toolBar === "top" ? "top" : "bottom",
     toolBarFill: bool(s.toolBarFill, d.toolBarFill),
+    openOn: typeof s.openOn === "string" && /^[A-Za-z0-9:_-]{1,64}$/.test(s.openOn) ? s.openOn : d.openOn,
   };
+}
+
+/**
+ * The tool an open with no target of its own (a tray entry, a clicked part, the part under the pointer) navigates to, or null to
+ * stay on the tool shown last: `choice` is `openOn`, `live` the live activity's tool, `tools` the tool bar's, and `resumed` an open
+ * within a minute of a close, which the live activity leaves where it was. A chosen tool wins every time; one that left the tool
+ * bar counts as "live".
+ */
+export function startTool(choice: string, live: string | null, tools: string[], resumed: boolean): string | null {
+  if (choice === "last") return null;
+  if (choice !== "live" && tools.includes(choice)) return choice;
+  return !resumed && live && tools.includes(live) ? live : null;
 }
 
 /** The tool `step` places away from `current` in the dock, wrapping; null when there is nothing to switch to. */
