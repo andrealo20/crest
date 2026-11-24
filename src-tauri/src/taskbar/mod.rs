@@ -25,6 +25,7 @@ pub(crate) mod preview;
 pub(crate) mod recycle;
 pub(crate) mod reserve;
 pub(crate) mod screens;
+pub(crate) mod search;
 pub(crate) mod start;
 pub(crate) mod taskband;
 pub(crate) mod tasks;
@@ -215,6 +216,7 @@ unsafe fn run(ready: Sender<isize>, app: AppHandle) {
                 pending.window = window;
                 pending.app = Some(app.clone());
             });
+            search::begin(app.clone());
             let others = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
             let hooks = [
                 SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, None, Some(on_event), 0, 0, others),
@@ -380,7 +382,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
 }
 
 /// A window event of another process, or any window brought to front: a window itself shown goes to explorer.rs, and every
-/// window event to the list (tasks.rs).
+/// window event to the list (tasks.rs) and to the watch on Windows' search panel (search.rs).
 unsafe extern "system" fn on_event(_: HWINEVENTHOOK, event: u32, hwnd: HWND, object: i32, child: i32, _: u32, _: u32) {
     if object != OBJID_WINDOW.0 || child != CHILDID_SELF as i32 {
         return;
@@ -393,6 +395,7 @@ unsafe extern "system" fn on_event(_: HWINEVENTHOOK, event: u32, hwnd: HWND, obj
         });
     }
     tasks::on_event(event, hwnd);
+    search::on_event(event, hwnd);
 }
 
 /// A pop-up menu of another process shown or closed, for the tray icon whose menu a right click opened (tray.rs).

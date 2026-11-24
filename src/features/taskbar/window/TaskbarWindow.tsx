@@ -1253,14 +1253,14 @@ function useHitZone(
   const on = settings.use().taskbar.autoHide;
   const [band, setBand] = useState<Rect | null>(null);
   // A drag keeps the bar up.
-  const down = useAutoHide({ band, open: hold.open || hold.dragging, attention: hold.attention });
+  const { down, aside } = useAutoHide({ band, open: hold.open || hold.dragging, attention: hold.attention });
   const menu = useRef<HitRect | null>(null);
   // The preview card's zone, in a ref beside the menus': the panel closing would overwrite theirs.
   const preview = useRef<HitRect | null>(null);
   // While an item is dragged the whole window, in a ref of its own: a closing panel overwrites the menus' one.
   const drag = useRef(false);
   // As of the last render, for the reports the observers make.
-  const now = useRef({ on, down });
+  const now = useRef({ on, down, aside });
   const report = useCallback(() => {
     const el = ref.current;
     if (!el || el.offsetWidth <= 0 || el.offsetHeight <= 0) return;
@@ -1298,9 +1298,9 @@ function useHitZone(
   }, [ref, report, shape, layout]);
   // Down or up, the option on or off: other zones over the same still box.
   useEffect(() => {
-    now.current = { on, down };
+    now.current = { on, down, aside };
     report();
-  }, [on, down, report]);
+  }, [on, down, aside, report]);
   useLayoutEffect(() => {
     drag.current = hold.dragging;
     report();

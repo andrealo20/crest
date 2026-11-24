@@ -46,3 +46,11 @@ test("a top bar that slid away keeps only the strip at the top edge", () => {
   assert.deepEqual(zones({ bands: [band], open: [], on: true, down: true, edge: "top", width: 1920, height: 632 }), [strip]);
   assert.deepEqual(zones({ bands: [band], open: [], on: true, down: false, edge: "top", width: 1920, height: 632 }), [band, strip]);
 });
+
+test("a bar stepped aside for Windows' search panel takes no clicks at all, not even its strip", () => {
+  const band = { x: 0, y: 584, w: 1920, h: 48 };
+  assert.deepEqual(zones({ bands: [band], open: [], on: true, down: true, aside: true, width: 1920, height: 632 }), []);
+  assert.deepEqual(zones({ bands: [band], open: [], on: false, down: true, aside: true, width: 1920, height: 632 }), []);
+  // Back once the panel goes: as before.
+  assert.deepEqual(zones({ bands: [band], open: [], on: false, down: false, aside: false, width: 1920, height: 632 }), [band]);
+});
