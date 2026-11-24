@@ -499,18 +499,20 @@ struct JumpItem {
 pub async fn taskbar_jump_list(key: String, window: WebviewWindow, app: AppHandle) -> Result<JumpList, String> {
     super::bar::from_bar(&window)?;
     let label = window.label().to_string();
+    // Before the read: reads overlap, and the list asked for last is the menu showing (`store`).
+    let token = NEXT.fetch_add(1, Ordering::SeqCst);
     tauri::async_runtime::spawn_blocking(move || {
         let who = resolve(&app, &key).ok_or("none")?;
         let reading = who.clone();
         let groups = launcher::on_sta(move || unsafe { read(&reading) }).ok_or("failed")?;
-        Ok(keep(label, who, groups))
+        Ok(keep(label, token, who, groups))
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-/// Keeps `groups`' rows for bar `label` under a new token, the list before it gone, and gives the page their titles and icons.
-fn keep(label: String, who: AppRef, groups: Vec<(&'static str, String, Vec<Entry>)>) -> JumpList {
+/// Keeps `groups`' rows for bar `label` under `token` (`store`), and gives the page their titles and icons.
+fn keep(label: String, token: u32, who: AppRef, groups: Vec<(&'static str, String, Vec<Entry>)>) -> JumpList {
     let mut targets = Vec::new();
     let groups = groups
         .into_iter()
@@ -526,9 +528,17 @@ fn keep(label: String, who: AppRef, groups: Vec<(&'static str, String, Vec<Entry
                 .collect(),
         })
         .collect();
-    let token = NEXT.fetch_add(1, Ordering::SeqCst);
-    lock(&OPEN).insert(label, Open { token, app: who, targets });
+    store(&mut lock(&OPEN), label, Open { token, app: who, targets });
     JumpList { token, groups }
+}
+
+/// `list` becomes bar `label`'s current one, the one before it gone, unless the bar holds a newer one: `on_sta` reads on a thread
+/// each, so after a quick second right-click the first read can end last. The page drops that late answer, and its rows must not
+/// take the place of the menu showing, whose rows would all answer "unknown".
+fn store(open: &mut HashMap<String, Open>, label: String, list: Open) {
+    if open.get(&label).is_none_or(|o| o.token < list.token) {
+        open.insert(label, list);
+    }
 }
 
 /// The Recently opened button's menu: the files and folders Windows recorded as opened last, newest first (`recent_files`), read
@@ -541,10 +551,11 @@ pub async fn taskbar_recent(window: WebviewWindow) -> Result<JumpList, String> {
         return Err("off".into());
     }
     let label = window.label().to_string();
+    let token = NEXT.fetch_add(1, Ordering::SeqCst);
     tauri::async_runtime::spawn_blocking(move || {
         let rows = launcher::on_sta(|| unsafe { recent_files() }).flatten().ok_or("failed")?;
         // No app: each row is a link, which opens by itself (`open`).
-        Ok(keep(label, AppRef { app_id: String::new(), exe: None }, vec![("recent", String::new(), rows)]))
+        Ok(keep(label, token, AppRef { app_id: String::new(), exe: None }, vec![("recent", String::new(), rows)]))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -675,6 +686,22 @@ mod tests {
         assert!(take_entry(&open, "taskbar", 4, 0).is_none());
         assert!(take_entry(&open, "taskbar", 5, 1).is_none()); // a separator
         assert!(take_entry(&open, "taskbar", 5, 2).is_none());
+    }
+
+    #[test]
+    fn a_read_that_ends_after_a_newer_one_leaves_the_newer_rows() {
+        let list = |token, path: &str| Open { token, app: AppRef { app_id: String::new(), exe: None }, targets: vec![Some(Target::Item(path.into()))] };
+        let mut open = HashMap::new();
+        // Asked for as 7 (a long list) and 8 (Notepad); 8 ends first, then 7.
+        store(&mut open, "taskbar".into(), list(8, "C:\\notepad"));
+        store(&mut open, "taskbar".into(), list(7, "C:\\long"));
+        assert!(take_entry(&open, "taskbar", 8, 0).is_some());
+        assert!(take_entry(&open, "taskbar", 7, 0).is_none());
+        // A newer one still takes the place, and each bar keeps its own.
+        store(&mut open, "taskbar".into(), list(9, "C:\\again"));
+        store(&mut open, "taskbar-1".into(), list(3, "C:\\other"));
+        assert!(take_entry(&open, "taskbar", 9, 0).is_some());
+        assert!(take_entry(&open, "taskbar-1", 3, 0).is_some());
     }
 
     #[test]
