@@ -14,6 +14,7 @@ import { HOTSPOT_EVERY, HOVER_GAP, deskIconsName, deskIconsNote, ejectName, hots
 import { DndButton } from "./DndButton";
 import { readRemovables, removables } from "./EjectMenu";
 import { holdBriefly } from "./hold";
+import { togglePanel } from "../panel";
 import { Item, type ItemProps } from "./Item";
 
 /** Each of Windows' buttons the bar holds (model.ts SYS_IDS): its name (a key for t()) and its icon, which the settings and the drag's ghost show too. */
@@ -211,7 +212,8 @@ function PrivacyButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
 
 /**
  * The Recycle Bin, empty or full, with its count in its name; Rust sends a new count when the shell reports a change (recycle.rs). A
- * click opens it in Explorer; its menu (TaskbarWindow) empties it through Windows' own confirmation.
+ * click opens or closes its confirmation above the bar (RecyclePanel), whose red button alone empties it; its menu (TaskbarWindow)
+ * opens it too.
  */
 function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
   useEffect(() => {
@@ -227,8 +229,8 @@ function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
       name={t(key, values)}
       onClick={(e) => {
         if (dragged(e)) return;
-        holdBriefly();
-        void taskbar.recycleDo("open").catch(() => {});
+        const r = e.currentTarget.getBoundingClientRect();
+        togglePanel({ kind: "recycle" }, { x: r.x, w: r.width });
       }}
     >
       <Trash size={Math.round(item.size * 0.8)} weight={n ? "fill" : "regular"} />

@@ -6,6 +6,7 @@ import {
   movedOrder,
   previewDrop,
   recycleName,
+  emptyWarning,
   shiftMenu,
   windowMenuRows,
   COMPACT_PAD,
@@ -861,4 +862,11 @@ test("every click on a folder opens it, Win+number too, Win+Alt+number and Shift
 test("the window buttons of one app side by side are one place", () => {
   const slots = [{ id: "a", x: 100, w: 40 }, { id: "a", x: 146, w: 40 }, { id: "b", x: 192, w: 40 }, { id: "a", x: 238, w: 40 }];
   assert.deepEqual(pinSlots(slots), [{ id: "a", x: 100, w: 86 }, { id: "b", x: 192, w: 40 }, { id: "a", x: 238, w: 40 }]);
+});
+
+test("the bin's warning counts its items, one in the singular", () => {
+  assert.deepEqual(emptyWarning(null), ["Der Papierkorb ist leer"]);
+  assert.deepEqual(emptyWarning(0), ["Der Papierkorb ist leer"]);
+  assert.deepEqual(emptyWarning(1), ["1 Element wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."]);
+  assert.deepEqual(emptyWarning(7), ["{n} Elemente werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.", { n: 7 }]);
 });

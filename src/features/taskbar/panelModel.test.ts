@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool, RECYCLE_SIZE } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -201,7 +201,7 @@ test("the clock's panel has the notch send the calendar and the notices, as a to
   assert.equal(reportedTool({ kind: "clock" }), "calendar");
   assert.ok(BAR_TOOLS.includes(reportedTool({ kind: "clock" })!));
   assert.equal(reportedTool(tool("media")), "media");
-  for (const c of [{ kind: "tray" }, { kind: "apps" }, { kind: "quick" }, { kind: "disks" }, { kind: "search" }, { kind: "crypto" }] as PanelContent[]) assert.equal(reportedTool(c), null, c.kind);
+  for (const c of [{ kind: "tray" }, { kind: "apps" }, { kind: "quick" }, { kind: "disks" }, { kind: "search" }, { kind: "crypto" }, { kind: "recycle" }] as PanelContent[]) assert.equal(reportedTool(c), null, c.kind);
   assert.equal(reportedTool(undefined), null);
 });
 
@@ -278,4 +278,10 @@ test("the rest takes its own time when asked, the trash's otherwise", () => {
   assert.equal(trashArmed(1000, 1500, 500), true);
   assert.equal(trashArmed(1000, 1000 + TRASH_ARM_MS), true);
   assert.equal(trashArmed(1000, 1000 + TRASH_ARM_MS - 1), false);
+});
+
+test("the bin's panel is its own content, at the size of its confirmation", () => {
+  assert.equal(panelKey({ kind: "recycle" }), "recycle");
+  assert.equal(sameContent({ kind: "recycle" }, { kind: "tray" }), false);
+  assert.deepEqual(RECYCLE_SIZE, { w: 340, h: 272 });
 });

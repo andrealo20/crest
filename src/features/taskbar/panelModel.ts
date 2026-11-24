@@ -18,6 +18,7 @@ export type PanelContent =
   | { kind: "clock" }
   | { kind: "search" }
   | { kind: "crypto" }
+  | { kind: "recycle" }
   | { kind: "widgets" }
   | { kind: "folder"; id: string; focus?: "first" | "name" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
@@ -164,6 +165,8 @@ export const SEARCH_SIZE = { w: 360, h: 80 };
 
 /** The crypto widget's panel at 100 %: 12 px round the coin's price (32), its line over 7 days (88) and the row of the Depot's button (32), 10 px between. */
 export const CRYPTO_SIZE = { w: 320, h: 24 + 32 + 10 + 88 + 10 + 32 };
+/** The Recycle Bin's confirmation at 100 %: 24 px round its bin and title (56), its warning and the link to Explorer, and its two buttons (44 each, 8 apart). */
+export const RECYCLE_SIZE = { w: 340, h: 272 };
 
 /** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet; the mixer whatever the radios read. */
 export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {

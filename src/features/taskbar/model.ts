@@ -25,6 +25,13 @@ export type SysItem = `sys:${SysId}`;
 /** The Recycle Bin button's name: a key for t() and its values; null, before the first count, reads as empty. */
 export const recycleName = (n: number | null): [string, Record<string, number>?] =>
   !n ? ["Papierkorb ist leer"] : n === 1 ? ["Papierkorb: 1 Element"] : ["Papierkorb: {n} Elemente", { n }];
+/** What the bin's panel says before its red button empties it: how many items go for good, one in the singular; null reads as empty. */
+export const emptyWarning = (n: number | null): [string, Record<string, number>?] =>
+  !n
+    ? ["Der Papierkorb ist leer"]
+    : n === 1
+      ? ["1 Element wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."]
+      : ["{n} Elemente werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.", { n }];
 /** What the zones hold: Windows' Start button ("start"), the apps (pinned and open), the Crest button, the notification area ("tray"), Stato (network, volume and battery, "status"), the closed notch's parts as widgets, buttons that open a tool (`tool:<id>`) and Windows' own buttons (`sys:<id>`). */
 export type BarItem = "start" | "apps" | "crest" | "tray" | "status" | PartId | ToolItem | SysItem;
 /** The items every bar has: one missing from the zones is put back in its default place. The Crest button, the tray, Stato and the widgets can be taken off. */

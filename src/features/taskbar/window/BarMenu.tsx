@@ -11,6 +11,7 @@ import { MENU_PANEL_CLASS, MENU_ROW_CLASS } from "../../../ui/menu";
 import { toggleFavorite, type Favorite } from "../../launcher/apps";
 import { folderKey, intoFolder, newFolder, nextName, normalizeFolders, takeOut, ungroup, type Folder, type Pins } from "../folderModel";
 import { recycleBin, setTaskbar } from "../store";
+import { openPanel, type PanelAnchor } from "../panel";
 import { folderLabel } from "./FolderPanel";
 import { holdBriefly } from "./hold";
 import { GROUP_MENU, appKey, jumpHeading, menuFor, menuKey, newInstance, placeMenu, windowMenuRows, type BarButton, type Click, type GroupEntry, type JumpList, type Win, type WindowEntry, type WindowState } from "../model";
@@ -364,18 +365,27 @@ export function CrestMenu({ close }: { close: () => void }) {
   );
 }
 
-/** The Recycle Bin's menu: Open, and Empty while it holds anything, which Windows confirms first. */
-export function RecycleMenu({ close }: { close: () => void }) {
+/** The Recycle Bin's menu: Open, and Empty while it holds anything, which opens the bin's confirmation above it (RecyclePanel). */
+export function RecycleMenu({ close, anchor }: { close: () => void; anchor: PanelAnchor }) {
   const items = recycleBin.use()?.items ?? 0;
-  const run = (action: "open" | "empty") => () => {
-    close();
-    holdBriefly();
-    void taskbar.recycleDo(action).catch(() => {});
-  };
   return (
     <>
-      <Row label={t("Öffnen")} onClick={run("open")} />
-      <Row label={t("Papierkorb leeren")} disabled={!items} onClick={run("empty")} />
+      <Row
+        label={t("Öffnen")}
+        onClick={() => {
+          close();
+          holdBriefly();
+          void taskbar.recycleDo("open").catch(() => {});
+        }}
+      />
+      <Row
+        label={t("Papierkorb leeren")}
+        disabled={!items}
+        onClick={() => {
+          close();
+          openPanel({ kind: "recycle" }, anchor);
+        }}
+      />
     </>
   );
 }

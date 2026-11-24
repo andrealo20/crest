@@ -1080,7 +1080,7 @@ export function TaskbarWindow() {
               {menu.kind === "crest" ? (
                 <CrestMenu close={closeMenu} />
               ) : menu.kind === "recycle" ? (
-                <RecycleMenu close={closeMenu} />
+                <RecycleMenu close={closeMenu} anchor={{ x: menu.x, w: menu.w }} />
               ) : menu.kind === "recent" ? (
                 <RecentMenu close={closeMenu} />
               ) : menu.kind === "eject" ? (
