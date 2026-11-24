@@ -4,6 +4,7 @@
 //! Windows does not ask a second time.
 
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use serde::Serialize;
@@ -34,8 +35,10 @@ pub struct Recycle {
     bytes: i64,
 }
 
-/// The last count the bar was sent.
-static LAST: Mutex<Option<Recycle>> = Mutex::new(None);
+/// The number of the newest read that ended (`take`), and the last count the bar was sent.
+static LAST: Mutex<(u64, Option<Recycle>)> = Mutex::new((0, None));
+/// The reads started, to number them.
+static READS: AtomicU64 = AtomicU64::new(0);
 
 thread_local! {
     /// The registration's id and the bin's pidl, on the taskbar thread.
@@ -56,11 +59,26 @@ fn changed(prev: Option<Recycle>, now: Option<Recycle>) -> bool {
     now.is_some() && prev != now
 }
 
+/// Read `seq`'s count `now` into `last`: whether the bar is sent it. A read older than one already in changes nothing, as a failed
+/// one: a big bin counts slowly, so while it empties a read begun earlier can end after the newer one that found it empty.
+fn take(last: &mut (u64, Option<Recycle>), seq: u64, now: Option<Recycle>) -> bool {
+    if seq < last.0 {
+        return false;
+    }
+    last.0 = seq;
+    if !changed(last.1, now) {
+        return false;
+    }
+    last.1 = now;
+    true
+}
+
 fn refresh(app: &AppHandle) {
+    // Numbered before the count, which is what takes long.
+    let seq = READS.fetch_add(1, Ordering::SeqCst) + 1;
     let now = query();
     let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
-    if changed(*last, now) {
-        *last = now;
+    if take(&mut last, seq, now) {
         let _ = app.emit_to(bar::LABEL, "taskbar://recycle", now);
     }
 }
@@ -96,7 +114,7 @@ pub(super) fn end(window: HWND) {
     ARMED.set(false);
     APP.set(None);
     // The bin may change while the bar is off: the next bar's first ask reads it again.
-    *LAST.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    LAST.lock().unwrap_or_else(|e| e.into_inner()).1 = None;
 }
 
 pub(super) fn on_notify(window: HWND, wparam: WPARAM, lparam: LPARAM) {
@@ -125,7 +143,7 @@ pub(super) fn on_timer(window: HWND) {
 
 #[tauri::command]
 pub async fn taskbar_recycle() -> Option<Recycle> {
-    let last = *LAST.lock().unwrap_or_else(|e| e.into_inner());
+    let last = LAST.lock().unwrap_or_else(|e| e.into_inner()).1;
     match last {
         Some(r) => Some(r),
         None => tauri::async_runtime::spawn_blocking(query).await.ok().flatten(),
@@ -188,5 +206,22 @@ mod tests {
         assert!(!changed(Some(a), Some(a)));
         assert!(changed(None, Some(a)));
         assert!(!changed(Some(a), None));
+    }
+
+    #[test]
+    fn a_count_that_ends_after_a_newer_one_stays_off_the_button() {
+        let full = Recycle { items: 4000, bytes: 9_000_000 };
+        let empty = Recycle { items: 0, bytes: 0 };
+        let mut last = (0, Some(full));
+        // Read 2 began after the bin emptied and ends first; read 1, begun on the full bin, ends after it.
+        assert!(take(&mut last, 2, Some(empty)));
+        assert!(!take(&mut last, 1, Some(full)));
+        assert_eq!(last, (2, Some(empty)));
+        // A newer read that finds the same count, or fails, sends nothing, and still keeps an older one out.
+        assert!(!take(&mut last, 3, Some(empty)));
+        assert!(!take(&mut last, 4, None));
+        assert!(!take(&mut last, 3, Some(full)));
+        assert_eq!(last, (4, Some(empty)));
+        assert!(take(&mut last, 5, Some(full)));
     }
 }
