@@ -13,7 +13,7 @@ import { useHue } from "../themes/hues";
 import { peekForecast } from "../weather/store";
 import { moonPhase, sunDay, type MoonPhaseName } from "./astro";
 import { clockActions, clocks } from "./store";
-import { MAX_ZONES, allZones, cityName, dayDelta, formatClock, formatDiff, formatUtc, isDay, localZone, regionName, searchZones, wallTime, zoneOffset } from "./zones";
+import { MAX_ZONES, allZones, cityName, dayDelta, formatClock, formatDiff, formatUtc, isDay, localZone, regionName, searchHits, wallTime, zoneOffset } from "./zones";
 
 const QUARTER = 15 * 60_000;
 /** The reference time moves in quarter hours, a day either way: Nepal's :45 and Adelaide's :30 stay reachable. */
@@ -170,11 +170,12 @@ function RowButton(props: { label: string; onClick: () => void; disabled?: boole
   );
 }
 
-/** Search over the engine's own list of zones; the city is the last part of the name. */
+/** Search over the engine's own list of zones; the city is the last part of the name. A capital without a zone of its own (Brasília)
+ * shows by its name, with the city whose zone keeps its time beside it (zones.ts searchHits). */
 function ZonePicker({ taken, now, onDone }: { taken: string[]; now: number; onDone: () => void }) {
   const [query, setQuery] = useState("");
   const zones = useMemo(allZones, []);
-  const hits = useMemo(() => searchZones(query, zones), [query, zones]);
+  const hits = useMemo(() => searchHits(query, zones), [query, zones]);
   return (
     <div
       className="flex min-h-0 flex-1 flex-col gap-2"
@@ -200,7 +201,7 @@ function ZonePicker({ taken, now, onDone }: { taken: string[]; now: number; onDo
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {hits.map((zone) => (
+        {hits.map(({ zone, name }) => (
           <button
             key={zone}
             disabled={taken.includes(zone)}
@@ -210,8 +211,8 @@ function ZonePicker({ taken, now, onDone }: { taken: string[]; now: number; onDo
             }}
             className="flex h-8 shrink-0 items-center gap-2 rounded-[8px] px-3 text-start hover:bg-fill-1 disabled:opacity-40 disabled:hover:bg-transparent"
           >
-            <span className="text-footnote text-label">{cityName(zone)}</span>
-            <span className="min-w-0 flex-1 truncate text-caption text-label-3">{regionName(zone)}</span>
+            <span className="text-footnote text-label">{name}</span>
+            <span className="min-w-0 flex-1 truncate text-caption text-label-3">{name === cityName(zone) ? regionName(zone) : cityName(zone)}</span>
             <span className="tabular shrink-0 text-caption text-label-3">{formatUtc(zoneOffset(now, zone))}</span>
           </button>
         ))}
