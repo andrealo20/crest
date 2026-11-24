@@ -1248,6 +1248,7 @@
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} दूसरे ऐप द्वारा उपयोग में है और यह ऐप शुरू नहीं करता",
  "{name} ist nicht mehr installiert": "{name} अब इंस्टॉल नहीं है",
  "{name} startet nicht": "{name} शुरू नहीं हुआ",
+ "Windows hat {name} nicht nach vorn gelassen": "Windows ने {name} को आगे लाने नहीं दिया",
  "Beiträge der letzten {n} Wochen": "पिछले {n} सप्ताह के योगदान",
  "GitHub-Beiträge heute": "आज के GitHub योगदान",
  "GitHub-Einstellungen": "GitHub सेटिंग्स",

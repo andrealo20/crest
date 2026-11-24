@@ -115,3 +115,13 @@ test("a hover draws only the button it leaves and the one it reaches, and a redr
   assert.ok(item.includes("const label = props.label !== undefined ? props.label : lifted ? (props.hoverLabel ?? null) : null"));
   for (const name of ["Mark", "ProgressLine", "Label"]) assert.ok(item.includes(`const ${name} = memo(function ${name}(`), name);
 });
+
+test("a window Windows keeps back says so on its button, from the button, a preview tile or the list of windows (#94)", () => {
+  const bar = window("TaskbarWindow.tsx"), preview = window("Preview.tsx"), menu = window("BarMenu.tsx");
+  assert.ok(bar.includes("taskbar.window(c.id, c.kind).catch(refusedOn(b))"));
+  assert.ok(bar.includes('if (code === "refused") setError({ key: b.key'));
+  assert.ok(bar.includes("onRefused={refusedOn(cardButton)}") && bar.includes("onRefused={refusedOn(menu.b)}"));
+  for (const [name, src] of [["Preview.tsx", preview], ["BarMenu.tsx", menu]]) assert.ok(src.includes('taskbar.window(win.id, "activate").catch(onRefused)'), name);
+  // Only "refused" speaks: a window closed meanwhile (not-found) stays quiet, as before.
+  assert.doesNotMatch(bar, /code === "not-found"[^\n]*nach vorn/);
+});

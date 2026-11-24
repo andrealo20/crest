@@ -1248,6 +1248,7 @@
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} est utilisé par une autre application et ne lance pas celle-ci",
  "{name} ist nicht mehr installiert": "{name} n'est plus installé",
  "{name} startet nicht": "{name} n'a pas démarré",
+ "Windows hat {name} nicht nach vorn gelassen": "Windows n'a pas permis de mettre {name} au premier plan",
  "Beiträge der letzten {n} Wochen": "Contributions des {n} dernières semaines",
  "GitHub-Beiträge heute": "Contributions GitHub aujourd'hui",
  "GitHub-Einstellungen": "Paramètres GitHub",

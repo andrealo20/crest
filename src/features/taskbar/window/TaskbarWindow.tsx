@@ -386,9 +386,12 @@ export function TaskbarWindow() {
     };
     if (c.kind === "launch") launcher.open(c.id, c.admin === true).catch(failed);
     else if (c.kind === "spawn") taskbar.launchWindow(c.id, c.admin === true).catch(failed);
-    // A window of an app run as administrator may refuse; nothing changes then.
-    else if (c.kind === "toggle" || c.kind === "activate") taskbar.window(c.id, c.kind).catch(() => {});
+    else if (c.kind === "toggle" || c.kind === "activate") taskbar.window(c.id, c.kind).catch(refusedOn(b));
     else if (c.kind === "closeAll") closeWindows(b);
+  };
+  /** Windows kept the window back even after the switch Alt+Tab makes (tasks.rs `bring`): the button says so (#94). Else nothing. */
+  const refusedOn = (b: BarButton) => (code: unknown) => {
+    if (code === "refused") setError({ key: b.key, text: t("Windows hat {name} nicht nach vorn gelassen", { name: b.name }) });
   };
   /** A file held over an app (K1): after DRAG_REST its one window comes forward, or its previews open for several. */
   const dragTimer = useRef<number | undefined>(undefined);
@@ -1119,7 +1122,7 @@ export function TaskbarWindow() {
               ) : menu.kind === "folder" ? (
                 <FolderMenu id={menu.b.folder!.id} close={closeMenu} rename={() => openFolder(menu.b.folder!.id, "name")} />
               ) : (
-                <WindowList b={menu.b} close={closeMenu} />
+                <WindowList b={menu.b} close={closeMenu} onRefused={refusedOn(menu.b)} />
               )}
             </BarMenu>
           )}
@@ -1140,6 +1143,7 @@ export function TaskbarWindow() {
               onEnter={() => window.clearTimeout(cardTimer.current)}
               onLeave={leavePreview}
               onClose={closeCard}
+              onRefused={refusedOn(cardButton)}
             />
           )}
         </AnimatePresence>

@@ -1248,6 +1248,7 @@
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} はほかのアプリが使用中のため、このアプリは起動しません",
  "{name} ist nicht mehr installiert": "{name} はインストールされていません",
  "{name} startet nicht": "{name} を起動できませんでした",
+ "Windows hat {name} nicht nach vorn gelassen": "Windows が {name} を前面に表示させませんでした",
  "Beiträge der letzten {n} Wochen": "過去 {n} 週間のコントリビューション",
  "GitHub-Beiträge heute": "今日の GitHub コントリビューション",
  "GitHub-Einstellungen": "GitHub の設定",

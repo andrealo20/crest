@@ -1248,6 +1248,7 @@
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} 已被其他应用占用，不会启动此应用",
  "{name} ist nicht mehr installiert": "{name} 已卸载",
  "{name} startet nicht": "{name} 未能启动",
+ "Windows hat {name} nicht nach vorn gelassen": "Windows 不允许将 {name} 置于前台",
  "Beiträge der letzten {n} Wochen": "最近 {n} 周的贡献",
  "GitHub-Beiträge heute": "今日 GitHub 贡献",
  "GitHub-Einstellungen": "GitHub 设置",

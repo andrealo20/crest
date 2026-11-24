@@ -1248,6 +1248,7 @@
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} is used by another app and does not start this one",
  "{name} ist nicht mehr installiert": "{name} is no longer installed",
  "{name} startet nicht": "{name} did not start",
+ "Windows hat {name} nicht nach vorn gelassen": "Windows did not let {name} come forward",
  "Beiträge der letzten {n} Wochen": "Contributions in the last {n} weeks",
  "GitHub-Beiträge heute": "GitHub contributions today",
  "GitHub-Einstellungen": "GitHub settings",

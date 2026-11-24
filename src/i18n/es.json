@@ -1248,6 +1248,7 @@
  "{key} ist von einer anderen App belegt und startet diese App nicht": "{key} lo usa otra app y no inicia esta",
  "{name} ist nicht mehr installiert": "{name} ya no está instalada",
  "{name} startet nicht": "{name} no se inició",
+ "Windows hat {name} nicht nach vorn gelassen": "Windows no permitió traer {name} al frente",
  "Beiträge der letzten {n} Wochen": "Contribuciones de las últimas {n} semanas",
  "GitHub-Beiträge heute": "Contribuciones de GitHub hoy",
  "GitHub-Einstellungen": "Configuración de GitHub",
