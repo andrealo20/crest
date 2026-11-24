@@ -36,9 +36,9 @@ export function SetupView() {
           <motion.div
             key={state.step}
             className="absolute inset-0 flex flex-col gap-3 overflow-y-auto pb-2 [scrollbar-width:none]"
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           >
             {state.step === 0 && <PresetStep preset={state.preset} original={state.original} onPick={(preset) => set({ preset })} />}
             {state.step === 1 && (

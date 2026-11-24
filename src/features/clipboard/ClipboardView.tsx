@@ -242,9 +242,9 @@ function PreviewPane({ preview, paste, onPick, onClose }: { preview: LoadedPrevi
   return (
     <motion.div
       className="flex min-h-0 flex-1 flex-col items-center gap-1.5 px-4 pt-2.5"
-      initial={{ opacity: 0, filter: "blur(6px)", transform: "translateY(-6px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)", transition: { ...content.enter, delay: 0.08 } }}
-      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+      initial={{ opacity: 0, transform: "translateY(-6px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)", transition: { ...content.enter, delay: 0.08 } }}
+      exit={{ opacity: 0, transition: content.exit }}
     >
       {/* Image change: crossfade on top of each other, the area itself stays put. */}
       <div className="relative" style={{ width: preview.w, height: preview.h }}>
@@ -255,9 +255,9 @@ function PreviewPane({ preview, paste, onPick, onClose }: { preview: LoadedPrevi
             alt=""
             draggable={false}
             className="absolute inset-0 size-full rounded-[12px] object-contain"
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           />
         </AnimatePresence>
       </div>

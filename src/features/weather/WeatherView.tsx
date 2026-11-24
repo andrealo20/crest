@@ -65,7 +65,7 @@ export function WeatherView() {
             <MaterialWeather data={data} place={place} onChangePlace={() => (isNotchWindow ? setSearching(true) : navigate("settings", "weather"))} />
           </motion.div>
         ) : (
-          <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
+          <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }}>
             {/* The search asks Open-Meteo and the IP lookup: from the bar the place changes in the settings window. */}
             <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => (isNotchWindow ? setSearching(true) : navigate("settings", "weather"))} />
             {/* A size container: Hours (66 px) steps aside below 226 px, what it and the seven days (152 px) need. */}

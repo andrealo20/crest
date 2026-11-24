@@ -49,9 +49,9 @@ export function VaultView() {
         <motion.div
           key="hidden"
           className="h-full"
-          initial={{ opacity: 0, filter: "blur(4px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-          exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: content.enter }}
+          exit={{ opacity: 0, transition: content.exit }}
         >
           <Empty
             icon={EyeSlash}
@@ -64,9 +64,9 @@ export function VaultView() {
         <motion.div
           key="vault"
           className="h-full"
-          initial={{ opacity: 0, filter: "blur(4px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-          exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: content.enter }}
+          exit={{ opacity: 0, transition: content.exit }}
         >
           <VaultContent />
         </motion.div>
@@ -232,9 +232,9 @@ function VaultContent() {
         <motion.div
           key={key}
           className="flex min-h-0 flex-1 flex-col"
-          initial={{ opacity: 0, filter: "blur(4px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-          exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: content.enter }}
+          exit={{ opacity: 0, transition: content.exit }}
         >
           {body}
         </motion.div>

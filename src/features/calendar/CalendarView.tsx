@@ -124,8 +124,8 @@ export function CalendarView() {
   return (
     <motion.div
       className="flex h-full flex-col px-5 pt-1 pb-2"
-      initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: content.enter }}
     >
       {actions}
       <div className="flex min-h-0 flex-1 gap-5">
