@@ -6,7 +6,7 @@ import type { Decor } from "./decorModel";
 import { plainWhite } from "./trayModel";
 
 /** In the bar's window: the tray's icons as Rust last listed them, none while it does not run. */
-export const trayState = createStore<TrayState>({ yielded: false, icons: [] });
+export const trayState = createStore<TrayState>({ icons: [] });
 /** In the bar's window: the pictures fetched so far, by `TrayIcon.img`; a key Rust could not answer is not here, so it is asked again. */
 export const trayPictures = createStore<Record<string, string>>({});
 

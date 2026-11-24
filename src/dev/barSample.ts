@@ -13,7 +13,7 @@ const sampleTrayPicture = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="
 export function fillSample(): void {
   // Two tray icons, one with a picture and one without, both kept visible.
   updateSettings((c) => ({ taskbar: { ...c.taskbar, trayShown: ["sample-sync", "sample-chat"] } }));
-  trayState.set({ yielded: false, icons: [{ id: "sample-sync", key: "1", tip: "Sync: up to date", img: "sample-sync" }, { id: "sample-chat", key: "2", tip: "Chat: 2 new messages", img: null }] });
+  trayState.set({ icons: [{ id: "sample-sync", key: "1", tip: "Sync: up to date", img: "sample-sync" }, { id: "sample-chat", key: "2", tip: "Chat: 2 new messages", img: null }] });
   trayPictures.set({ "sample-sync": sampleTrayPicture });
   inputLang.set({ lang: "ITA", region: "IT" });
   // ?apps=N: N open apps, the last one in front and the one before it asking for attention; ?windows=N gives App 0 N windows.

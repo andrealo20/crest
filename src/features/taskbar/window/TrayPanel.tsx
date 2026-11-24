@@ -12,14 +12,14 @@ import { TrayPicture, trayButton, trayEnter, trayLeave } from "./Tray";
 /**
  * The tray's hidden icons in the panel above the bar, sized by TRAY_SIZE: five to a row at the bar's icon size, scrolling past four
  * rows, in the order of `trayHidden` first, each taking the clicks as on the bar, dragged onto it to keep it there and among the others
- * to move it; every icon while the bar has folded the tray (trayFolded). A line instead while another program has the tray, or while no
- * icon is hidden. Its box (`data-tray-panel`) is where an icon dragged off the bar is hidden, at the cell (`data-tray-slot`) it is let go on.
+ * to move it; every icon while the bar has folded the tray (trayFolded). A line instead while no icon is hidden. Its box
+ * (`data-tray-panel`) is where an icon dragged off the bar is hidden, at the cell (`data-tray-slot`) it is let go on.
  * A right click on an icon holds the panel open while the app's menu has the focus (panelHeld), until the next press in the page or Esc,
  * or until Rust says the menu is over (`taskbar://menu-end`: its last pop-up closed, or another program came to the front), which
  * closes it.
  */
 export function TrayPanel() {
-  const { yielded, icons } = trayState.use();
+  const { icons } = trayState.use();
   const { trayShown, trayHidden, height, iconSize } = settings.use().taskbar;
   const hidden = trayFolded.use() ? icons : splitTray(icons, trayShown, trayHidden).hidden;
   const size = fitIcon(height, iconSize);
@@ -45,10 +45,10 @@ export function TrayPanel() {
       release();
     };
   }, []);
-  if (yielded || !hidden.length)
+  if (!hidden.length)
     return (
       <p data-tray-panel className="flex h-full items-center justify-center px-5 text-center text-caption text-label-3">
-        {yielded ? t("Ein anderes Programm verwaltet die Symbole der Taskleiste.") : t("Keine ausgeblendeten Symbole")}
+        {t("Keine ausgeblendeten Symbole")}
       </p>
     );
   return (

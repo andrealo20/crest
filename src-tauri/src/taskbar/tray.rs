@@ -4,9 +4,9 @@
 //! send to the tray (`Shell_NotifyIcon`, `SHAppBarMessage`, in `WM_COPYDATA`) reaches Crest first. Every message goes on to
 //! Explorer's own `Shell_TrayWnd`, found by the shell's process, and Explorer's answer goes back to the app: Explorer keeps every
 //! icon, so nothing needs giving back however Crest ends. Only the icon position request is Crest's to answer. Another program's
-//! own `Shell_TrayWnd` (lumabar, say) wins: while one is there, ahead of the spy or behind, the spy has no window, and looks again
-//! every few seconds. While it has its window it also carries `TaskbandHWND`, so the badges and progress apps report to the
-//! taskbar pass Crest too (taskband.rs).
+//! own `Shell_TrayWnd` (lumabar, say) does not take the tray from Crest: the spy stays first, and each icon message also goes on
+//! to every such window (`others`), without waiting for its answer, so that program keeps its icons as well. The spy also carries
+//! `TaskbandHWND`, so the badges and progress apps report to the taskbar pass Crest too (taskband.rs).
 //!
 //! A forward waits on Explorer at most `FORWARD_MS`, so no app waits long on a busy Explorer through Crest. Crest's own appbar
 //! calls (explorer.rs, auto-hide) are the exception: they wait for Explorer's answer as they did before the spy.
@@ -80,14 +80,12 @@ static THREAD: Mutex<Option<(u32, JoinHandle<()>)>> = Mutex::new(None);
 static WISH: AtomicBool = AtomicBool::new(false);
 /// The spy's window, 0 while it has none.
 static SPY: AtomicIsize = AtomicIsize::new(0);
-/// Another program's tray is there, so the spy has no window.
-static YIELDED: AtomicBool = AtomicBool::new(false);
 /// The window class, registered once: a second `RegisterClassW` fails.
 static CLASS: Once = Once::new();
 /// For the spy's emits.
 pub(super) static APP: OnceLock<AppHandle> = OnceLock::new();
 /// The icons, their pictures, the rect last clicked and what the bars last heard.
-static STORE: Mutex<Store> = Mutex::new(Store { icons: Vec::new(), images: BTreeMap::new(), clicked: None, sent: (false, Vec::new()) });
+static STORE: Mutex<Store> = Mutex::new(Store { icons: Vec::new(), images: BTreeMap::new(), clicked: None, sent: Vec::new() });
 /// The menu a right click asked for: its app's process, the bar that sent the click and how many of the app's pop-up menus are
 /// open. Set by `taskbar_tray_click`, taken by `on_menu` and `on_front` from the bar's thread (mod.rs) when the menu is over.
 static MENU: Mutex<Option<Menu>> = Mutex::new(None);
@@ -113,7 +111,7 @@ struct Store {
     images: BTreeMap<String, Vec<u8>>,
     /// In physical screen px: the answer to the icon position request.
     clicked: Option<RECT>,
-    sent: (bool, Vec<TrayIcon>),
+    sent: Vec<TrayIcon>,
 }
 
 /// An icon as the store keeps it.
@@ -142,10 +140,9 @@ pub struct TrayIcon {
     img: Option<String>,
 }
 
-/// The tray for the bars: no icons while the spy has no window, `yielded` when another program's tray has them.
+/// The tray for the bars: no icons while the spy has no window.
 #[derive(Serialize)]
 pub struct TrayState {
-    yielded: bool,
     icons: Vec<TrayIcon>,
 }
 
@@ -219,11 +216,6 @@ pub(crate) fn is_spy(hwnd: HWND) -> bool {
     spy != 0 && hwnd.0 as isize == spy
 }
 
-/// Another program's tray is there, so Crest has none of the icons.
-pub(crate) fn yielded() -> bool {
-    YIELDED.load(Ordering::SeqCst)
-}
-
 /// Puts the spy ahead of Explorer's tray now rather than at its next check (explorer.rs `on_show`): its check's tick, posted,
 /// so the caller never waits on the spy's thread, which may be in a forward.
 pub(crate) fn raise() {
@@ -253,7 +245,7 @@ pub async fn taskbar_tray_on(on: bool, app: AppHandle) {
 /// The tray for a bar page that has just loaded; `taskbar://tray` brings each change.
 #[tauri::command]
 pub fn taskbar_tray() -> TrayState {
-    TrayState { yielded: yielded(), icons: visible(&store().icons) }
+    TrayState { icons: visible(&store().icons) }
 }
 
 /// The icons' pictures by their `img` key, as PNG data URLs; None for a key no icon shows any more.
@@ -379,13 +371,20 @@ unsafe fn on_screen(bar: HWND, r: HitRect) -> Option<RECT> {
 
 /// Whether a `Shell_TrayWnd` there, by its process and whether it is the spy, belongs to another program than Explorer (the
 /// `shell` process) and Crest. Without a shell none is known to: a restarting Explorer has its tray before its desktop.
-fn other_tray(trays: &[(u32, bool)], shell: u32) -> bool {
-    shell != 0 && trays.iter().any(|&(pid, spy)| !spy && pid != shell)
+/// Of every top-level `Shell_TrayWnd`, as (window, process, the spy), those of another program than Explorer and Crest, which
+/// get a copy of each icon message. None while the shell is not known (Explorer restarting: its new tray is there before its
+/// desktop window), so a new Explorer tray is never taken for another program's.
+fn others(trays: &[(isize, u32, bool)], shell: u32) -> Vec<isize> {
+    if shell == 0 {
+        return Vec::new();
+    }
+    trays.iter().filter(|&&(_, pid, spy)| !spy && pid != shell).map(|&(hwnd, _, _)| hwnd).collect()
 }
 
-fn other_program() -> bool {
-    let trays: Vec<(u32, bool)> = explorer::windows_of(w!("Shell_TrayWnd")).into_iter().map(|hwnd| (window_pid(hwnd), is_spy(hwnd))).collect();
-    other_tray(&trays, explorer::shell_pid())
+fn other_trays() -> Vec<isize> {
+    let trays: Vec<(isize, u32, bool)> =
+        explorer::windows_of(w!("Shell_TrayWnd")).into_iter().map(|hwnd| (hwnd.0 as isize, window_pid(hwnd), is_spy(hwnd))).collect();
+    others(&trays, explorer::shell_pid())
 }
 
 unsafe fn run(ready: Sender<u32>) {
@@ -419,7 +418,6 @@ unsafe fn run(ready: Sender<u32>) {
         if spy != 0 {
             vanish(HWND(spy as _));
         }
-        YIELDED.store(false, Ordering::SeqCst);
         // The worker ends once its queue is empty; with no icon left, what it still makes is dropped.
         WORKER.take();
         let _ = worker.join();
@@ -427,14 +425,9 @@ unsafe fn run(ready: Sender<u32>) {
     }
 }
 
-/// The window, unless another program's tray is there; then it checks at once that it is first.
+/// The window; it checks at once that it is first.
 unsafe fn appear() {
-    let other = other_program();
-    YIELDED.store(other, Ordering::SeqCst);
     publish();
-    if other {
-        return;
-    }
     let Some(spy) = (unsafe { window() }) else { return };
     SPY.store(spy.0 as isize, Ordering::SeqCst);
     unsafe {
@@ -476,15 +469,10 @@ fn announce() {
     }
 }
 
-/// Every `FIRST_MS` and on `raise`: the spy leaves the tray to another program's `Shell_TrayWnd` whenever one is there, ahead of
-/// it or behind, and otherwise goes ahead of every other `Shell_TrayWnd` again. Once first, it announces itself once to each
-/// Explorer tray (the first, and a restarted Explorer's), so apps add their icons through it.
+/// Every `FIRST_MS` and on `raise`: the spy goes ahead of every other `Shell_TrayWnd` again, another program's included. Once
+/// first, it announces itself once to each Explorer tray (the first, and a restarted Explorer's), so apps add their icons
+/// through it.
 unsafe fn keep_first(spy: HWND) {
-    if other_program() {
-        YIELDED.store(true, Ordering::SeqCst);
-        unsafe { vanish(spy) };
-        return;
-    }
     unsafe {
         if FindWindowW(w!("Shell_TrayWnd"), None).ok() != Some(spy) {
             // Explorer's window stays where it is: only the spy moves.
@@ -564,6 +552,10 @@ unsafe fn copy_data(spy: HWND, wparam: WPARAM, lparam: LPARAM) -> isize {
         }
         Msg::Icon(op, icon) => {
             keep(spy, op, icon);
+            // Another program's tray keeps its icons too; Explorer's answer is the one that goes back.
+            for other in other_trays() {
+                let _ = send(HWND(other as _), WM_COPYDATA, wparam, lparam, false);
+            }
             forward(WM_COPYDATA, wparam, lparam, false)
         }
         Msg::Other => forward(WM_COPYDATA, wparam, lparam, false),
@@ -784,12 +776,12 @@ fn publish() {
     let Some(app) = APP.get() else { return };
     let state = {
         let mut store = store();
-        let now = (yielded(), visible(&store.icons));
+        let now = visible(&store.icons);
         if store.sent == now {
             return;
         }
         store.sent = now.clone();
-        TrayState { yielded: now.0, icons: now.1 }
+        TrayState { icons: now }
     };
     for (label, _) in super::screens::all() {
         let _ = app.emit_to(label, "taskbar://tray", &state);
@@ -989,17 +981,17 @@ mod tests {
     }
 
     #[test]
-    fn crest_leaves_the_tray_to_another_program() {
-        // (pid, is the spy) of every top-level Shell_TrayWnd; shell pid 10, Crest 20.
-        assert!(!other_tray(&[(10, false)], 10));
-        assert!(!other_tray(&[(10, false), (20, true)], 10));
-        assert!(other_tray(&[(30, false), (10, false)], 10));
+    fn crest_keeps_the_tray_and_copies_the_icons_to_another_programs() {
+        // (window, pid, is the spy) of every top-level Shell_TrayWnd; shell pid 10, Crest 20, lumabar 30.
+        assert!(others(&[(1, 10, false)], 10).is_empty());
+        assert!(others(&[(1, 10, false), (2, 20, true)], 10).is_empty());
+        assert_eq!(others(&[(3, 30, false), (2, 20, true), (1, 10, false)], 10), vec![3]);
     }
 
     #[test]
     fn without_a_shell_no_other_program_is_known() {
         // Explorer restarting: its new tray is there before its desktop window.
-        assert!(!other_tray(&[(30, false), (20, true)], 0));
+        assert!(others(&[(3, 30, false), (2, 20, true)], 0).is_empty());
     }
 
     #[test]

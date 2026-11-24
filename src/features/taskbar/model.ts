@@ -536,9 +536,8 @@ export interface TrayIcon {
   tip: string;
   img: string | null;
 }
-/** The tray's icons, none while Crest's tray does not run; `yielded` when another program's tray has them. */
+/** The tray's icons, none while Crest's tray does not run. */
 export interface TrayState {
-  yielded: boolean;
   icons: TrayIcon[];
 }
 
