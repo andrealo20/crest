@@ -41,11 +41,18 @@ export function NoticesView() {
   return (
     <div className="flex h-full flex-col px-4 pt-1 pb-1">
       <HeaderActions>
+        {/* Named and in the text's colour, not a grey icon among the header's: deleting every notice at once is easy to miss otherwise. */}
+        {list.length > 0 && (
+          <button
+            onClick={clearHistory}
+            className="pressable pressable-fill flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-footnote font-medium text-label"
+          >
+            <Trash size={13} weight="bold" />
+            <span>{t("Alle löschen")}</span>
+          </button>
+        )}
         <HeaderButton label={t("Mitteilungs-Einstellungen")} onClick={() => navigate("settings", "notices")}>
           <GearSix size={14} weight="bold" />
-        </HeaderButton>
-        <HeaderButton label={t("Alle löschen")} onClick={clearHistory} disabled={list.length === 0}>
-          <Trash size={14} weight="bold" />
         </HeaderButton>
       </HeaderActions>
       {list.length === 0 ? (
