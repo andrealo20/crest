@@ -345,6 +345,12 @@ pub(super) fn on_front(hwnd: HWND) {
     end_menu(bar);
 }
 
+/// Whether `pid` is the app a right click waits on for its menu: its windows come to the front to show it, and the bar
+/// raised over them would cover it (display.rs, #91).
+pub(crate) fn menu_of(pid: u32) -> bool {
+    menu().as_ref().is_some_and(|m| m.owner == pid)
+}
+
 /// Whether a pop-up menu shown (`start`) or closed leaves none of the app's open, counting them in `open`.
 fn menu_closed(open: &mut u32, start: bool) -> bool {
     if start {
@@ -861,6 +867,15 @@ mod tests {
         assert!(menu_closed(&mut open, false));
         // A close without a start seen (the menu was already open) ends it too.
         assert!(menu_closed(&mut open, false));
+    }
+
+    #[test]
+    fn only_the_app_whose_menu_is_waited_on_keeps_the_bar_below() {
+        assert!(!menu_of(APP));
+        *menu() = Some(Menu { owner: APP, bar: "taskbar".into(), open: 0 });
+        assert!(menu_of(APP) && !menu_of(APP + 1));
+        *menu() = None;
+        assert!(!menu_of(APP));
     }
 
     /// What an app sends for its icon 7 of window 0x1234.
