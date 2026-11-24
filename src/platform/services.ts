@@ -1531,7 +1531,7 @@ export const taskbar = {
   /** The files and folders Windows recorded as opened last, newest first, each opened with jumpOpen; rejects "off" while Windows keeps no list, "failed". The bar only. */
   recent: (): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_recent") : Promise.resolve(SAMPLE_RECENT)),
   /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
-  tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
+  tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ icons: [] })),
   /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */
   onTray(handler: (state: TrayState) => void): () => void {
     if (!isNative) return () => {};

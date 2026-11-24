@@ -53,7 +53,7 @@ function seed() {
   const icons = Object.fromEntries(DEMO_APPS.map((a) => [a.id, appIcon(a.id)]));
   launcherIcons.set((s) => ({ ...s, ...icons }));
   groupIcons.set(icons);
-  trayState.set({ yielded: false, icons: TRAY.map((t, i) => ({ id: t.id, key: String(i + 1), tip: t.tip, img: t.id })) });
+  trayState.set({ icons: TRAY.map((t, i) => ({ id: t.id, key: String(i + 1), tip: t.tip, img: t.id })) });
   trayPictures.set(Object.fromEntries(TRAY.map((t) => [t.id, t.picture])));
   barStatus.set({ power: mockStatus.seed().power, network: { kind: "wireless", wifi: true, bars: 4, ssid: "Home" }, sound: { level: 42, muted: false } });
 }
