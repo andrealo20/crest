@@ -24,3 +24,14 @@ export function parseAmount(input: string, locale?: string): number | null {
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
+
+/**
+ * A converted value as the amount field shows it once its currency goes to the top: two decimals at most, no grouping, Latin
+ * digits, and the interface language's decimal mark when it is a comma, so parseAmount reads it back the same. Arabic's own digits
+ * and mark would not read back.
+ */
+export function amountText(value: number, locale?: string): string {
+  const comma = !!locale && new Intl.NumberFormat(locale).formatToParts(1.1).some((p) => p.type === "decimal" && p.value === ",");
+  const text = String(Math.round(value * 100) / 100);
+  return comma ? text.replace(".", ",") : text;
+}
