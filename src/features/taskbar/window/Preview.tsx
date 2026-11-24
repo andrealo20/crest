@@ -204,7 +204,8 @@ export function PreviewCard(props: {
                 });
               }}
               onClick={(e) => {
-                if (e.detail > 0 && pressDragged()) return;
+                // Only a tile that drags follows a press (two windows or more): a drag elsewhere on the bar leaves `dragged` set.
+                if (b.windows.length > 1 && e.detail > 0 && pressDragged()) return;
                 // A window of an app run as administrator may refuse; nothing changes then.
                 taskbar.window(win.id, "activate").catch(() => {});
                 onClose();
