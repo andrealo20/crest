@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SearchSparkle, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { fade, pulse, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemDark } from "../../../notch/glass/media";
@@ -19,7 +19,7 @@ import { Item, type ItemProps } from "./Item";
 
 /** Each of Windows' buttons the bar holds (model.ts SYS_IDS): its name (a key for t()) and its icon, which the settings and the drag's ghost show too. */
 export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
-  search: { label: "Suchen", icon: MagnifyingGlass },
+  search: { label: "Suchen", icon: SearchSparkle },
   taskview: { label: "Aufgabenansicht", icon: Copy },
   widgets: { label: "Windows-Widgets", icon: SquaresFour },
   desktop: { label: "Desktop anzeigen", icon: Monitor },
