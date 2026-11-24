@@ -10,8 +10,8 @@ use std::ffi::OsString;
 use std::os::windows::fs::MetadataExt;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -38,9 +38,10 @@ use crate::system::{bar_drives, BarDrive};
 static LISTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// The letters of the last listing that plug in (BarDrive.removable): the only drives a bar may eject, never the one Windows runs from.
 static EJECTABLE: Mutex<Vec<String>> = Mutex::new(Vec::new());
-/// A read is under way. One at a time, so a drive that stops answering holds one thread, not one per call, and an older
-/// read never overwrites a newer listing.
-static READING: AtomicBool = AtomicBool::new(false);
+/// Held while the drives are read. One read at a time, so a drive that stops answering holds one thread, not one per call, and
+/// an older read never overwrites a newer listing. A second caller waits its turn and reads after, never going without: an eject
+/// has the notch and the bar's panel read at once, and the one turned away kept the drive listed.
+static READING: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 /// The folders a scan's level lists; the others are summed.
 const SCAN_ROWS: usize = 10;
@@ -104,17 +105,14 @@ pub struct ScanFolder {
     size: u64,
 }
 
-/// The drives now, read off the calling thread; None while another call reads them, and the caller keeps what it has.
+/// The drives now, read off the calling thread, one read at a time (`READING`).
 #[tauri::command]
-pub async fn taskbar_disks() -> Option<Vec<BarDrive>> {
-    if READING.swap(true, Ordering::AcqRel) {
-        return None;
-    }
+pub async fn taskbar_disks() -> Vec<BarDrive> {
+    let _turn = READING.lock().await;
     let list = tauri::async_runtime::spawn_blocking(bar_drives).await.unwrap_or_default();
     *LISTED.lock().unwrap_or_else(|e| e.into_inner()) = list.iter().map(|d| d.letter.clone()).collect();
     *EJECTABLE.lock().unwrap_or_else(|e| e.into_inner()) = list.iter().filter(|d| d.removable).map(|d| d.letter.clone()).collect();
-    READING.store(false, Ordering::Release);
-    Some(list)
+    list
 }
 
 /// A letter the last listing had.
