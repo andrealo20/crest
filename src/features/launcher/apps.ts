@@ -119,3 +119,17 @@ export function moveFavorite(favorites: Favorite[], index: number, delta: number
 export function toggleFavorite(favorites: Favorite[], app: Favorite): Favorite[] {
   return favorites.some((f) => f.id === app.id) ? favorites.filter((f) => f.id !== app.id) : [...favorites, { id: app.id, name: app.name }];
 }
+
+/** The size of the Launcher's icons (`launcher.iconSize`, #87). */
+export type LauncherIconSize = "small" | "medium" | "large";
+
+const ICON_PX: Record<LauncherIconSize, number> = { small: 24, medium: 32, large: 44 };
+
+/** A saved icon size, medium for anything else. */
+export const normalizeIconSize = (raw: unknown): LauncherIconSize => (raw === "small" || raw === "large" ? raw : "medium");
+
+/** A Launcher cell: its icon and its width, CSS px. With the names, room for a short one under the icon; without, just around it. */
+export const launcherCell = (size: LauncherIconSize, names: boolean): { icon: number; width: number } => {
+  const icon = ICON_PX[size];
+  return { icon, width: icon + (names ? 44 : 20) };
+};

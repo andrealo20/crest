@@ -11,7 +11,7 @@ import { launcher } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Empty, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
-import { aiKey, searchApps, toggleFavorite, type Favorite } from "./apps";
+import { aiKey, launcherCell, searchApps, toggleFavorite, type Favorite } from "./apps";
 import { AppIcon } from "./AppIcon";
 import { slotStatus, type SlotStatus } from "./shortcuts";
 import { addAppFromFile, hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
@@ -132,6 +132,9 @@ export const HOTKEY_HINT = "Solange an, fehlen diese Tasten anderen Apps wie VS 
 
 function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: SlotStatus[]; onAdd: () => void }) {
   const icons = useIcons(favorites.map((f) => f.id));
+  // The icon size and the names, from Settings, Tools, Launcher (#87).
+  const { iconSize, names } = settings.use().launcher;
+  const cell = launcherCell(iconSize, names);
 
   /** An app already open comes forward; Shift or the middle button starts a new copy, as on Windows' taskbar (#64). */
   const start = (f: Favorite, fresh: boolean) => {
@@ -150,13 +153,15 @@ function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: Slo
             // The middle button would start the WebView's autoscroll.
             onMouseDown={(e) => e.button === 1 && e.preventDefault()}
             title={f.name}
-            className="pressable flex w-[76px] flex-col items-center gap-1 rounded-[12px] px-1 pt-2 pb-1.5 hover:bg-fill-2"
+            aria-label={names ? undefined : f.name}
+            className="pressable flex flex-col items-center gap-1 rounded-[12px] px-1 pt-2 pb-1.5 hover:bg-fill-2"
+            style={{ width: cell.width }}
             initial={{ opacity: 0, transform: "translateY(4px)" }}
             animate={{ opacity: 1, transform: "translateY(0px)" }}
             transition={{ ...content.enter, delay: 0.03 * i }}
           >
-            <AppIcon src={icons[f.id]} size={32} />
-            <span className="w-full truncate text-center text-caption text-label">{f.name}</span>
+            <AppIcon src={icons[f.id]} size={cell.icon} />
+            {names && <span className="w-full truncate text-center text-caption text-label">{f.name}</span>}
             <ShortcutBadge status={status[i]} />
           </motion.button>
         ))}
@@ -164,12 +169,13 @@ function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: Slo
           onClick={onAdd}
           aria-label={t("Apps hinzufügen")}
           title={t("Apps hinzufügen")}
-          className="pressable flex w-[76px] flex-col items-center gap-1 rounded-[12px] px-1 pt-2 pb-1.5 text-label-3 hover:bg-fill-2 hover:text-label-2"
+          className="pressable flex flex-col items-center gap-1 rounded-[12px] px-1 pt-2 pb-1.5 text-label-3 hover:bg-fill-2 hover:text-label-2"
+          style={{ width: cell.width }}
         >
-          <span className="flex size-8 items-center justify-center rounded-[9px] border border-dashed border-current">
+          <span className="flex items-center justify-center rounded-[9px] border border-dashed border-current" style={{ width: cell.icon, height: cell.icon }}>
             <Plus size={14} weight="bold" />
           </span>
-          <span className="text-caption">{t("Hinzufügen")}</span>
+          {names && <span className="text-caption">{t("Hinzufügen")}</span>}
         </button>
       </div>
       <Footer />

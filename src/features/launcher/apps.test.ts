@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiKey, detectAi, mergeApps, moveFavorite, normalizeFavorites, searchApps, toggleFavorite, type LauncherApp } from "./apps.ts";
+import { aiKey, detectAi, launcherCell, mergeApps, moveFavorite, normalizeFavorites, normalizeIconSize, searchApps, toggleFavorite, type LauncherApp } from "./apps.ts";
 
 const start = (name: string, id = `shell:AppsFolder\\${name}`): LauncherApp => ({ id, name, source: "start" });
 const path = (name: string, id: string): LauncherApp => ({ id, name, source: "apppaths" });
@@ -82,4 +82,14 @@ test("toggle favourite", () => {
   favs = toggleFavorite(favs, b);
   assert.deepEqual(favs.map((f) => f.name), ["Claude", "Cursor"]);
   assert.deepEqual(toggleFavorite(favs, a).map((f) => f.name), ["Cursor"]);
+});
+
+test("the Launcher's cells follow the icon size, and are narrower without the names (#87)", () => {
+  // Medium with names is the Launcher as it was.
+  assert.deepEqual(launcherCell("medium", true), { icon: 32, width: 76 });
+  assert.deepEqual(launcherCell("small", true), { icon: 24, width: 68 });
+  assert.deepEqual(launcherCell("large", true), { icon: 44, width: 88 });
+  assert.deepEqual(launcherCell("medium", false), { icon: 32, width: 52 });
+  assert.equal(normalizeIconSize("large"), "large");
+  for (const bad of [undefined, "huge", 3]) assert.equal(normalizeIconSize(bad), "medium");
 });
