@@ -27,7 +27,7 @@ import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
 import { closePanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
-import { dragThreshold, folderCols, opensInBar } from "../panelModel";
+import { dragThreshold, folderCols, opensInBar, sysPanel } from "../panelModel";
 import { folderKey, normalizeFolders, pinBefore } from "../folderModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
 import { splitApps } from "../fit";
@@ -853,14 +853,22 @@ export function TaskbarWindow() {
             kind: id,
             tile: free ? undefined : tile(),
             magnify: free ? undefined : mag,
-            expanded: sys === "searchbox" ? open?.content.kind === "search" : undefined,
+            expanded: sysPanel(sys) === null ? undefined : open?.content.kind === sysPanel(sys),
             onPointerDown: free ? undefined : dragFrom(id),
             // No menu of its own, as a widget: the Crest menu over the pointer; the Recycle Bin has Open and Empty, the hotspot its settings.
             onContextMenu: (e) =>
               sys === "recycle" || sys === "hotspot" ? toggle({ kind: sys }, e.currentTarget) : setMenu({ kind: "crest", anchor: null, x: e.clientX, w: 0 }),
           }}
           dragged={free ? () => false : afterDrag}
-          onOpen={sys === "recent" || sys === "eject" ? (anchor) => toggle({ kind: sys }, anchor) : sys === "searchbox" ? openSearch : undefined}
+          onOpen={
+            sys === "recent" || sys === "eject"
+              ? (anchor) => toggle({ kind: sys }, anchor)
+              : sys === "searchbox"
+                ? openSearch
+                : sys === "recycle"
+                  ? (anchor, keyboard) => togglePanel({ kind: "recycle", focus: keyboard }, spanOf(anchor))
+                  : undefined
+          }
           say={(text, failed) => (failed ? setError : setNote)({ key: id, text })}
         />
       );
@@ -1080,7 +1088,7 @@ export function TaskbarWindow() {
               {menu.kind === "crest" ? (
                 <CrestMenu close={closeMenu} />
               ) : menu.kind === "recycle" ? (
-                <RecycleMenu close={closeMenu} />
+                <RecycleMenu close={closeMenu} anchor={menu.anchor instanceof HTMLElement ? spanOf(menu.anchor) : { x: menu.x, w: menu.w }} />
               ) : menu.kind === "recent" ? (
                 <RecentMenu close={closeMenu} />
               ) : menu.kind === "eject" ? (
@@ -1245,14 +1253,14 @@ function useHitZone(
   const on = settings.use().taskbar.autoHide;
   const [band, setBand] = useState<Rect | null>(null);
   // A drag keeps the bar up.
-  const down = useAutoHide({ band, open: hold.open || hold.dragging, attention: hold.attention });
+  const { down, aside } = useAutoHide({ band, open: hold.open || hold.dragging, attention: hold.attention });
   const menu = useRef<HitRect | null>(null);
   // The preview card's zone, in a ref beside the menus': the panel closing would overwrite theirs.
   const preview = useRef<HitRect | null>(null);
   // While an item is dragged the whole window, in a ref of its own: a closing panel overwrites the menus' one.
   const drag = useRef(false);
   // As of the last render, for the reports the observers make.
-  const now = useRef({ on, down });
+  const now = useRef({ on, down, aside });
   const report = useCallback(() => {
     const el = ref.current;
     if (!el || el.offsetWidth <= 0 || el.offsetHeight <= 0) return;
@@ -1290,9 +1298,9 @@ function useHitZone(
   }, [ref, report, shape, layout]);
   // Down or up, the option on or off: other zones over the same still box.
   useEffect(() => {
-    now.current = { on, down };
+    now.current = { on, down, aside };
     report();
-  }, [on, down, report]);
+  }, [on, down, aside, report]);
   useLayoutEffect(() => {
     drag.current = hold.dragging;
     report();

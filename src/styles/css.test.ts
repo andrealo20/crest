@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const css = readFileSync(join(import.meta.dirname, "global.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -162,4 +162,16 @@ test("in Windows' high contrast a switch keeps its edge, and an on switch the ou
       .join(";");
   assert.match(body('[role="switch"]'), /border: 1px solid CanvasText/);
   assert.match(body('[role="switch"][aria-checked="true"]'), /outline: 2px solid Highlight;\s*outline-offset: -2px/);
+});
+
+test("a label on Crest's red takes the notch's ink, which every theme keeps readable there, never white", () => {
+  // White on Material Dark's light red (#ffb4ab) reads at about 1.7:1; text-notch is the ink the themes check against red.
+  const src = join(import.meta.dirname, "..");
+  const white: string[] = [];
+  for (const file of readdirSync(src, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".tsx"))) {
+    for (const [cls] of readFileSync(join(src, file), "utf8").matchAll(/className=(?:"[^"]*"|\{`[^`]*`\})/g)) {
+      if (/(^|[\s"`])bg-red(\s|"|`)/.test(cls) && /(^|[\s"`])text-white(\s|"|`)/.test(cls)) white.push(file);
+    }
+  }
+  assert.deepEqual(white, []);
 });

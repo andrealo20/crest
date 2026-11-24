@@ -169,11 +169,15 @@ export function sourcesAfter(before: BarSeen, now: BarSeen): "run" | "keep" | "r
 
 /**
  * The zones with `id` (a widget or a tool button) last in `to`, before the Crest button when the zone ends with it, so the button
- * stays at the edge (the button itself, taken off, comes back there); one already on the bar leaves them as they are.
+ * stays at the edge (the button itself, taken off, comes back there); Windows' Search right after Start in the zone that has it.
+ * One already on the bar leaves them as they are.
  */
 export function addWidget(zones: Record<Zone, BarItem[]>, id: Removable, to: Zone): Record<Zone, BarItem[]> {
   if (Object.values(zones).some((items) => items.includes(id))) return zones;
-  const items = zones[to], at = items.at(-1) === "crest" ? items.length - 1 : items.length;
+  const items = zones[to];
+  // Search beside Start, as Windows 11 has it; anything else at the end, before the Crest button.
+  const start = id === "sys:search" ? items.indexOf("start") : -1;
+  const at = start >= 0 ? start + 1 : items.at(-1) === "crest" ? items.length - 1 : items.length;
   return { ...zones, [to]: [...items.slice(0, at), id, ...items.slice(at)] };
 }
 

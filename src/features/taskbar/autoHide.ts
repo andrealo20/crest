@@ -42,7 +42,9 @@ export function slides(p: { on: boolean; covered: boolean; pointer: boolean; ope
  * option is on, the strip as well: a pointer resting on the edge beside a bar narrower than the window then holds it up instead of
  * sending it up and down.
  */
-export function zones(p: { bands: Rect[]; open: Rect[]; on: boolean; down: boolean; edge?: BarEdge; width: number; height: number }): Rect[] {
+export function zones(p: { bands: Rect[]; open: Rect[]; on: boolean; down: boolean; aside?: boolean; edge?: BarEdge; width: number; height: number }): Rect[] {
+  // Stepped aside for Windows' search panel (taskbar/search.rs), whose search box lies where the bar's strip would be.
+  if (p.aside) return [];
   const strip = edgeStrip(p.edge ?? "bottom", STRIP, p.width, p.height);
   if (p.down) return [strip];
   return [...p.bands, ...p.open, ...(p.on ? [strip] : [])];

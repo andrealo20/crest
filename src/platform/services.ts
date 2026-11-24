@@ -1583,6 +1583,12 @@ export const taskbar = {
     const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hold", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
+  /** Windows' search panel covers this bar's band, or no longer does (taskbar/search.rs): the bar steps aside meanwhile, whatever the option. */
+  onAside(handler: (aside: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://aside", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** Ends Crest (the Crest menu's Quit). */
   quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
   /** In the primary bar, has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether this bar shows now, so the page starts paused or not. */

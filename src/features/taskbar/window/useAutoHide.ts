@@ -8,9 +8,10 @@ import { briefHold } from "./hold";
  * Whether the bar is down, off the screen: SLIDE_DELAY ms after the window in front of its monitor comes to touch `band` (the bar's
  * still box, null until it has a size) with nothing holding the bar up (autoHide.ts slides: the pointer, a menu, an app asking for
  * attention, one of Windows' own surfaces as Rust says or a click that opens one, hold.ts), and up again at once when that ends.
- * Rust sends that window only while the option is on: with it off nothing is followed and the bar never moves.
+ * Rust sends that window only while the option is on: with it off nothing is followed and the bar never moves. Whatever the option,
+ * the bar steps `aside` at once while Windows' search panel covers it (taskbar/search.rs), the pointer included, and comes back with it.
  */
-export function useAutoHide({ band, open, attention }: { band: Rect | null; open: boolean; attention: boolean }): boolean {
+export function useAutoHide({ band, open, attention }: { band: Rect | null; open: boolean; attention: boolean }): { down: boolean; aside: boolean } {
   const on = settings.use().taskbar.autoHide;
   const [front, setFront] = useState<Rect | null>(null);
   const [pointer, setPointer] = useState(false);
@@ -38,6 +39,8 @@ export function useAutoHide({ band, open, attention }: { band: Rect | null; open
   // Rust says false once the option turns off, so it never stays held.
   const [surface, setSurface] = useState(false);
   useEffect(() => taskbar.onHold(setSurface), []);
+  const [aside, setAside] = useState(false);
+  useEffect(() => taskbar.onAside(setAside), []);
   const brief = briefHold.use() !== null;
   const held = surface || brief;
   const slide = slides({ on, covered: band !== null && touches(front, band), pointer, open, attention, held });
@@ -51,5 +54,5 @@ export function useAutoHide({ band, open, attention }: { band: Rect | null; open
     };
   }, [slide]);
   // Up in the same render as whatever holds it.
-  return slide && down;
+  return { down: aside || (slide && down), aside };
 }

@@ -14,7 +14,7 @@ import { useToolSize } from "../../window/panel";
 import { limits } from "../../window/panelSize";
 import { fitIcon, placeMenu } from "../model";
 import { closePanel, panel, panelHeld, quickLayout, quickPage, trayDrag, type OpenPanel, type PanelContent } from "../panel";
-import { CLOCK_SIZE, CRYPTO_SIZE, DISKS_SIZE, FOLDER_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, SEARCH_SIZE, TOOL_FALLBACK, TRAY_SIZE, WIDGETS_SIZE, fitClock, fitPanel, panelKey, toolPanelSize } from "../panelModel";
+import { CLOCK_SIZE, CRYPTO_SIZE, DISKS_SIZE, RECYCLE_SIZE, FOLDER_SIZE, PANEL_EDGE, PANEL_GAP, QUICK_PAGE_SIZE, QUICK_SIZE, SEARCH_SIZE, TOOL_FALLBACK, TRAY_SIZE, WIDGETS_SIZE, fitClock, fitPanel, panelKey, toolPanelSize } from "../panelModel";
 import { barFeed } from "../barStores";
 import { trayFolded, trayState } from "../tray";
 import { splitTray } from "../trayModel";
@@ -26,6 +26,7 @@ import { useBarEdge } from "./barEdge";
 import { CLOCK_TITLE_IDS, ClockPanel, TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
 import { CryptoPanel } from "./CryptoPanel";
+import { RECYCLE_WARNING_ID, RecyclePanel } from "./RecyclePanel";
 import { DisksPanel, diskScan, panelDisks } from "./DisksPanel";
 import { SearchPanel } from "./SearchPanel";
 import { levelRows } from "../disks";
@@ -102,6 +103,7 @@ function usePanelSize(shows: PanelContent, apps: number, widgets: number[], fold
   if (shows.kind === "clock") return CLOCK_SIZE;
   if (shows.kind === "search") return SEARCH_SIZE;
   if (shows.kind === "crypto") return CRYPTO_SIZE;
+  if (shows.kind === "recycle") return RECYCLE_SIZE;
   if (!tab) return null;
   // The notch's own rule (Notch.tsx): the tool's runtime request wins over the size it was given, an extra height rides on top of
   // that size, and both are held to the monitor.
@@ -265,6 +267,8 @@ function Panel({
                   ? t("Suchen oder öffnen")
                   : open.content.kind === "crypto"
                     ? t("Krypto")
+                    : open.content.kind === "recycle"
+                      ? t("Papierkorb")
                     : open.content.kind === "widgets"
                       ? t("Weitere Widgets")
                       : open.content.kind === "folder"
@@ -272,6 +276,7 @@ function Panel({
                         : undefined
       }
       aria-labelledby={open.content.kind === "tool" || clock?.alone ? TOOL_TITLE_ID : clock ? CLOCK_TITLE_IDS : undefined}
+      aria-describedby={open.content.kind === "recycle" ? RECYCLE_WARNING_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
       className="fixed left-0 -translate-x-1/2"
@@ -317,6 +322,8 @@ function Panel({
                     <SearchPanel />
                   ) : open.content.kind === "crypto" ? (
                     <CryptoPanel />
+                  ) : open.content.kind === "recycle" ? (
+                    <RecyclePanel focus={open.content.focus} />
                   ) : clock ? (
                     // Too short for both halves (fitClock): the Calendar alone, as the Next event widget opens it.
                     clock.alone ? <ToolPanel tool="calendar" /> : <ClockPanel />

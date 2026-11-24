@@ -26,7 +26,7 @@ import type { WallNow } from "../../../platform/services";
 import { timer } from "../../timer/store";
 import { t } from "../../../i18n";
 import { EMPTY_FEED, barFeed, noticeCount, type BarFeed } from "../barStores";
-import { onWeather, widgetKey, type FaceKey } from "../faceKeys";
+import { badgeStart, onWeather, widgetKey, type FaceKey } from "../faceKeys";
 import { countBadge, variantOf, type TaskbarSettings } from "../model";
 import { SAMPLE_TIMER } from "../sampleFeed";
 import { statusPill } from "../statusModel";
@@ -331,6 +331,8 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   // The clock carries the count of the notices its panel lists, as Windows' carries its centre's; only the main bar hears it (barStores feedStores).
   const count = noticeCount.use();
   const badge = id === "clock" ? countBadge(count) : null;
+  // Between the clock and its weather, when it draws one; otherwise over the widget's end, as Windows' clock carries it.
+  const badgeAt = badgeStart(weatherFrom, k, pill?.pad ?? 0);
   const name = badge ? `${item.name}, ${t(count === 1 ? "{n} Mitteilung" : "{n} Mitteilungen", { n: count ?? 0 })}` : item.name;
   // The name shows above the widget under the pointer; a face that shows less than it knows adds the rest to it there.
   const label = tip && item.label !== null && item.label === item.name ? `${item.label}: ${tip}` : item.label;
@@ -346,7 +348,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
         // None by keyboard or while the icon shows.
         const cell = document.getElementById(desc), r = cell?.getBoundingClientRect();
         const x = r && r.width > 0 && drawn && e.detail > 0 ? ((e.clientX - r.left) * width) / r.width : null;
-        // The notices' count sits over the face's end, the weather's, but it is the clock's: a click on it opens the notices.
+        // The notices' count is the clock's: a click on it opens the notices, wherever it sits.
         if (e.target instanceof Element && e.target.closest("[data-badge]")) return onClick(e, null, null);
         // The face's own direction, not the page's: the bar's zones are left to right in every language.
         const rtl = !!cell && getComputedStyle(cell).direction === "rtl";
@@ -357,7 +359,12 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
       onPointerDown={onPointerDown}
     >
       {badge && (
-        <span aria-hidden data-badge className="absolute -end-2 -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch">
+        <span
+          aria-hidden
+          data-badge
+          style={badgeAt === null ? undefined : { insetInlineStart: badgeAt }}
+          className={`absolute ${badgeAt === null ? "-end-2" : ""} -top-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-label px-1 text-[10px] font-semibold leading-none text-notch`}
+        >
           {badge}
         </span>
       )}

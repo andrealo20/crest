@@ -309,3 +309,10 @@ test("a tool button or a Windows button dropped on the trash leaves every zone a
   assert.deepEqual(addWidget(off, "tool:media", "right").right, ["weather", "tray", "status", "clock", "tool:media", "crest"]);
   assert.deepEqual(addWidget(off, "sys:search", "right").right, ["weather", "tray", "status", "clock", "sys:search", "crest"]);
 });
+
+test("Search added beside Start goes right after it, elsewhere at the end", () => {
+  const zones: Record<Zone, BarItem[]> = { left: [], center: ["start", "apps"], right: ["clock", "crest"] };
+  assert.deepEqual(addWidget(zones, "sys:search", "center").center, ["start", "sys:search", "apps"]);
+  assert.deepEqual(addWidget(zones, "sys:search", "right").right, ["clock", "sys:search", "crest"]);
+  assert.deepEqual(addWidget(zones, "sys:recycle", "center").center, ["start", "apps", "sys:recycle"]);
+});

@@ -395,13 +395,18 @@ pub(super) fn work_area_changed(app: &AppHandle) {
     });
 }
 
+/// The bar's band, its height and gaps, CSS px, whether or not it reserves its strip; 0 while it is off.
+pub(crate) fn band_css() -> f64 {
+    f64::from_bits(BAND.load(Ordering::SeqCst))
+}
+
 /// The band the bar takes off every monitor's work area (its height and gaps), CSS px; 0 while it is off, and 0 while any bar
 /// reserves its strip: the notch then reads Windows' work area, which already lacks the strip.
 pub(crate) fn band() -> f64 {
     if super::reserve::active() {
         return 0.0;
     }
-    f64::from_bits(BAND.load(Ordering::SeqCst))
+    band_css()
 }
 
 /// Whether `label` is a bar's window: the primary's or another monitor's (screens.rs).

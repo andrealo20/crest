@@ -13,13 +13,14 @@ import { normalizeZones } from "../clocks/zones";
 import { liveSupport } from "../../notch/glass/live";
 import { darkInk, useClosedInk } from "../themes/store";
 import { barLook } from "./look";
-import type { Zone } from "./model";
+import { SYS_IDS, type SysId, type Zone } from "./model";
+import { SYS_INFO } from "./window/SysItems";
 import { SAMPLE_AT, SAMPLE_TIMER, sampleFeed } from "./sampleFeed";
 import { statusPill } from "./statusModel";
 import { setTaskbar } from "./store";
 import { UnreadPicks } from "./UnreadPicks";
 import { widgetNeeds } from "./WidgetRows";
-import { addWidget, applyChoice, barWidgets, chosenChoice, pillWidget, previewInk, removeWidget, variantKey, widgetChoices, type WidgetChoice } from "./widgets";
+import { addWidget, applyChoice, barWidgets, chosenChoice, pillWidget, previewInk, removeWidget, variantKey, widgetChoices, type Removable, type WidgetChoice } from "./widgets";
 import { widgetBody } from "./window/Widget";
 
 /*
@@ -129,6 +130,25 @@ const SYMBOL: Record<PartId, RowSymbol> = {
   timeline: "wb_twilight",
   wallpaper: "image",
 };
+/** Each Windows button's row symbol under Material: the Material glyph of its own icon (SysItems.tsx SYS_INFO). */
+const SYS_SYMBOL: Record<SysId, RowSymbol> = {
+  search: "search",
+  taskview: "content_copy",
+  widgets: "grid_view",
+  desktop: "desktop_windows",
+  input: "translate",
+  privacy: "mic",
+  recycle: "delete",
+  theme: "dark_mode",
+  keyboard: "keyboard",
+  notifications: "notifications",
+  dnd: "notifications_off",
+  recent: "file_copy",
+  searchbox: "search",
+  deskicons: "apps",
+  eject: "eject",
+  hotspot: "wifi_tethering",
+};
 const choiceLabel = (c: WidgetChoice) => t(c.variant === "digital" ? (c.date ? "Uhrzeit und Datum" : "Nur Uhrzeit") : VARIANT_LABEL[c.variant ?? ""]);
 
 export function WidgetsPage() {
@@ -136,13 +156,27 @@ export function WidgetsPage() {
   const s = settings.use();
   const zones = normalizeZones(clocks.use());
   return (
-    <Group id="settings-taskbar-widgets">
-      {PART_IDS.map((id) => (
-        <div key={id}>
-          <WidgetRow id={id} s={s} zoned={zones.length > 0} />
-          <Versions id={id} s={s} zones={zones} />
-          {id === "unread" && <UnreadPicks />}
-        </div>
+    <>
+      <Group id="settings-taskbar-widgets">
+        {PART_IDS.map((id) => (
+          <div key={id}>
+            <WidgetRow id={id} s={s} zoned={zones.length > 0} />
+            <Versions id={id} s={s} zones={zones} />
+            {id === "unread" && <UnreadPicks />}
+          </div>
+        ))}
+      </Group>
+      <WindowsButtons s={s} />
+    </>
+  );
+}
+
+/** After the widgets: Windows' own buttons, each added or removed as a widget is (Items adds them too, with Add Windows button). */
+function WindowsButtons({ s }: { s: Settings }) {
+  return (
+    <Group id="settings-taskbar-windows-buttons" title={t("Windows-Schaltflächen")}>
+      {SYS_IDS.map((id) => (
+        <SysRow key={id} id={id} s={s} />
       ))}
     </Group>
   );
@@ -153,38 +187,53 @@ function WidgetRow({ id, s, zoned }: { id: PartId; s: Settings; zoned: boolean }
   const on = barWidgets(s.taskbar.zones).includes(id);
   return (
     <Row icon={SYMBOL[id]} label={t(partInfo[id].label)} hint={widgetNeeds(s, zoned)[id] || undefined}>
-      {on ? (
-        <button
-          aria-label={t("Entfernen")}
-          title={t("Entfernen")}
-          onClick={() => setTaskbar((cur) => ({ zones: removeWidget(cur.zones, id) }))}
-          className="pressable flex size-6 shrink-0 items-center justify-center rounded-full text-label-3 hover:bg-fill-2 hover:text-label-2"
-        >
-          <X size={12} weight="bold" />
-        </button>
-      ) : (
-        <Select<string>
-          width="shrink-0"
-          value=""
-          options={ZONES.map((z) => ({ value: z.zone, label: t(z.label) }))}
-          onChange={(to) => {
-            const z = ZONES.find((x) => x.zone === to);
-            if (z) setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, z.zone) }));
-          }}
-          trigger={{
-            label: t("Hinzufügen"),
-            menuWidth: 160,
-            className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-footnote font-medium text-label",
-            content: (
-              <>
-                <Plus size={13} weight="bold" />
-                <span>{t("Hinzufügen")}</span>
-              </>
-            ),
-          }}
-        />
-      )}
+      <AddRemove id={id} on={on} />
     </Row>
+  );
+}
+
+/** One of Windows' buttons (model.ts SYS_IDS), as Items adds them: its name and its Remove button on the bar or its Add menu off it. */
+function SysRow({ id, s }: { id: SysId; s: Settings }) {
+  const item = `sys:${id}` as const;
+  return (
+    <Row icon={SYS_SYMBOL[id]} label={t(SYS_INFO[id].label)}>
+      <AddRemove id={item} on={Object.values(s.taskbar.zones).some((items) => items.includes(item))} />
+    </Row>
+  );
+}
+
+/** A row's Remove button while `id` is on the bar, its Add menu of the three zones otherwise. */
+function AddRemove({ id, on }: { id: Removable; on: boolean }) {
+  return on ? (
+    <button
+      aria-label={t("Entfernen")}
+      title={t("Entfernen")}
+      onClick={() => setTaskbar((cur) => ({ zones: removeWidget(cur.zones, id) }))}
+      className="pressable flex size-6 shrink-0 items-center justify-center rounded-full text-label-3 hover:bg-fill-2 hover:text-label-2"
+    >
+      <X size={12} weight="bold" />
+    </button>
+  ) : (
+    <Select<string>
+      width="shrink-0"
+      value=""
+      options={ZONES.map((z) => ({ value: z.zone, label: t(z.label) }))}
+      onChange={(to) => {
+        const z = ZONES.find((x) => x.zone === to);
+        if (z) setTaskbar((cur) => ({ zones: addWidget(cur.zones, id, z.zone) }));
+      }}
+      trigger={{
+        label: t("Hinzufügen"),
+        menuWidth: 160,
+        className: "pressable pressable-fill flex h-7 items-center gap-1.5 rounded-full bg-fill-2 px-2.5 text-footnote font-medium text-label",
+        content: (
+          <>
+            <Plus size={13} weight="bold" />
+            <span>{t("Hinzufügen")}</span>
+          </>
+        ),
+      }}
+    />
   );
 }
 

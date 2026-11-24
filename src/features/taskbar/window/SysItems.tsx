@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SearchSparkle, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { fade, pulse, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemDark } from "../../../notch/glass/media";
@@ -18,7 +18,7 @@ import { Item, type ItemProps } from "./Item";
 
 /** Each of Windows' buttons the bar holds (model.ts SYS_IDS): its name (a key for t()) and its icon, which the settings and the drag's ghost show too. */
 export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
-  search: { label: "Suchen", icon: MagnifyingGlass },
+  search: { label: "Suchen", icon: SearchSparkle },
   taskview: { label: "Aufgabenansicht", icon: Copy },
   widgets: { label: "Windows-Widgets", icon: SquaresFour },
   desktop: { label: "Desktop anzeigen", icon: Monitor },
@@ -59,12 +59,12 @@ export function SysButton({ id, item, dragged, onOpen, say }: {
   id: SysId;
   item: Omit<ItemProps, "onClick" | "children">;
   dragged: (e: { detail: number }) => boolean;
-  onOpen?: (anchor: HTMLElement) => void;
+  onOpen?: (anchor: HTMLElement, keyboard?: boolean) => void;
   say: (text: string, failed: boolean) => void;
 }) {
   if (id === "input") return <InputButton item={item} dragged={dragged} />;
   if (id === "privacy") return <PrivacyButton item={item} dragged={dragged} />;
-  if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
+  if (id === "recycle") return <RecycleButton item={item} dragged={dragged} onOpen={onOpen} />;
   if (id === "theme") return <ThemeButton item={item} dragged={dragged} />;
   if (id === "searchbox") return <SearchBox item={item} dragged={dragged} onOpen={onOpen} />;
   if (id === "dnd") return <DndButton item={item} dragged={dragged} />;
@@ -211,9 +211,14 @@ function PrivacyButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
 
 /**
  * The Recycle Bin, empty or full, with its count in its name; Rust sends a new count when the shell reports a change (recycle.rs). A
- * click opens it in Explorer; its menu (TaskbarWindow) empties it through Windows' own confirmation.
+ * click opens or closes its confirmation above the bar (RecyclePanel), whose red button alone empties it; its menu (TaskbarWindow)
+ * opens it too.
  */
-function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
+function RecycleButton({ item, dragged, onOpen }: {
+  item: Omit<ItemProps, "onClick" | "children">;
+  dragged: (e: { detail: number }) => boolean;
+  onOpen?: (anchor: HTMLElement, keyboard?: boolean) => void;
+}) {
   useEffect(() => {
     const off = taskbar.onRecycle(recycleBin.set);
     taskbar.recycle().then((r) => r && recycleBin.set(r), () => {});
@@ -227,8 +232,7 @@ function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
       name={t(key, values)}
       onClick={(e) => {
         if (dragged(e)) return;
-        holdBriefly();
-        void taskbar.recycleDo("open").catch(() => {});
+        onOpen?.(e.currentTarget, e.detail === 0);
       }}
     >
       <Trash size={Math.round(item.size * 0.8)} weight={n ? "fill" : "regular"} />

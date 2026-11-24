@@ -73,3 +73,10 @@ export function widgetKey(id: PartId, variants: unknown, x: number | null): Face
  */
 export const onWeather = (x: number | null, from: number | undefined, width: number, rtl: boolean): boolean =>
   x !== null && from !== undefined && (rtl ? x <= width - from : x >= from);
+
+/**
+ * Where the clock's count of notices starts, px from the widget's start edge (an inline offset, so right to left mirrors it): over
+ * the end of the clock, half the gap before the weather (`from`, the face's px at zoom `k`, after the pill's `pad`), reaching 6 px
+ * over it, so a click near it never lands on the weather. Null without weather: the count stays at the widget's end.
+ */
+export const badgeStart = (from: number | undefined, k: number, pad: number): number | null => (from === undefined ? null : pad + (from - 4) * k - 6);
