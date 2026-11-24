@@ -1816,6 +1816,7 @@
  "Mikrofon stummschalten": "Silenciar micrófono",
  "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall": "Silencia y reactiva el micrófono predeterminado, desde cualquier lugar",
  "Crest vor Bildschirmfreigabe und Aufnahmen verbergen": "Ocultar Crest al compartir pantalla y en grabaciones",
+ "NVIDIA Instant Replay schaltet sich aus, sobald Crest sich aus Aufnahmen heraushält, und bleibt aus, bis du es in der NVIDIA-App wieder einschaltest": "Instant Replay de NVIDIA se apaga en cuanto Crest se mantiene fuera de las grabaciones, y sigue apagado hasta que lo vuelvas a activar en la app de NVIDIA",
  "Andere Apps zeigen Crest nicht mehr; eine App, die tief im System aufnimmt, sieht es trotzdem": "Otras apps ya no muestran Crest. Una app que captura a bajo nivel aún puede verlo.",
  "Andere Apps zeigen Crest nicht mehr; ab macOS 15 ignorieren manche Freigabe-Apps das, und eine App, die tief im System aufnimmt, sieht es trotzdem": "Otras apps ya no muestran Crest. Desde macOS 15 algunas apps para compartir pantalla lo ignoran, y una app que captura a bajo nivel aún puede verlo.",
  "Offene Ports": "Puertos abiertos",
