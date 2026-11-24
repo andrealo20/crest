@@ -58,6 +58,9 @@ export const sameContent = (a: PanelContent, b: PanelContent) => a.kind === b.ki
  * centre zone recentres as window buttons come and go, a clock widens), while two items never overlap. A zero-width span overlaps nothing.
  */
 export const sameAnchor = (a: PanelAnchor, b: PanelAnchor) => a.w > 0 && b.w > 0 && a.x < b.x + b.w && b.x < a.x + a.w;
+/** Whether a click on the item at `anchor` that opens `content` closes the open panel; otherwise it opens, or moves the open one there. */
+export const closes = (open: OpenPanel | null, content: PanelContent, anchor: PanelAnchor): boolean =>
+  open !== null && sameContent(open.content, content) && sameAnchor(open.anchor, anchor);
 /** The tray, the quick panel and the PANEL_TOOLS open in the bar; any other tool opens in the notch, where it works whole. */
 export const opensInBar = (c: PanelContent) => c.kind !== "tool" || PANEL_TOOLS.includes(c.tool);
 /**

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool, RECYCLE_SIZE, sysPanel } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool, RECYCLE_SIZE, sysPanel, closes } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -290,4 +290,16 @@ test("the Windows buttons that open a panel over the bar say which, so they read
   assert.equal(sysPanel("recycle"), "recycle");
   assert.equal(sysPanel("searchbox"), "search");
   for (const id of ["search", "taskview", "eject", "recent", "hotspot"] as const) assert.equal(sysPanel(id), null, id);
+});
+
+test("a click closes the panel only from the item it is open over: Device batteries moves Stato's quick panel over to itself", () => {
+  const quick: PanelContent = { kind: "quick" };
+  const stato = { x: 1700, w: 90 }, batteries = { x: 1500, w: 60 };
+  const open = { content: quick, anchor: stato };
+  assert.equal(closes(null, quick, stato), false);
+  assert.equal(closes(open, quick, stato), true);
+  // Stato a few px wider now (a new glyph), still over the same item.
+  assert.equal(closes(open, quick, { x: 1690, w: 104 }), true);
+  assert.equal(closes(open, quick, batteries), false);
+  assert.equal(closes(open, { kind: "tray" }, stato), false);
 });

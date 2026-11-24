@@ -26,7 +26,7 @@ import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box 
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
-import { closePanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
+import { closePanel, closesPanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
 import { dragThreshold, folderCols, opensInBar, sysPanel } from "../panelModel";
 import { folderKey, normalizeFolders, pinBefore } from "../folderModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
@@ -535,9 +535,10 @@ export function TaskbarWindow() {
     if (id === "keepawake") return awakeOn(awake.get(), Date.now()) ? stopAwake() : startAwake(null);
     const own = widgetPanel(id, primary);
     if (own) {
-      // Not on the click that closes it, or the closing panel would turn into the drives, or to its Bluetooth page, as it fades.
+      // Not on the click that closes it, or the closing panel would turn into the drives, or to its Bluetooth page, as it fades. The
+      // quick panel moved over from Stato's button turns to that page too (Stato's click turns it back).
       if (own === "disks" && panel.get()?.content.kind !== "disks") dropStaleScan();
-      if (own === "quick" && panel.get()?.content.kind !== "quick") quickPage.set({ page: "bluetooth", rows: 1, extra: 0 });
+      if (own === "quick" && !closesPanel({ kind: own }, spanOf(button))) quickPage.set({ page: "bluetooth", rows: 1, extra: 0 });
       return togglePanel({ kind: own }, spanOf(button));
     }
     const tool = widgetTool(id);
@@ -902,8 +903,10 @@ export function TaskbarWindow() {
             if (afterDrag(e)) return;
             setError(null);
             setMenu(null);
-            const r = e.currentTarget.getBoundingClientRect();
-            togglePanel({ kind: "quick" }, { x: r.x, w: r.width });
+            const r = e.currentTarget.getBoundingClientRect(), anchor = { x: r.x, w: r.width };
+            // Moved over from Device batteries, the panel turns back to its main page.
+            if (!closesPanel({ kind: "quick" }, anchor)) quickPage.set(null);
+            togglePanel({ kind: "quick" }, anchor);
           }}
           onPointerDown={dragFrom(id)}
           // No menu of its own, as a widget: the Crest menu over the pointer.
