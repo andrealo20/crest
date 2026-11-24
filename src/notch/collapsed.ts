@@ -120,3 +120,18 @@ export function defaultClosed(style: "notch" | "capsule" | "line", grip: ClosedG
   const key = GRIP_KEYS[style][grip === "depth" ? 1 : 0];
   return { [key]: CLOSED_SIZE_DEFAULTS[key] };
 }
+
+/** The line's colour (`display.lineColor`): the closed notch's (black, or the theme's when it opts in), white, or the accent. */
+export type LineColor = "notch" | "white" | "accent";
+
+/** A saved line colour, the closed notch's for anything else. */
+export const normalizeLineColor = (raw: unknown): LineColor => (raw === "white" || raw === "accent" ? raw : "notch");
+
+/** Near white, as the closed notch's light ink. */
+const LINE_WHITE = "rgb(255 255 255 / 0.92)";
+
+/** The line's fill: a black line is hard to see over dark windows (#87), so it can be white or the accent. */
+export const lineFill = (c: LineColor): string => (c === "white" ? LINE_WHITE : c === "accent" ? "var(--color-accent)" : "var(--notch-closed)");
+
+/** The song's progress along the line: the accent, white over an accent line, where it would not show. */
+export const lineProgressFill = (c: LineColor): string => (c === "accent" ? LINE_WHITE : "var(--color-accent)");

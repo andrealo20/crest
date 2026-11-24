@@ -2,9 +2,9 @@
 import { t } from "../i18n";
 import { settings, updateSettings, type Settings } from "../settings/store";
 import { toSaved } from "../features/window/panelSize";
-import { Button, Row, Slider } from "../ui/controls";
+import { Button, Row, Segmented, Slider } from "../ui/controls";
 import type { RowSymbol } from "../ui/materialNames";
-import { CAPSULE_TOP_DEFAULT, CLOSED_SIZE_DEFAULTS, LIMITS, type ClosedSize } from "./collapsed";
+import { CAPSULE_TOP_DEFAULT, CLOSED_SIZE_DEFAULTS, LIMITS, type ClosedSize, type LineColor } from "./collapsed";
 import { monitor, monitorMetrics } from "./monitor";
 import { editClosedShape } from "./ClosedResize";
 
@@ -72,6 +72,19 @@ export function SizeSettings() {
           <SizeRow label={t("Länge")} icon="straighten" value={c.lineLength} min={LIMITS.lineLength[0]} max={Math.min(LIMITS.lineLength[1], wide)} onChange={(lineLength) => set({ lineLength })} />
           <SizeRow label={t("Dicke")} icon="line_weight" value={c.lineThickness} min={LIMITS.lineThickness[0]} max={LIMITS.lineThickness[1]} step={0.5} onChange={(lineThickness) => set({ lineThickness })} />
           <SizeRow label={t("Abstand zum Rand")} icon="padding" value={c.lineTop} min={LIMITS.lineTop[0]} max={LIMITS.lineTop[1]} onChange={(lineTop) => set({ lineTop })} />
+          <Row icon="palette" label={t("Farbe")}>
+            <Segmented<LineColor>
+              id="line-color"
+              label={t("Farbe")}
+              value={s.display.lineColor}
+              onChange={(lineColor) => updateSettings((cur) => ({ display: { ...cur.display, lineColor } }))}
+              options={[
+                { value: "notch", label: t("Wie die Notch") },
+                { value: "white", label: t("Weiß") },
+                { value: "accent", label: t("Akzent") },
+              ]}
+            />
+          </Row>
         </>
       )}
     </>

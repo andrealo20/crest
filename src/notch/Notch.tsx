@@ -25,7 +25,7 @@ import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometr
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, lineCapsuleY, panelTop, surfaceOf, windowYFor } from "./capsule";
-import { contentScale, sideLength } from "./collapsed";
+import { contentScale, lineFill, lineProgressFill, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, monitors, notchBusy, sharedSpan } from "./monitor";
 import { useMirror } from "./mirror";
 import { ROW, rowRoom, surfaceWidth } from "./row/layout";
@@ -635,6 +635,7 @@ export function Notch() {
           elevated={status === "open"}
           edge={edge}
           thin={lineShape}
+          fill={lineShape ? lineFill(displaySettings.lineColor) : undefined}
           glass={glass}
           look={closedLook ? "closed" : "panel"}
           top={topValue}
@@ -745,7 +746,8 @@ const FILL_FADE = "transition-colors duration-300 ease-out motion-reduce:transit
 
 /** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
 function LineProgress({ along }: { along: "x" | "y" }) {
-  const on = settings.use().closed.lineProgress;
+  const s = settings.use();
+  const on = s.closed.lineProgress;
   const np = useNowPlaying();
   const playing = on && !!np?.isPlaying && np.duration > 0;
   useSecondTick(playing);
@@ -754,8 +756,8 @@ function LineProgress({ along }: { along: "x" | "y" }) {
   return (
     <span
       aria-hidden
-      className={`absolute inset-0 bg-accent ${along === "x" ? "origin-left" : "origin-top"}`}
-      style={{ transform: along === "x" ? `scaleX(${f})` : `scaleY(${f})`, transition: "transform 1s linear" }}
+      className={`absolute inset-0 ${along === "x" ? "origin-left" : "origin-top"}`}
+      style={{ background: lineProgressFill(s.display.lineColor), transform: along === "x" ? `scaleX(${f})` : `scaleY(${f})`, transition: "transform 1s linear" }}
     />
   );
 }

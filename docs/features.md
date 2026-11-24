@@ -20,7 +20,7 @@ Pick the closed look under **Settings → Display**.
 
 - **Notch** hugs the top edge like a hardware notch.
 - **Capsule** is a pill you can drag up and down to any height. It snaps to the screen edges and the taskbar.
-- **Line** is a thin bar with a progress bar for the current song. It shows only the song's progress, and a finished timer.
+- **Line** is a thin bar with a progress bar for the current song. It shows only the song's progress, and a finished timer. Its **Colour**, under its sizes, is the closed notch's (the default), white or the accent, wherever the line shows, in focus mode and under a window rule too; over an accent line the progress is white ([#87](https://github.com/andrealo20/crest/issues/87)).
 
 Notch and capsule show a row of parts, centred and in the order you choose:
 

@@ -25,6 +25,8 @@ interface Props {
   hud?: boolean;
   /** The open panel's tool bar is drawn as the taskbar's Liquid Glass + (Notch.tsx plusDock). */
   plus?: boolean;
+  /** The closed fill instead of the closed notch's: the line's own colour (collapsed.ts lineFill). */
+  fill?: string;
   children?: ReactNode;
 }
 
@@ -37,7 +39,7 @@ interface Props {
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", look = "panel", top, hangs, hud = false, plus = false, children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, glass = "off", look = "panel", top, hangs, hud = false, plus = false, fill, children }: Props) {
   const w = useMotionValue(geometry.w);
   const h = useMotionValue(geometry.h);
   const r = useMotionValue(geometry.r);
@@ -79,7 +81,7 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
       style={{
         width: wPx,
         height: hPx,
-        ["--shape" as string]: glass === "shown" && (elevated || look === "closed") ? "transparent" : elevated ? "var(--color-notch)" : "var(--notch-closed)",
+        ["--shape" as string]: glass === "shown" && (elevated || look === "closed") ? "transparent" : elevated ? "var(--color-notch)" : (fill ?? "var(--notch-closed)"),
       }}
     >
       {/* Under the ears and the shadow like the shape's own colour, so its ears crossfade with --shape too. */}

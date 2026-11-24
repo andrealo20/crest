@@ -16,7 +16,7 @@ import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../featur
 import { DOCK_DEFAULTS, dockBesideBar, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
-import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
+import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, normalizeLineColor, type ClosedSize, type LineColor } from "../notch/collapsed";
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 import { normalizeSearch, type SearchSetting } from "../features/overview/search";
@@ -69,6 +69,8 @@ export interface Settings {
      * click work as usual.
      */
     idleStyle: "notch" | "capsule" | "line";
+    /** The line's colour wherever it shows (closed, in focus mode, under a window rule): the closed notch's, white or the accent (#87). */
+    lineColor: LineColor;
     /** Distance of the capsule from the top edge of the monitor in CSS px at 100 % (set by dragging or in the settings, 0 to 8000). */
     y: number;
   };
@@ -196,7 +198,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", focusClicks: false, idleStyle: "notch", y: 5 },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", focusClicks: false, idleStyle: "notch", lineColor: "notch", y: 5 },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -327,6 +329,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       ...s.display,
       focusStyle: s.display?.focusStyle === "line" ? "line" : "dim",
       focusClicks: s.display?.focusClicks === true,
+      lineColor: normalizeLineColor(s.display?.lineColor),
       y: fitCapsuleTop(s.display?.y), monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode) },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
