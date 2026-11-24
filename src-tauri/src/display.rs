@@ -716,8 +716,9 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             if std::mem::replace(&mut *state.mirror_block.lock().unwrap(), block.clone()) != block {
                 crate::mirror::wake(&app);
             }
-            // New foreground window: reapply "on top" in case it covered us, the bar first so the notch stays above it.
-            if foreground != last_foreground {
+            // New foreground window: reapply "on top" in case it covered us, the bar first so the notch stays above it. Not for
+            // the app whose tray menu a right click opened: it comes to the front to show the menu, which must stay above the bar.
+            if foreground != last_foreground && !crate::taskbar::tray::menu_of(window_pid(foreground)) {
                 crate::taskbar::bar::raise(&app);
                 if !state.hidden.load(Ordering::Relaxed) {
                     raise_topmost(&window);
