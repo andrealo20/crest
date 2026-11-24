@@ -941,6 +941,8 @@ export function TaskbarWindow() {
     onDragLeave: () => fileDrag.set(null),
     onDrop: (e: DragEvent) => {
       fileDrag.set(null);
+      // A drop brings no dragleave: an app's rest (dragRest) would bring its window forward after the files were dropped.
+      window.clearTimeout(dragTimer.current);
       if (!e.dataTransfer.types.includes("Files")) return;
       e.preventDefault();
       dropBefore.current = placeAt(bar.current, { id: null, x: e.clientX, y: e.clientY }, between)?.before ?? null;
