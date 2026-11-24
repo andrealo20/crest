@@ -5,7 +5,8 @@
 //! Explorer's own `Shell_TrayWnd`, found by the shell's process, and Explorer's answer goes back to the app: Explorer keeps every
 //! icon, so nothing needs giving back however Crest ends. Only the icon position request is Crest's to answer. Another program's
 //! own `Shell_TrayWnd` (lumabar, say) does not take the tray from Crest: the spy stays first, and each icon message also goes on
-//! to every such window (`others`), without waiting for its answer, so that program keeps its icons as well. The spy also carries
+//! to every such window (`others`), so that program keeps its icons as well: a WM_COPYDATA cannot be posted to another process,
+//! so each copy waits on that program at most `FORWARD_MS` as a forward to Explorer does, and its answer is dropped. The spy also carries
 //! `TaskbandHWND`, so the badges and progress apps report to the taskbar pass Crest too (taskband.rs).
 //!
 //! A forward waits on Explorer at most `FORWARD_MS`, so no app waits long on a busy Explorer through Crest. Crest's own appbar
@@ -103,6 +104,10 @@ thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
     /// The worker's queue, while the spy's thread runs.
     static WORKER: RefCell<Option<Sender<(IconKey, Option<Copied>)>>> = const { RefCell::new(None) };
+    /// The icon message being copied to another program's tray. The messages sent to the spy run while it waits, so a tray that
+    /// passes icons on to the first `Shell_TrayWnd`, which the spy is, would hand each copy straight back, copied back again until
+    /// the stack ran out. Only the same bytes are that echo: another app's message arriving meanwhile goes its way as usual.
+    static COPYING: RefCell<Option<Vec<u8>>> = const { RefCell::new(None) };
 }
 
 struct Store {
@@ -553,11 +558,17 @@ unsafe fn copy_data(spy: HWND, wparam: WPARAM, lparam: LPARAM) -> isize {
             unsafe { appbar(wparam, bytes, wait) }.unwrap_or_else(|| forward(WM_COPYDATA, wparam, lparam, wait))
         }
         Msg::Icon(op, icon) => {
+            // A copy handed back (COPYING): the message it copies goes on to Explorer once the copy returns.
+            if COPYING.with_borrow(|c| c.as_deref() == Some(bytes)) {
+                return 1;
+            }
             keep(spy, op, icon);
             // Another program's tray keeps its icons too; Explorer's answer is the one that goes back.
+            let outer = COPYING.replace(Some(bytes.to_vec()));
             for other in other_trays() {
                 let _ = send(HWND(other as _), WM_COPYDATA, wparam, lparam, false);
             }
+            COPYING.set(outer);
             forward(WM_COPYDATA, wparam, lparam, false)
         }
         Msg::Other => forward(WM_COPYDATA, wparam, lparam, false),
