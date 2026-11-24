@@ -1,6 +1,7 @@
 //! The Recycle Bin's button on the bar: how many items it holds, from Windows' own count, read again when the shell reports a
 //! change in the bin (one read 300 ms after the last of a burst, off the taskbar thread). Opening it goes through Explorer, and
-//! emptying it through Windows' own call with its confirmation, so nothing is deleted without the user saying yes there.
+//! emptying it through Windows' own call once the user said yes in Crest's panel (RecyclePanel.tsx, its red button alone), so
+//! Windows does not ask a second time.
 
 use std::cell::Cell;
 use std::sync::Mutex;
@@ -13,7 +14,7 @@ use windows::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows::Win32::UI::Shell::{
     FOLDERID_RecycleBinFolder, ILFree, SHChangeNotification_Lock, SHChangeNotification_Unlock, SHChangeNotifyDeregister, SHChangeNotifyEntry,
     SHChangeNotifyRegister, SHEmptyRecycleBinW, SHGetKnownFolderIDList, SHQueryRecycleBinW, SHCNE_ALLEVENTS, SHCNRF_InterruptLevel, SHCNRF_NewDelivery,
-    SHCNRF_ShellLevel, SHQUERYRBINFO,
+    SHCNRF_ShellLevel, SHERB_NOCONFIRMATION, SHQUERYRBINFO,
 };
 use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer, WM_APP};
 
@@ -24,6 +25,8 @@ pub(super) const RECYCLE_MSG: u32 = WM_APP + 4;
 /// The one-shot timer that turns a burst of notifications into one read.
 pub(super) const RECYCLE_TIMER: usize = 4;
 const RECYCLE_MS: u32 = 300;
+/// Crest's panel asked already: no confirmation of Windows' own, its progress and sound kept.
+const EMPTY_FLAGS: u32 = SHERB_NOCONFIRMATION;
 
 #[derive(Serialize, Clone, Copy, PartialEq, Debug)]
 pub struct Recycle {
@@ -143,7 +146,7 @@ fn recycle_action(s: &str) -> Option<Act> {
     }
 }
 
-/// Opens the bin in Explorer, or empties it through Windows' own call: flags 0 keep its confirmation, progress and sound.
+/// Opens the bin in Explorer, or empties it through Windows' own call, which the red button of Crest's panel alone asks for.
 #[tauri::command]
 pub async fn taskbar_recycle_do(window: WebviewWindow, app: AppHandle, action: String) -> Result<(), String> {
     bar::from_bar(&window)?;
@@ -153,7 +156,7 @@ pub async fn taskbar_recycle_do(window: WebviewWindow, app: AppHandle, action: S
             let owner = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
             let _ = tauri::async_runtime::spawn_blocking(move || {
                 // Cancelled or already empty come back as errors: nothing to report.
-                let _ = unsafe { SHEmptyRecycleBinW(Some(HWND(owner as _)), PCWSTR::null(), 0) };
+                let _ = unsafe { SHEmptyRecycleBinW(Some(HWND(owner as _)), PCWSTR::null(), EMPTY_FLAGS) };
                 refresh(&app);
             })
             .await;
@@ -165,6 +168,14 @@ pub async fn taskbar_recycle_do(window: WebviewWindow, app: AppHandle, action: S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_bin_empties_without_windows_asking_again() {
+        use windows::Win32::UI::Shell::{SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI, SHERB_NOSOUND};
+        assert_eq!(EMPTY_FLAGS, SHERB_NOCONFIRMATION);
+        // Windows' progress and sound stay.
+        assert_eq!(EMPTY_FLAGS & (SHERB_NOPROGRESSUI | SHERB_NOSOUND), 0);
+    }
 
     #[test]
     fn actions_and_changes() {
