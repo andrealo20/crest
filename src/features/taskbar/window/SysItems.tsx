@@ -14,7 +14,6 @@ import { HOTSPOT_EVERY, HOVER_GAP, deskIconsName, deskIconsNote, ejectName, hots
 import { DndButton } from "./DndButton";
 import { readRemovables, removables } from "./EjectMenu";
 import { holdBriefly } from "./hold";
-import { togglePanel } from "../panel";
 import { Item, type ItemProps } from "./Item";
 
 /** Each of Windows' buttons the bar holds (model.ts SYS_IDS): its name (a key for t()) and its icon, which the settings and the drag's ghost show too. */
@@ -60,12 +59,12 @@ export function SysButton({ id, item, dragged, onOpen, say }: {
   id: SysId;
   item: Omit<ItemProps, "onClick" | "children">;
   dragged: (e: { detail: number }) => boolean;
-  onOpen?: (anchor: HTMLElement) => void;
+  onOpen?: (anchor: HTMLElement, keyboard?: boolean) => void;
   say: (text: string, failed: boolean) => void;
 }) {
   if (id === "input") return <InputButton item={item} dragged={dragged} />;
   if (id === "privacy") return <PrivacyButton item={item} dragged={dragged} />;
-  if (id === "recycle") return <RecycleButton item={item} dragged={dragged} />;
+  if (id === "recycle") return <RecycleButton item={item} dragged={dragged} onOpen={onOpen} />;
   if (id === "theme") return <ThemeButton item={item} dragged={dragged} />;
   if (id === "searchbox") return <SearchBox item={item} dragged={dragged} onOpen={onOpen} />;
   if (id === "dnd") return <DndButton item={item} dragged={dragged} />;
@@ -215,7 +214,11 @@ function PrivacyButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
  * click opens or closes its confirmation above the bar (RecyclePanel), whose red button alone empties it; its menu (TaskbarWindow)
  * opens it too.
  */
-function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
+function RecycleButton({ item, dragged, onOpen }: {
+  item: Omit<ItemProps, "onClick" | "children">;
+  dragged: (e: { detail: number }) => boolean;
+  onOpen?: (anchor: HTMLElement, keyboard?: boolean) => void;
+}) {
   useEffect(() => {
     const off = taskbar.onRecycle(recycleBin.set);
     taskbar.recycle().then((r) => r && recycleBin.set(r), () => {});
@@ -229,8 +232,7 @@ function RecycleButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "c
       name={t(key, values)}
       onClick={(e) => {
         if (dragged(e)) return;
-        const r = e.currentTarget.getBoundingClientRect();
-        togglePanel({ kind: "recycle" }, { x: r.x, w: r.width });
+        onOpen?.(e.currentTarget, e.detail === 0);
       }}
     >
       <Trash size={Math.round(item.size * 0.8)} weight={n ? "fill" : "regular"} />

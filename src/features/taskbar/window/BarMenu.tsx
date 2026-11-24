@@ -383,7 +383,7 @@ export function RecycleMenu({ close, anchor }: { close: () => void; anchor: Pane
         disabled={!items}
         onClick={() => {
           close();
-          openPanel({ kind: "recycle" }, anchor);
+          openPanel({ kind: "recycle", focus: true }, anchor);
         }}
       />
     </>

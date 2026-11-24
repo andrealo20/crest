@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { t } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { taskbar } from "../../../platform/services";
@@ -6,6 +7,9 @@ import { emptyWarning } from "../model";
 import { closePanel } from "../panel";
 import { recycleBin } from "../store";
 import { holdBriefly } from "./hold";
+
+/** The warning's id, which the panel's dialog is described by (BarPanel), so a screen reader reads it with the title. */
+export const RECYCLE_WARNING_ID = "bar-panel-recycle-warning";
 
 /** "Frees 22.3 MB", the size in bold wherever the language puts it. */
 function Frees({ bytes }: { bytes: number }) {
@@ -25,8 +29,13 @@ function Frees({ bytes }: { bytes: number }) {
  * it (recycle.rs asks Windows nothing more); it is off while the bin is empty or not counted yet. The count follows the bin while
  * the panel is open.
  */
-export function RecyclePanel() {
+export function RecyclePanel({ focus }: { focus?: boolean }) {
   const bin = recycleBin.use();
+  const cancel = useRef<HTMLButtonElement>(null);
+  // Opened by the keyboard or from the bin's menu: the keyboard lands on Cancel, the safe answer, as a confirmation does.
+  useEffect(() => {
+    if (focus) cancel.current?.focus({ preventScroll: true });
+  }, [focus]);
   const items = bin?.items ?? 0;
   const run = (action: "open" | "empty") => () => {
     closePanel();
@@ -41,11 +50,13 @@ export function RecyclePanel() {
           <Trash size={26} weight="regular" />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-title font-semibold text-label">{items ? t("Papierkorb leeren?") : t("Papierkorb")}</div>
+          <div className="line-clamp-2 text-title font-semibold text-label">{items ? t("Papierkorb leeren?") : t("Papierkorb")}</div>
           {items > 0 && <Frees bytes={bin?.bytes ?? 0} />}
         </div>
       </div>
-      <p className="mt-4 text-body text-label-2">{t(warning, values)}</p>
+      <p id={RECYCLE_WARNING_ID} className="mt-4 text-body text-label-2">
+        {t(warning, values)}
+      </p>
       <button onClick={run("open")} className="pressable mt-2 self-start text-footnote font-medium text-accent hover:underline material:text-primary">
         {t("Im Datei-Explorer öffnen")}
       </button>
@@ -53,11 +64,11 @@ export function RecyclePanel() {
         <button
           onClick={run("empty")}
           disabled={!items}
-          className="pressable h-11 rounded-[14px] bg-red text-body font-semibold text-white disabled:opacity-40 material:rounded-full"
+          className="pressable h-11 rounded-[14px] bg-red text-body font-semibold text-notch disabled:opacity-40 material:rounded-full"
         >
           {t("Papierkorb leeren")}
         </button>
-        <button onClick={closePanel} className="pressable pressable-fill h-11 rounded-[14px] bg-fill-2 text-body font-semibold text-label material:rounded-full">
+        <button ref={cancel} onClick={closePanel} className="pressable pressable-fill h-11 rounded-[14px] bg-fill-2 text-body font-semibold text-label material:rounded-full">
           {t("Abbrechen")}
         </button>
       </div>

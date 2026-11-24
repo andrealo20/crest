@@ -2,6 +2,7 @@
 // the bar lands. Pure, so they can be tested without the app around them.
 
 import { DOCK_HEIGHT } from "../../notch/geometry.ts";
+import type { SysId } from "./model.ts";
 
 /**
  * What the panel shows: a tool, by the id the notch opens it with, the tray's hidden icons, the apps behind "…", Stato's quick panel,
@@ -18,7 +19,7 @@ export type PanelContent =
   | { kind: "clock" }
   | { kind: "search" }
   | { kind: "crypto" }
-  | { kind: "recycle" }
+  | { kind: "recycle"; focus?: boolean }
   | { kind: "widgets" }
   | { kind: "folder"; id: string; focus?: "first" | "name" };
 /** The item the panel opens over: its left edge and its width, CSS px. */
@@ -167,6 +168,8 @@ export const SEARCH_SIZE = { w: 360, h: 80 };
 export const CRYPTO_SIZE = { w: 320, h: 24 + 32 + 10 + 88 + 10 + 32 };
 /** The Recycle Bin's confirmation at 100 %: 24 px round its bin and title (56), its warning and the link to Explorer, and its two buttons (44 each, 8 apart). */
 export const RECYCLE_SIZE = { w: 340, h: 272 };
+/** The panel a Windows button opens over the bar (the search box its field, the Recycle Bin its confirmation), so the button reads as expanded while it shows; null for the others. */
+export const sysPanel = (id: SysId): "search" | "recycle" | null => (id === "searchbox" ? "search" : id === "recycle" ? "recycle" : null);
 
 /** The page the quick panel keeps: none once the page's radio is gone (adapter removed), the same while it is only off or not read yet; the mixer whatever the radios read. */
 export function pageAfter(page: QuickPage | null, quick: { wifi: boolean | null; bluetooth: boolean | null } | null): QuickPage | null {

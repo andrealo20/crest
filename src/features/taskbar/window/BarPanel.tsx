@@ -26,7 +26,7 @@ import { useBarEdge } from "./barEdge";
 import { CLOCK_TITLE_IDS, ClockPanel, TOOL_TITLE_ID, ToolPanel, useTabs } from "./ToolPanel";
 import { TrayPanel } from "./TrayPanel";
 import { CryptoPanel } from "./CryptoPanel";
-import { RecyclePanel } from "./RecyclePanel";
+import { RECYCLE_WARNING_ID, RecyclePanel } from "./RecyclePanel";
 import { DisksPanel, diskScan, panelDisks } from "./DisksPanel";
 import { SearchPanel } from "./SearchPanel";
 import { levelRows } from "../disks";
@@ -276,6 +276,7 @@ function Panel({
                         : undefined
       }
       aria-labelledby={open.content.kind === "tool" || clock?.alone ? TOOL_TITLE_ID : clock ? CLOCK_TITLE_IDS : undefined}
+      aria-describedby={open.content.kind === "recycle" ? RECYCLE_WARNING_ID : undefined}
       // Closing, it takes no key and no click: its zone is already gone.
       inert={!present}
       className="fixed left-0 -translate-x-1/2"
@@ -322,7 +323,7 @@ function Panel({
                   ) : open.content.kind === "crypto" ? (
                     <CryptoPanel />
                   ) : open.content.kind === "recycle" ? (
-                    <RecyclePanel />
+                    <RecyclePanel focus={open.content.focus} />
                   ) : clock ? (
                     // Too short for both halves (fitClock): the Calendar alone, as the Next event widget opens it.
                     clock.alone ? <ToolPanel tool="calendar" /> : <ClockPanel />

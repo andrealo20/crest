@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool, RECYCLE_SIZE } from "./panelModel.ts";
+import { BAR_TOOLS, PANEL_TOOLS, PASSWORD_ROW, QUICK_PAGE_SIZE, QUICK_SIZE, quickChips, TRASH_ARM_MS, TRAY_SIZE, FOLDER_SIZE, folderCols, WIDGETS_SIZE, dragThreshold, dropSlot, fitPanel, gridSlot, opensInBar, pageAfter, panelKey, sameAnchor, sameContent, toolPanelSize, trashArmed, trashRest, withPanel, type PanelContent, CRYPTO_SIZE, DISKS_SIZE, CLOCK_CALENDAR, SEARCH_SIZE, fitClock, reportedTool, RECYCLE_SIZE, sysPanel } from "./panelModel.ts";
 
 const tool = (id: string): PanelContent => ({ kind: "tool", tool: id });
 
@@ -284,4 +284,10 @@ test("the bin's panel is its own content, at the size of its confirmation", () =
   assert.equal(panelKey({ kind: "recycle" }), "recycle");
   assert.equal(sameContent({ kind: "recycle" }, { kind: "tray" }), false);
   assert.deepEqual(RECYCLE_SIZE, { w: 340, h: 272 });
+});
+
+test("the Windows buttons that open a panel over the bar say which, so they read as expanded and switch in place", () => {
+  assert.equal(sysPanel("recycle"), "recycle");
+  assert.equal(sysPanel("searchbox"), "search");
+  for (const id of ["search", "taskview", "eject", "recent", "hotspot"] as const) assert.equal(sysPanel(id), null, id);
 });
