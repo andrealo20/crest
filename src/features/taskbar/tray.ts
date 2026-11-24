@@ -3,11 +3,15 @@ import { isNative } from "../../platform/native";
 import { taskbar } from "../../platform/services";
 import type { TrayState } from "./model";
 import type { Decor } from "./decorModel";
+import { plainWhite } from "./trayModel";
 
 /** In the bar's window: the tray's icons as Rust last listed them, none while it does not run. */
 export const trayState = createStore<TrayState>({ yielded: false, icons: [] });
 /** In the bar's window: the pictures fetched so far, by `TrayIcon.img`; a key Rust could not answer is not here, so it is asked again. */
 export const trayPictures = createStore<Record<string, string>>({});
+
+/** In the bar's window: which pictures of `trayPictures` are a plain white glyph (trayModel plainWhite), each read once. */
+export const trayWhite = createStore<Record<string, boolean>>({});
 
 /** In the bar's window: the bar has too little room even for the tray's kept icons, so they are back behind ^ and its panel lists every icon. */
 export const trayFolded = createStore(false);
@@ -63,6 +67,46 @@ export function startTray(): () => void {
     off();
     stop();
   };
+}
+
+/**
+ * Reads each picture of `trayPictures` once and notes in `trayWhite` whether it is a plain white glyph; returns the stop. Also in the
+ * browser, where the dev sample's pictures stand in.
+ */
+export function followWhite(): () => void {
+  const reading = new Set<string>();
+  const read = () => {
+    const pictures = trayPictures.get();
+    const known = trayWhite.get();
+    if (Object.keys(known).some((k) => !(k in pictures))) trayWhite.set((s) => Object.fromEntries(Object.entries(s).filter(([k]) => k in pictures)));
+    for (const [key, url] of Object.entries(pictures)) {
+      if (key in known || reading.has(key)) continue;
+      reading.add(key);
+      void pixels(url).then((rgba) => {
+        reading.delete(key);
+        // A picture that cannot be read keeps its own colours.
+        if (key in trayPictures.get()) trayWhite.set((s) => ({ ...s, [key]: rgba !== null && plainWhite(rgba) }));
+      });
+    }
+  };
+  read();
+  return trayPictures.subscribe(read);
+}
+
+/** A picture's pixels at its own size, or null when it cannot be read. */
+async function pixels(url: string): Promise<Uint8ClampedArray | null> {
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const canvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0);
+    return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  } catch {
+    return null;
+  }
 }
 
 /** Follows the badges and progress Rust sends every bar, with their pictures, for the page's life. Not in the browser. */

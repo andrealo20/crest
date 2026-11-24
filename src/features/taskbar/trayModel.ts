@@ -40,3 +40,21 @@ export function placeHidden(hiddenOrder: string[], shown: string[], hidden: Tray
   const order = [...new Set([...hiddenOrder.filter((h) => !shown.includes(h)), ...hidden.map((i) => i.id)])];
   return promote(order, id, shownSlot(order, hidden, slot));
 }
+
+/**
+ * Whether a tray picture's pixels (`rgba`, 4 bytes each, as ImageData holds them) are a plain white glyph, as apps and Windows draw
+ * their icons for a dark taskbar. The bar draws those in the ink of what is under them, so they stay readable on a light theme (#93).
+ */
+export function plainWhite(rgba: ArrayLike<number>): boolean {
+  let seen = false;
+  for (let i = 0; i < rgba.length; i += 4) {
+    // An antialiased edge is too faint to tell its colour (icons keep straight alpha, so a visible one shows its own).
+    if (rgba[i + 3] < 32) continue;
+    const hi = Math.max(rgba[i], rgba[i + 1], rgba[i + 2]);
+    const lo = Math.min(rgba[i], rgba[i + 1], rgba[i + 2]);
+    // Grey and light, as the dim parts of Windows' own glyphs are; one coloured or dark pixel keeps the icon's colours.
+    if (hi - lo > 24 || lo < 160) return false;
+    seen = true;
+  }
+  return seen;
+}

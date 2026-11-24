@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { demote, placeHidden, promote, shownSlot, splitTray } from "./trayModel.ts";
+import { demote, placeHidden, plainWhite, promote, shownSlot, splitTray } from "./trayModel.ts";
 
 test("icons keep the order Andrea chose and the others go to the panel", () => {
   const i = (id: string) => ({ id, key: id, tip: id, img: null });
@@ -52,4 +52,21 @@ test("an icon let go in the panel goes to that cell, and the saved ids with no i
   // From the bar: "a" was kept visible and saved in the panel once; it goes in at the cell, the end past the last.
   assert.deepEqual(placeHidden(["a", "c", "x", "b"], ["a"], hidden, "a", 1), ["c", "x", "a", "b", "d"]);
   assert.deepEqual(placeHidden([], ["a"], [], "a", 0), ["a"]);
+});
+
+test("only a glyph of white and light grey, drawn for a dark taskbar, is plain white (#93)", () => {
+  const px = (...pixels: number[][]) => pixels.flat();
+  const clear = [0, 0, 0, 0];
+  const white = [255, 255, 255, 255];
+  // A white glyph with its antialiased edge and a dim part, as Windows' network and volume icons have.
+  assert.equal(plainWhite(px(clear, white, [255, 255, 255, 90], [190, 190, 190, 255], [40, 10, 10, 20])), true);
+  // The demo's chat icon: purple with white dots.
+  assert.equal(plainWhite(px(clear, [139, 92, 246, 255], white, [139, 92, 246, 255])), false);
+  // One red dot on a white glyph keeps the colours.
+  assert.equal(plainWhite(px(white, white, [230, 40, 40, 255])), false);
+  // A dark glyph, drawn for a light taskbar, keeps them too.
+  assert.equal(plainWhite(px(clear, [30, 30, 30, 255])), false);
+  // Nothing to see.
+  assert.equal(plainWhite(px(clear, [255, 255, 255, 10])), false);
+  assert.equal(plainWhite([]), false);
 });

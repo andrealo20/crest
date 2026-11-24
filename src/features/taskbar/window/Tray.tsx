@@ -7,7 +7,7 @@ import { AppIcon } from "../../launcher/AppIcon";
 import { trayIcon, type TrayIcon } from "../model";
 import { panel, panelHeld, togglePanel, trayDrag } from "../panel";
 import { dropSlot, gridSlot } from "../panelModel";
-import { startTray, trayFolded, trayPictures, trayState } from "../tray";
+import { followWhite, startTray, trayFolded, trayPictures, trayState, trayWhite } from "../tray";
 import { demote, placeHidden, promote, shownSlot, splitTray } from "../trayModel";
 import { beyond } from "../position";
 import { barEdgeNow, useBarEdge } from "./barEdge";
@@ -24,6 +24,18 @@ const DRAG = 4;
 /** A press on a tray icon, on the bar or in the panel: past DRAG it drags the icon (trayDrag), which TrayDrop keeps on the bar or hides where it is let go. */
 function press(e: ReactPointerEvent<HTMLButtonElement>, icon: TrayIcon, from: "panel" | "bar") {
   startPress(e, { threshold: DRAG, onDrag: (x, y) => trayDrag.set({ id: icon.id, img: icon.img, x, y, from }), onEnd: () => trayDrag.set(null) });
+}
+
+/**
+ * A tray icon's picture. A plain white glyph, drawn by its app for Windows' dark taskbar, takes the ink of what is under it instead,
+ * the text colour of the bar or the panel, so a light theme does not swallow it (#93); its greys stay as light as they were.
+ */
+export function TrayPicture({ img, size }: { img: string | null; size: number }) {
+  const pictures = trayPictures.use();
+  const white = trayWhite.use();
+  const src = img === null ? null : pictures[img];
+  if (!src || img === null || !white[img]) return <AppIcon src={src} size={size} />;
+  return <span aria-hidden className="shrink-0 bg-label" style={{ width: size, height: size, maskImage: `url("${src}")`, maskMode: "luminance", maskSize: "100% 100%" }} />;
 }
 
 /** How long the pointer rests on a tray icon before its app hears it, as Windows' tray waits before a popup, ms. */
@@ -106,8 +118,8 @@ export function Tray({
   onMenu: MouseEventHandler<HTMLButtonElement>;
 }) {
   useEffect(() => startTray(), []);
+  useEffect(() => followWhite(), []);
   useEffect(() => trayLeave, []);
-  const pictures = trayPictures.use();
   const open = panel.use();
   const toggle: MouseEventHandler<HTMLButtonElement> = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -138,7 +150,7 @@ export function Tray({
             width={slot}
             {...trayButton(icon, "bar")}
           >
-            <AppIcon src={icon.img === null ? null : pictures[icon.img]} size={glyph} />
+            <TrayPicture img={icon.img} size={glyph} />
           </Item>
         );
       })}
@@ -199,7 +211,6 @@ function dropAt(bar: HTMLElement | null, more: HTMLElement | null, d: { x: numbe
  */
 export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement | null>; more: RefObject<HTMLElement | null>; size: number; gap: number }) {
   const drag = trayDrag.use();
-  const pictures = trayPictures.use();
   const dragging = drag !== null;
   useEffect(() => {
     if (!dragging) return;
@@ -229,7 +240,7 @@ export function TrayDrop({ bar, more, size, gap }: { bar: RefObject<HTMLElement 
     <>
       {/* The bar's drag under Material (ItemDrop): a tonal disc at level 4 over the line, as far out as it pads in. */}
       <span className="pointer-events-none fixed top-0 left-0 flex material:z-10 material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:shadow-level4" style={{ transform: `translate(${drag.x - size / 2}px, ${drag.y - size / 2}px)` }}>
-        <AppIcon src={drag.img === null ? null : pictures[drag.img]} size={size} />
+        <TrayPicture img={drag.img} size={size} />
       </span>
       {line && (
         // 2 px wide, centred on its place.
