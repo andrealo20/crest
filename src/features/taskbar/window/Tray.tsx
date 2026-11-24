@@ -16,7 +16,7 @@ import { Item, type ItemProps } from "./Item";
 import { startPress, pressDragged } from "./press";
 
 /** What every bar button has in common (TaskbarWindow's `item`). */
-export type Common = Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "plus" | "onEnter" | "onLeave">;
+export type Common = Pick<ItemProps, "name" | "label" | "failed" | "hover" | "hoverLabel" | "size" | "markAt" | "plus" | "onEnter" | "onLeave">;
 
 /** How far a press on an icon moves before it drags the icon, CSS px; less is still a click. */
 const DRAG = 4;

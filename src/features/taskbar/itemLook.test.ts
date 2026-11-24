@@ -42,7 +42,7 @@ test("Item draws the pill and the state layer only under Material, the layer lit
   assert.match(item, /\{material &&[^}]*data-front-pill/);
   const layer = /material && <span[^\n]*m3-layer[^\n]*/.exec(item);
   assert.ok(layer, "no state layer drawn under a material && branch");
-  assert.match(layer[0], /data-hover=\{props\.lifted \|\| undefined\}/);
+  assert.match(layer[0], /data-hover=\{lifted \|\| undefined\}/);
   // The window lets the pointer through off its zones and the page never sees pointerleave there, so a :hover would stay lit.
   assert.doesNotMatch(layer[0], /hover:/);
   assert.equal(item.match(/data-front-pill/g)?.length, 1);
@@ -101,4 +101,17 @@ test("a window's button draws its title from the start edge, cut to its width, a
   assert.doesNotMatch(bar, /ownIcons\[(b|cardButton)\.key\]/);
   assert.equal(bar.match(/ownIcons\[appKey\(/g)?.length, 3);
   assert.match(window("AppsPanel.tsx"), /aria-label=\{b\.title \?\? b\.name\}\s*title=\{b\.title \?\? b\.name\}/);
+});
+
+test("a hover draws only the button it leaves and the one it reaches, and a redraw of the bar leaves the marks alone", () => {
+  const item = window("Item.tsx");
+  const bar = window("TaskbarWindow.tsx");
+  // The bar holds no hover of its own: each button reads barHover for its key, so the bar is not drawn again (4 to 5 ms a time).
+  assert.doesNotMatch(bar, /setHovered|\bhovered\b/);
+  assert.ok(item.includes("export const barHover = createStore<string | null>(null)"));
+  assert.ok(item.includes("const lifted = useHovered(props.hover)"));
+  assert.ok(bar.includes("onEnter: () => barHover.set(key)"));
+  // A note or an error wins over the name, and a menu, a panel, a drag or a card hides both (label null).
+  assert.ok(item.includes("const label = props.label !== undefined ? props.label : lifted ? (props.hoverLabel ?? null) : null"));
+  for (const name of ["Mark", "ProgressLine", "Label"]) assert.ok(item.includes(`const ${name} = memo(function ${name}(`), name);
 });

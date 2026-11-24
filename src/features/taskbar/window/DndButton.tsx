@@ -23,7 +23,7 @@ export function DndButton({ item, dragged }: { item: Omit<ItemProps, "onClick" |
     <Item
       {...item}
       name={name}
-      label={item.label === item.name ? name : item.label}
+      hoverLabel={name}
       onEnter={(e) => {
         item.onEnter(e);
         read();

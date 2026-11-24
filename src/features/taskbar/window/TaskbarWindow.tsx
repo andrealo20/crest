@@ -50,7 +50,7 @@ import { EjectMenu } from "./EjectMenu";
 import { FolderPanel } from "./FolderPanel";
 import { holdBriefly } from "./hold";
 import { HotspotMenu } from "./HotspotMenu";
-import { Item, type ItemProps } from "./Item";
+import { Item, barHover, type ItemProps } from "./Item";
 import { markThick } from "../itemLook";
 import { ItemDrop } from "./ItemDrop";
 import { runFaceKey } from "./MediaFaces";
@@ -123,8 +123,7 @@ export function TaskbarWindow() {
   // The keyboard is in the bar after one of its Windows keys, Tab or an arrow (not after a click): it holds a bar that slides away up.
   const keyNav = useRef(false);
   const [focusIn, setFocusIn] = useState(false);
-  // The button under the pointer, and a launch that failed (in its button's label for a while).
-  const [hovered, setHovered] = useState<string | null>(null);
+  // A launch that failed, in its button's label for a while. The button under the pointer is in barHover (Item), not here.
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   // An app's new volume after a wheel step, in its button's label for a moment.
   const [note, setNote] = useState<{ key: string; text: string } | null>(null);
@@ -194,7 +193,7 @@ export function TaskbarWindow() {
         if (inside) return;
         // No pointerleave reaches a click-through window: a tray icon's app hears the leave here.
         trayLeave();
-        setHovered(null);
+        barHover.set(null);
         lastX.current = Infinity;
         setCard(null);
         pointer.set(Infinity);
@@ -566,7 +565,7 @@ export function TaskbarWindow() {
           closePanel();
           setMenu(null);
           setCard(null);
-          setHovered(null);
+          barHover.set(null);
           pointer.set(Infinity);
         }
         move(x, y);
@@ -587,15 +586,16 @@ export function TaskbarWindow() {
 
   const item = (key: string, name: string) => ({
     name,
-    // An open menu or panel hides the names, which would show around it, and so does a drag.
-    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : note?.key === key ? note.text : hovered === key ? name : null,
+    // An open menu or panel hides the names, which would show around it, and so does a drag; left out, the name shows under the pointer.
+    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : note?.key === key ? note.text : undefined,
     failed: error?.key === key,
-    lifted: hovered === key,
+    hover: key,
+    hoverLabel: name,
     size,
     markAt,
     plus: look.look === "plus",
-    onEnter: () => setHovered(key),
-    onLeave: () => setHovered((h) => (h === key ? null : h)),
+    onEnter: () => barHover.set(key),
+    onLeave: () => barHover.set((h) => (h === key ? null : h)),
   });
 
   /**
@@ -704,11 +704,11 @@ export function TaskbarWindow() {
             {...item(b.key, windowCount && windowBadge(b.windows.length) ? t("{name}, {n} Fenster", { name: b.title ?? b.name, n: b.windows.length }) : (b.title ?? b.name))}
             // Over an app with windows the pointer also rests for its previews.
             onEnter={() => {
-              setHovered(b.key);
+              barHover.set(b.key);
               showPreview(b);
             }}
             onLeave={() => {
-              setHovered((h) => (h === b.key ? null : h));
+              barHover.set((h) => (h === b.key ? null : h));
               leavePreview();
             }}
             ref={(el) => {

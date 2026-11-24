@@ -317,7 +317,7 @@ function EjectButton({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick
       {...item}
       name={name}
       // A note or an error over the button still wins over its name.
-      label={item.label === item.name ? name : item.label}
+      hoverLabel={name}
       onEnter={onEnter}
       onClick={(e) => {
         if (dragged(e)) return;
