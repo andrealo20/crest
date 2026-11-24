@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { settings } from "../../settings/store";
-import { discordState } from "../discord/store";
+import { useDiscord } from "../discord/store";
 import { privacy } from "./store";
 
 /** Dot size and the space between two dots. */
@@ -13,14 +13,14 @@ export const dotsWidth = (n: number) => (n > 0 ? n * DOT + (n - 1) * DOT_GAP : 0
 export function usePrivacyDots(): ("red" | "green")[] {
   const enabled = settings.use().privacyDots;
   const p = privacy.use();
-  const call = discordState.use().call;
-  const talk = p.mic || p.camera || (!!call && !call.mute);
+  const heard = useDiscord((s) => !!s.call && !s.call.mute);
+  const talk = p.mic || p.camera || heard;
   return enabled ? [p.screen && ("red" as const), talk && ("green" as const)].filter((d): d is "red" | "green" => !!d) : [];
 }
 
 /** Dots like on iPhone, in a row. While you talk in a Discord call, the green dot glows. */
 export function Dots({ dots }: { dots: ("red" | "green")[] }) {
-  const call = discordState.use().call;
+  const speaking = useDiscord((s) => s.call?.speaking === true);
   return (
     <div className="pointer-events-none flex items-center" style={{ gap: DOT_GAP }}>
       <AnimatePresence>
@@ -30,7 +30,7 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
             className="privacy-dot shrink-0 rounded-full"
             role="status"
             aria-label={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
-            data-pulse={color === "green" && call?.speaking ? true : undefined}
+            data-pulse={color === "green" && speaking ? true : undefined}
             style={{ width: DOT, height: DOT, backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
             initial={{ opacity: 0, transform: "scale(0.9)" }}
             animate={{ opacity: 1, transform: "scale(1)" }}
