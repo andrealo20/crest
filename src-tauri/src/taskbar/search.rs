@@ -100,7 +100,7 @@ fn tell(panel: Option<HWND>) {
             let hwnd = HWND(hwnd as _);
             let covers = at.is_some_and(|(rect, on)| {
                 on == tasks::monitor_of(hwnd)
-                    && monitor_rect(on).is_some_and(|monitor| steps_aside(rect, monitor, reserve::band_px(band, unsafe { GetDpiForWindow(hwnd) }), top))
+                    && monitor_rect(on).is_some_and(|monitor| steps_aside(rect, monitor, reserve::band_px(band * crate::text_scale::get(), unsafe { GetDpiForWindow(hwnd) }), top))
             });
             (label, covers)
         })

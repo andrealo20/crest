@@ -240,7 +240,8 @@ fn rect_for(ahead: Option<isize>, bar: HWND, monitor: isize, monitors: &[(isize,
     let mut origin = RECT::default();
     unsafe { GetWindowRect(bar, &mut origin) }.ok()?;
     let dpi = unsafe { GetDpiForWindow(bar) };
-    (dpi > 0).then(|| in_bar(display::frame_rect(ahead), (origin.left, origin.top), f64::from(dpi) / 96.0))
+    // The bar's px are its DPI times Windows' Text size (text_scale.rs).
+    (dpi > 0).then(|| in_bar(display::frame_rect(ahead), (origin.left, origin.top), f64::from(dpi) / 96.0 * crate::text_scale::get()))
 }
 
 /// Sends each bar its rect when it differs from what it was last sent; the record keeps only the bars there are now. Nothing

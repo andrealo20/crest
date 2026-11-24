@@ -365,7 +365,9 @@ unsafe fn on_screen(bar: HWND, r: HitRect) -> Option<RECT> {
     let mut at = RECT::default();
     unsafe { GetWindowRect(bar, &mut at) }.ok()?;
     let dpi = unsafe { GetDpiForWindow(bar) };
-    let px = |v: f64| (v * dpi as f64 / 96.0).round() as i32;
+    // The page's px are its DPI times Windows' Text size (text_scale.rs).
+    let k = dpi as f64 / 96.0 * crate::text_scale::get();
+    let px = |v: f64| (v * k).round() as i32;
     (dpi > 0).then(|| RECT { left: at.left + px(r.x), top: at.top + px(r.y), right: at.left + px(r.x + r.w), bottom: at.top + px(r.y + r.h) })
 }
 
