@@ -10,6 +10,7 @@ import { placeMenu, type BarEdge, type Indicator } from "../model";
 import { nudge } from "../position";
 import { useBarEdge } from "./barEdge";
 import { lineUnder, type Progress } from "../decorModel";
+import { barShown } from "../store";
 
 /** Thickness of the mark under an app, CSS px. */
 export const MARK = 3;
@@ -218,7 +219,10 @@ const FILL = { normal: "bg-green", paused: "bg-caution", error: "bg-red", indete
  * object, the same until the progress changes.
  */
 const ProgressLine = memo(function ProgressLine({ p, at, side, width }: { p: Progress; at: number; side: BarEdge; width: number }) {
-  const still = useReducedMotion();
+  const reduced = useReducedMotion();
+  const shown = barShown.use();
+  // Still while the bar is hidden or slid away too: Rust hides the window without telling WebView2, so an endless one runs on.
+  const still = reduced || !shown;
   const moving = p.state === "indeterminate";
   return (
     <span aria-hidden className="absolute inset-x-0 flex justify-center" style={{ [side]: at, height: MARK }}>
