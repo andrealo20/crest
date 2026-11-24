@@ -73,6 +73,34 @@ fn scan(app: &AppHandle) -> std::result::Result<Vec<FoundLine>, String> {
     Ok(out)
 }
 
+/// The text Windows' OCR reads in a picture (the Clipboard tool's images), a line of it to a line, its transparent parts read
+/// over white. Joins this thread to COM's multithreaded apartment, as `scan` does: the caller runs it on a thread of its own.
+/// "no-ocr" without an OCR language, "failed" when the read fails.
+pub(crate) fn read_picture(rgba: &image::RgbaImage) -> std::result::Result<String, String> {
+    let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+    let engine = engine().map_err(|_| "no-ocr")?;
+    // shortcut: past OcrEngine::MaxImageDimension (10000 px) the picture is scaled down, so very small text in it may be lost.
+    let max = OcrEngine::MaxImageDimension().unwrap_or(10_000).max(1);
+    let fitted;
+    let img = if rgba.width() > max || rgba.height() > max {
+        let k = max as f32 / rgba.width().max(rgba.height()) as f32;
+        let size = |v: u32| ((v as f32 * k) as u32).clamp(1, max);
+        fitted = image::imageops::resize(rgba, size(rgba.width()), size(rgba.height()), image::imageops::FilterType::Triangle);
+        &fitted
+    } else {
+        rgba
+    };
+    let over = crate::qr::over_white;
+    let bgra: Vec<u8> = img.as_raw().chunks_exact(4).flat_map(|p| [over(p[2], p[3]), over(p[1], p[3]), over(p[0], p[3]), 255]).collect();
+    let read = || -> Result<Vec<String>> {
+        let buffer = CryptographicBuffer::CreateFromByteArray(&bgra)?;
+        let bitmap = SoftwareBitmap::CreateCopyWithAlphaFromBuffer(&buffer, BitmapPixelFormat::Bgra8, img.width() as i32, img.height() as i32, BitmapAlphaMode::Ignore)?;
+        let result = engine.RecognizeAsync(&bitmap)?.join()?;
+        Ok(result.Lines()?.into_iter().filter_map(|line| line.Text().ok().map(|t| t.to_string())).collect())
+    };
+    read().map(|lines| lines.join("\n")).map_err(|_| "failed".into())
+}
+
 /// OCR in the user's profile languages, else English.
 fn engine() -> Result<OcrEngine> {
     OcrEngine::TryCreateFromUserProfileLanguages().or_else(|_| OcrEngine::TryCreateFromLanguage(&Language::CreateLanguage(h!("en-US"))?))

@@ -66,6 +66,7 @@ mod power;
 #[cfg(windows)]
 mod privacy;
 mod phone_share;
+mod qr;
 mod romanize;
 mod screentime;
 mod standby;
@@ -204,6 +205,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "taskbar_desktop_icons", "taskbar_desktop_icons_set", "taskbar_hotspot", "taskbar_hotspot_set",
     "secret_has", "portfolio_fetch", "portfolio_record", "agents_list", "colour_pick",
     "clipboard_list", "clipboard_copy", "clipboard_paste", "clipboard_preview", "clipboard_text", "clipboard_delete", "clipboard_clear",
+    "clipboard_read", "clipboard_open_qr",
     "ai_chat", "ai_cancel", "launcher_apps", "launcher_add_file",
     "capture_list", "capture_details", "capture_start", "capture_stop", "capture_pause", "capture_state", "capture_delete",
     "screentime_days", "wallpaper_current", "wallpaper_list", "wallpaper_set", "wallpaper_step", "wallpaper_fit", "wallpaper_folder",
@@ -377,6 +379,8 @@ pub fn run() {
             clipboard::clipboard_delete,
             clipboard::clipboard_clear,
             clipboard::clipboard_preview,
+            clipboard::clipboard_read,
+            clipboard::clipboard_open_qr,
             clipboard::clipboard_paste_files,
             clipboard::clipboard_text,
             keyboard_focus,
@@ -1383,7 +1387,7 @@ mod tests {
         // The bar's Agents lists the sessions, its Colour picks from the screen with the bar's window as the loupe's owner.
         assert!(ok("taskbar", "agents_list") && ok("taskbar", "colour_pick"));
         // Its Clipboard reads the history, copies, pastes and deletes from it; what the history records stays the notch's to set.
-        assert!(["clipboard_list", "clipboard_copy", "clipboard_paste", "clipboard_preview", "clipboard_text", "clipboard_delete", "clipboard_clear"].iter().all(|c| ok("taskbar", c)));
+        assert!(["clipboard_list", "clipboard_copy", "clipboard_paste", "clipboard_preview", "clipboard_text", "clipboard_delete", "clipboard_clear", "clipboard_read", "clipboard_open_qr"].iter().all(|c| ok("taskbar", c)));
         assert!(!ok("taskbar", "clipboard_mode"));
         // Its Ask streams its own conversation and stops it.
         assert!(ok("taskbar", "ai_chat") && ok("taskbar", "ai_cancel"));

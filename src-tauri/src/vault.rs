@@ -893,25 +893,16 @@ fn percent_decode(s: &str, plus: bool) -> String {
 fn scan_clipboard() -> Result<(String, u32), String> {
     let seq = unsafe { GetClipboardSequenceNumber() };
     let mut clipboard = arboard::Clipboard::new().map_err(|_| "no-image")?;
+    // Over white: a code on a transparent background reads too (qr.rs).
     let (w, h, luma) = if let Ok(img) = clipboard.get_image() {
-        let luma: Vec<u8> = img
-            .bytes
-            .chunks_exact(4)
-            .map(|p| ((p[0] as u32 * 299 + p[1] as u32 * 587 + p[2] as u32 * 114) / 1000) as u8)
-            .collect();
-        (img.width, img.height, luma)
+        (img.width, img.height, crate::qr::luma_over_white(&img.bytes))
     } else if let Some(file) = clipboard.get().file_list().ok().and_then(|f| f.into_iter().next()) {
-        let img = image::open(file).map_err(|_| "no-image")?.to_luma8();
-        (img.width() as usize, img.height() as usize, img.into_raw())
+        let img = image::open(file).map_err(|_| "no-image")?.to_rgba8();
+        (img.width() as usize, img.height() as usize, crate::qr::luma_over_white(img.as_raw()))
     } else {
         return Err("no-image".into());
     };
-    let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(w, h, |x, y| luma[y * w + x]);
-    prepared
-        .detect_grids()
-        .into_iter()
-        .find_map(|grid| grid.decode().ok().map(|(_, text)| (text, seq)))
-        .ok_or_else(|| "no-qr".into())
+    crate::qr::decode(w, h, &luma).map(|text| (text, seq)).ok_or_else(|| "no-qr".into())
 }
 
 // ---------- Private clipboard ----------
