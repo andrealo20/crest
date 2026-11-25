@@ -60,6 +60,16 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
+## What's new in 1.3.3
+
+- **Text and QR codes from copied images** in the Clipboard: Copy text, and a link opens in the browser. All of it on this PC.
+- **One amount in several currencies** in the Converter, up to eight at once.
+- **Arrow keys between tools** while the notch is open, Alt + arrows inside a text field (Cmd + Option on a Mac).
+- **Opens on**: the notch opens on the live activity, the tool open last or one tool every time. The Launcher gets an icon size and a switch for the names.
+- **On the taskbar**, emptying the Recycle Bin asks once in Crest's own panel, Search goes beside Start, Input language shows for Chinese, Japanese and Korean too, and Windows' own status icons stay out of the tray.
+
+The [1.3.3 release](https://github.com/andrealo20/crest/releases/tag/v1.3.3) has the downloads and the full notes, with the fixes and the issue behind each change.
+
 ## What's new in 1.3.2
 
 <p align="center">

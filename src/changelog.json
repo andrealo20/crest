@@ -1,5 +1,41 @@
 [
   {
+    "version": "1.3.3",
+    "date": "2026-11-25",
+    "items": [
+      {
+        "en": "The Clipboard reads the text and the QR code in a copied image: Copy text, and a link opens in the browser. On a Mac only the QR code"
+      },
+      {
+        "en": "The Converter turns one amount into up to eight currencies at once"
+      },
+      {
+        "en": "Left and Right move between tools while the notch is open, and Alt+Left/Right inside a text field (Cmd+Option on a Mac)"
+      },
+      {
+        "en": "Opens on chooses what the notch opens on: the live activity, the tool open last or one tool every time"
+      },
+      {
+        "en": "The Launcher gets an icon size and a switch for the names, and brings an app that is already open forward"
+      },
+      {
+        "en": "The line's colour can be the closed notch's, white or the accent, and Clocks finds capitals and big cities by their own name"
+      },
+      {
+        "en": "Lyrics are found with Spotify's Crossfade songs on"
+      },
+      {
+        "en": "On the taskbar, emptying the Recycle Bin asks once in Crest's own panel, Search goes beside Start, and Input language shows for Chinese, Japanese and Korean too. On Windows, not in the Microsoft Store version"
+      },
+      {
+        "en": "Windows' own volume, network and battery icons stay out of the tray, and the bar steps aside for Windows' search panel"
+      },
+      {
+        "en": "Fixes for windows that did not come forward on a click, tray menus and white tray icons, Weather's Automatic location, Windows' Text size and more, and smoother panels and hovers"
+      }
+    ]
+  },
+  {
     "version": "1.3.2",
     "date": "2026-11-23",
     "items": [
