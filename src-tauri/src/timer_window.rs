@@ -1,7 +1,8 @@
 //! Detached timer: a small always-on-top window (`timer` in tauri.conf.json, page timer.html)
-//! that shows the running timer. The frontend saves its position; here it is checked against
-//! the connected monitors, and the window is sized for Windows' Text size, which WebView2 draws
-//! timer.html larger by (text_scale.rs): at the config's size alone its buttons were cut off.
+//! that shows the running timer. It hides like the notch: with it, and while a window on its own monitor calls for the line or
+//! hiding under the window rules (display.rs), but only once another window comes to front after it was opened.
+//! The frontend saves its position; here it is checked against the connected monitors, and the window is sized for Windows'
+//! Text size, which WebView2 draws timer.html larger by (text_scale.rs): at the config's size alone its buttons were cut off.
 //! The notch learns about open/closed via "timer-window://open".
 //!
 //! Async commands on purpose: creating a window from a sync command deadlocks on Windows.
@@ -28,6 +29,7 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>,
         // A second open can find the window before the first one has queued its subclass: queued ahead of this show too.
         #[cfg(windows)]
         crate::display::keep_out_of_alt_tab(&window);
+        crate::display::timer_opened(&app);
         return window.show().map_err(|e| e.to_string());
     }
     let config = app.config().app.windows.iter().find(|w| w.label == LABEL).cloned().ok_or("Timer window missing in config")?;
@@ -62,6 +64,7 @@ pub async fn timer_window_open(x: Option<i32>, y: Option<i32>, dpr: Option<f64>,
     if let Some((from, s)) = spot {
         put_at(&window, base, from, grown(base, 1.0, s.scale), None, s);
     }
+    crate::display::timer_opened(&app);
     window.show().map_err(|e| e.to_string())?;
 
     let handle = app.clone();
