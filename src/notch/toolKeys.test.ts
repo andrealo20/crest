@@ -9,7 +9,18 @@ const k = (key: string, mods: Partial<ArrowKey> = {}): ArrowKey => ({
   metaKey: false,
   shiftKey: false,
   defaultPrevented: false,
+  repeat: false,
   ...mods,
+});
+
+test("a control that has used Alt+arrow keeps it: the slider moves, the tool stays", () => {
+  assert.equal(toolArrow(k("ArrowRight", { altKey: true, defaultPrevented: true }), false, false, false), 0);
+  assert.equal(toolArrow(k("ArrowRight", { altKey: true, metaKey: true, defaultPrevented: true }), false, true, false), 0);
+});
+
+test("a held arrow switches once, never through every tool at key-repeat speed (Camera, Find)", () => {
+  assert.equal(toolArrow(k("ArrowRight", { repeat: true }), false, false, false), 0);
+  assert.equal(toolArrow(k("ArrowLeft", { altKey: true, repeat: true }), true, false, false), 0);
 });
 
 test("Left and Right switch tools where nothing else takes them (#99)", () => {

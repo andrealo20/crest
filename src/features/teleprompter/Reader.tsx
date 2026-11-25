@@ -202,6 +202,10 @@ export function Reader({ words, focus, onEdit }: { words: number; focus: boolean
       case "ArrowDown":
         move(NUDGE_LINES * lineH);
         break;
+      // Kept, so a presentation clicker's arrow never switches tool mid-read (toolKeys.ts); Alt+arrows still do.
+      case "ArrowLeft":
+      case "ArrowRight":
+        break;
       case "PageUp":
         move(-PAGE * view);
         break;
