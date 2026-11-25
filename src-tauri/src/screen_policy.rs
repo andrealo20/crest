@@ -130,6 +130,13 @@ pub fn under_notch(frame: Edges, notch: Edges, m: Edges, band: i32) -> bool {
     on_top_edge && frame.1 < m.1 + band && frame.3 > m.1 + band && frame.0 < notch.2 && frame.2 > notch.0
 }
 
+/// Whether the floating timer hides: whenever the notch is hidden (the hide hotkey, a "hide" rule), and while a window on the
+/// timer's own monitor calls for the line or hiding (`ruled`), unless the notch was opened on purpose, which shows both until it
+/// closes.
+pub fn timer_hides(notch_hidden: bool, ruled: bool, opened: bool) -> bool {
+    notch_hidden || (ruled && !opened)
+}
+
 /// Process names compare without ".exe", so a rule may be saved either way.
 pub fn normalize_name(name: &str) -> String {
     let lower = name.trim().to_lowercase();
@@ -209,6 +216,16 @@ mod tests {
         assert_eq!(classify(false, true, false, false, true, false), Borderless); // F11 in Chromium, borderless game
         assert_eq!(classify(false, true, false, true, true, false), Borderless); // full screen entered from a maximized window (Firefox F11)
         assert_eq!(classify(true, true, false, true, true, true), Exclusive);
+    }
+
+    #[test]
+    fn the_floating_timer_hides_with_the_notch_and_under_its_own_rules() {
+        assert!(!timer_hides(false, false, false));
+        assert!(timer_hides(true, false, false));
+        assert!(timer_hides(false, true, false));
+        // Opened on purpose: shown over a rule, but not over the hide hotkey.
+        assert!(!timer_hides(false, true, true));
+        assert!(timer_hides(true, true, true));
     }
 
     #[test]

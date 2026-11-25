@@ -10,7 +10,8 @@
 //!
 //! The hide hotkey (shell.rs) hides Crest on top of that until it is pressed again, the notch is
 //! opened from the tray, Crest is launched again or "raise now" runs. Opening on purpose also shows Crest over a "hide" rule
-//! until the notch closes; the floating timer hides and shows with the notch.
+//! until the notch closes; the floating timer hides and shows with the notch, and also hides while a window on its own monitor
+//! calls for the line or hiding (until another window comes to front after it was opened).
 //!
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
 //! the page is zoomed and the window grown by it. Windows' Text size makes WebView2 draw the page larger again
@@ -20,7 +21,7 @@
 //! `mode` "follow" or "all" (mirror.rs): the frontend picks `monitor` from where the pointer is, and with "all" sends a `spot`
 //! (line and window top) for every monitor, where mirror.rs places a closed-only copy of the notch.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, Ordering};
 use std::sync::Mutex;
 #[cfg(windows)]
 use std::thread;
@@ -79,6 +80,12 @@ pub struct DisplayState {
     fullscreen: AtomicBool,
     /// The monitors (HMONITOR) of other screens where a window calls for hiding or the line, so their mirrors hide.
     pub(crate) mirror_block: Mutex<Vec<isize>>,
+    /// A window on the floating timer's monitor calls for the line or hiding, so the timer hides like the notch.
+    timer_block: AtomicBool,
+    /// The floating timer is hidden right now.
+    timer_hidden: AtomicBool,
+    /// The foreground window (HWND) when the timer was opened: the rules leave the timer alone until another window comes to front.
+    timer_grace: AtomicIsize,
 }
 
 impl DisplayState {
@@ -528,11 +535,43 @@ pub fn is_hidden(app: &AppHandle) -> bool {
     app.state::<DisplayState>().hidden.load(Ordering::Relaxed)
 }
 
+/// Shows or hides the floating timer: hidden with the notch, and while a window on its own monitor calls for the line or
+/// hiding (`screen_policy::timer_hides`). Only acts on a change.
+fn sync_timer(app: &AppHandle) {
+    // The timer window exists only while it is open (timer_window.rs destroys it on close).
+    let Some(timer) = app.get_webview_window("timer") else { return };
+    let state = app.state::<DisplayState>();
+    let hide = screen_policy::timer_hides(state.hides(), state.timer_block.load(Ordering::Relaxed), state.opened.load(Ordering::Relaxed));
+    if state.timer_hidden.swap(hide, Ordering::Relaxed) == hide {
+        return;
+    }
+    if hide {
+        let _ = timer.hide();
+    } else {
+        // Queued ahead of this show from any thread, in case it comes before the one timer_window_open queued after build().
+        #[cfg(windows)]
+        keep_out_of_alt_tab(&timer);
+        let _ = timer.show();
+    }
+}
+
+/// The timer was just opened (or opened again) and shown: it stays in sight, whatever the rules say, until another window
+/// comes to front.
+pub fn timer_opened(app: &AppHandle) {
+    let state = app.state::<DisplayState>();
+    state.timer_hidden.store(false, Ordering::Relaxed);
+    state.timer_block.store(false, Ordering::Relaxed);
+    #[cfg(windows)]
+    state.timer_grace.store(unsafe { GetForegroundWindow() }.0 as isize, Ordering::Relaxed);
+}
+
 /// Shows or hides the window (and the floating timer with it) to match the hotkey and the rules; only acts on a change.
 fn sync(app: &AppHandle) {
     // The bar follows the hotkey on its own, whatever the notch does (taskbar/bar.rs).
     #[cfg(windows)]
     crate::taskbar::bar::sync(app);
+    // The timer has its own rule reading on top of the notch's (`sync_timer`), so it is checked on every call.
+    sync_timer(app);
     let state = app.state::<DisplayState>();
     let hide = state.hides();
     if state.hidden.swap(hide, Ordering::Relaxed) == hide {
@@ -543,17 +582,6 @@ fn sync(app: &AppHandle) {
     crate::mirror::wake(app);
     // Hiding the window does not hide the page, so the Camera tool learns it here.
     let _ = app.emit("notch://hidden", hide);
-    // The timer window exists only while it is open (timer_window.rs destroys it on close).
-    if let Some(timer) = app.get_webview_window("timer") {
-        if hide {
-            let _ = timer.hide();
-        } else {
-            // Queued ahead of this show from any thread, in case it comes before the one timer_window_open queued after build().
-            #[cfg(windows)]
-            keep_out_of_alt_tab(&timer);
-            let _ = timer.show();
-        }
-    }
     let Some(window) = app.get_webview_window("notch") else { return };
     if hide {
         let _ = window.hide();
@@ -718,6 +746,32 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                         block.push(m);
                     }
                 }
+            }
+            // The floating timer hides like the notch while a window on its own monitor calls for the line or hiding. A timer just
+            // opened is left in sight until another window comes to front (`timer_opened`).
+            let timer = app.get_webview_window("timer").and_then(|t| t.hwnd().ok());
+            let grace = state.timer_grace.load(Ordering::Relaxed);
+            if grace != 0 && (timer.is_none() || grace != foreground.0 as isize) {
+                state.timer_grace.store(0, Ordering::Relaxed);
+            }
+            let timer_block = match timer {
+                Some(t) if state.timer_grace.load(Ordering::Relaxed) == 0 => {
+                    let on = unsafe { MonitorFromWindow(t, MONITOR_DEFAULTTONEAREST) };
+                    if on == monitor {
+                        behavior != Behavior::Normal
+                    } else if mirrors {
+                        block.contains(&(on.0 as isize))
+                    } else {
+                        let (near, far) = aside.entry(on.0 as isize).or_default();
+                        let seen = read_foreground(ruled, own, on, near);
+                        let back = (rules.background_matters() && seen.context == Context::Desktop).then(|| read_background(ruled, own, on, far)).flatten();
+                        screen_policy::decide(&rules, (seen.context, &seen.name, &seen.path), back.as_ref().map(|b| (b.context, b.name.as_str(), b.path.as_str())), gaming) != Behavior::Normal
+                    }
+                }
+                _ => false,
+            };
+            if state.timer_block.swap(timer_block, Ordering::Relaxed) != timer_block {
+                sync_timer(&app);
             }
             if std::mem::replace(&mut *state.mirror_block.lock().unwrap(), block.clone()) != block {
                 crate::mirror::wake(&app);
