@@ -310,8 +310,8 @@ export function FolderMenu({ id, close, rename }: { id: string; close: () => voi
   );
 }
 
-/** The windows of an app with several, by title; a click brings that one forward. */
-export function WindowList({ b, close }: { b: BarButton; close: () => void }) {
+/** The windows of an app with several, by title; a click brings that one forward. `onRefused` hears Windows keep it back. */
+export function WindowList({ b, close, onRefused }: { b: BarButton; close: () => void; onRefused: (code: unknown) => void }) {
   return (
     <>
       {b.windows.map((win) => (
@@ -320,7 +320,7 @@ export function WindowList({ b, close }: { b: BarButton; close: () => void }) {
           label={win.title || b.name}
           onClick={() => {
             close();
-            taskbar.window(win.id, "activate").catch(() => {});
+            taskbar.window(win.id, "activate").catch(onRefused);
           }}
         />
       ))}

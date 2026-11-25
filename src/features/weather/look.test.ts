@@ -7,7 +7,7 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 const view = read("./WeatherView.tsx");
 const material = read("./MaterialWeather.tsx");
 
-test("the weather view picks the Material layout from the style, entering in opacity only, and keeps Crest's branch as it was", () => {
+test("the weather view picks the Material layout from the style, and both layouts enter in opacity only", () => {
   const body = view.slice(view.indexOf("export function WeatherView()"), view.indexOf("\n}\n", view.indexOf("export function WeatherView()")));
   const decided = body.indexOf('const material = design.use() === "material"');
   assert.ok(decided > 0 && decided < body.indexOf("return ("), "decided in the body, before the return");
@@ -17,9 +17,11 @@ test("the weather view picks the Material layout from the style, entering in opa
   const materialBranch = body.slice(choice, crestAt);
   const crestBranch = body.slice(crestAt);
   assert.ok(materialBranch.includes("<MaterialWeather"), materialBranch);
-  assert.ok(materialBranch.includes("initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }}"), materialBranch);
-  assert.ok(!materialBranch.includes("filter"), materialBranch);
-  assert.ok(crestBranch.includes('filter: "blur(4px)"'), crestBranch.slice(0, 200));
+  // A blur over the whole panel cost a long frame on every open in WebView2 at 200 %.
+  for (const branch of [materialBranch, crestBranch]) {
+    assert.ok(branch.includes("initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }}"), branch.slice(0, 200));
+    assert.ok(!branch.includes("filter"), branch.slice(0, 200));
+  }
   for (const part of ["<Now", "<Hours", "<Week"]) assert.ok(crestBranch.includes(part), part);
   assert.match(view, /export function WeatherIcon\(\{[^}]*weight = "fill"[^}]*\}/);
   assert.ok(view.includes("weight={weight}"));

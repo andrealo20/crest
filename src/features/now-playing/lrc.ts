@@ -166,6 +166,7 @@ export function cacheKey(title: string, artist: string, duration: number): strin
 }
 
 export interface LrclibRecord {
+  trackName?: string;
   duration?: number;
   instrumental?: boolean;
   syncedLyrics?: string | null;
@@ -174,20 +175,39 @@ export interface LrclibRecord {
 /** A search result may be another recording; beyond this its lines would drift. */
 export const MAX_DRIFT = 5;
 
-/** Best search result: synced, and with a known length the closest one within MAX_DRIFT. */
-export function pickRecord(records: unknown, duration: number): LrclibRecord | null {
+/**
+ * A player that crossfades reports each song shorter by the fade, Spotify by up to 12 s: past MAX_DRIFT, a record with the song's
+ * title may be this much longer than the reported length, the fade and the 2 s LRCLIB's own match allows (#98). Never shorter.
+ */
+export const CROSSFADE_SLACK = 14;
+
+/** A title for comparing: letters and digits only, lower case (as lyrics.rs `simplified`). */
+const simple = (s: string) => s.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * Best search result: synced, and with a known length the closest one within MAX_DRIFT; failing that, with `title`, the closest one
+ * whose title contains it, or is contained in it, up to CROSSFADE_SLACK longer than `duration`.
+ */
+export function pickRecord(records: unknown, duration: number, title?: string): LrclibRecord | null {
   if (!Array.isArray(records)) return null;
   const synced = records.filter((r): r is LrclibRecord => !!r && typeof r === "object" && typeof r.syncedLyrics === "string" && r.syncedLyrics.trim() !== "");
   if (duration <= 0) return synced[0] ?? null;
-  let best: LrclibRecord | null = null, gap = Infinity;
-  for (const r of synced) {
-    const d = typeof r.duration === "number" ? Math.abs(r.duration - duration) : Infinity;
-    if (d <= MAX_DRIFT && d < gap) {
-      best = r;
-      gap = d;
+  const closest = (list: LrclibRecord[], fits: (gap: number) => boolean) => {
+    let best: LrclibRecord | null = null, least = Infinity;
+    for (const r of list) {
+      const gap = typeof r.duration === "number" ? r.duration - duration : Infinity;
+      if (fits(gap) && Math.abs(gap) < least) [best, least] = [r, Math.abs(gap)];
     }
-  }
-  return best;
+    return best;
+  };
+  const near = closest(synced, (gap) => Math.abs(gap) <= MAX_DRIFT);
+  const t = title ? simple(title) : "";
+  if (near || !t) return near;
+  const named = synced.filter((r) => {
+    const n = typeof r.trackName === "string" ? simple(r.trackName) : "";
+    return n !== "" && (n.includes(t) || t.includes(n));
+  });
+  return closest(named, (gap) => gap > 0 && gap <= CROSSFADE_SLACK);
 }
 
 /** What a source found: synced lyrics as LRC, or instrumental; translation and romanisation as LRC with the same stamps. */

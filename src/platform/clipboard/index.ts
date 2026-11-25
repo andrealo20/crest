@@ -32,6 +32,10 @@ interface ClipboardSource {
   preview(id: number): Promise<ClipPreview | null>;
   /** The whole text of a text or link entry (the list holds only the start), null for others and above 100 KB. For the decode chips. */
   text(id: number): Promise<string | null>;
+  /** What an image entry says in words: "text" reads it with Windows' OCR, a line to a line; "qr" is the QR code in it. Null with nothing of that kind; rejects "unsupported" off Windows for "text". */
+  read(id: number, what: "text" | "qr"): Promise<string | null>;
+  /** Opens an image entry's QR code in the browser when it is a web link: Rust reads the code again and opens http or https only (features/clipboard/qr.ts). */
+  openQr(id: number): Promise<void>;
   subscribe(listener: () => void): () => void;
   copy(id: number): Promise<void>;
   /** Copies, then pastes into the app that had the keyboard before the notch (or the bar's panel) opened. False: there was none (or a Mac has not allowed Crest to press keys), so it is only copied. */
@@ -72,6 +76,8 @@ function createNative(): ClipboardSource {
     paste: (id) => invoke<boolean>("clipboard_paste", { id }),
     preview: (id) => invoke<ClipPreview | null>("clipboard_preview", { id }),
     text: (id) => invoke<string | null>("clipboard_text", { id }),
+    read: (id, what) => invoke<string | null>("clipboard_read", { id, what }),
+    openQr: (id) => invoke("clipboard_open_qr", { id }),
     remove: (id) => void invoke("clipboard_delete", { id }),
     clear: () => void invoke("clipboard_clear"),
     mode: (mode) => void invoke("clipboard_mode", { mode }),
@@ -126,6 +132,9 @@ function createMock(): ClipboardSource {
       const item = items.find((i) => i.id === id);
       return item && (item.kind === "text" || item.kind === "link") ? item.text : null;
     },
+    // The sample pictures are gradients: no words, no code in them.
+    read: async () => null,
+    openQr: async () => {},
     remove: (id) => set(items.filter((i) => i.id !== id)),
     clear: () => set([]),
     mode(mode) {

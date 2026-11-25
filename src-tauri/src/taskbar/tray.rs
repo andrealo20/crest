@@ -5,7 +5,8 @@
 //! Explorer's own `Shell_TrayWnd`, found by the shell's process, and Explorer's answer goes back to the app: Explorer keeps every
 //! icon, so nothing needs giving back however Crest ends. Only the icon position request is Crest's to answer. Another program's
 //! own `Shell_TrayWnd` (lumabar, say) does not take the tray from Crest: the spy stays first, and each icon message also goes on
-//! to every such window (`others`), without waiting for its answer, so that program keeps its icons as well. The spy also carries
+//! to every such window (`others`), so that program keeps its icons as well: a WM_COPYDATA cannot be posted to another process,
+//! so each copy waits on that program at most `FORWARD_MS` as a forward to Explorer does, and its answer is dropped. The spy also carries
 //! `TaskbandHWND`, so the badges and progress apps report to the taskbar pass Crest too (taskband.rs).
 //!
 //! A forward waits on Explorer at most `FORWARD_MS`, so no app waits long on a busy Explorer through Crest. Crest's own appbar
@@ -103,6 +104,10 @@ thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
     /// The worker's queue, while the spy's thread runs.
     static WORKER: RefCell<Option<Sender<(IconKey, Option<Copied>)>>> = const { RefCell::new(None) };
+    /// The icon message being copied to another program's tray. The messages sent to the spy run while it waits, so a tray that
+    /// passes icons on to the first `Shell_TrayWnd`, which the spy is, would hand each copy straight back, copied back again until
+    /// the stack ran out. Only the same bytes are that echo: another app's message arriving meanwhile goes its way as usual.
+    static COPYING: RefCell<Option<Vec<u8>>> = const { RefCell::new(None) };
 }
 
 struct Store {
@@ -365,7 +370,9 @@ unsafe fn on_screen(bar: HWND, r: HitRect) -> Option<RECT> {
     let mut at = RECT::default();
     unsafe { GetWindowRect(bar, &mut at) }.ok()?;
     let dpi = unsafe { GetDpiForWindow(bar) };
-    let px = |v: f64| (v * dpi as f64 / 96.0).round() as i32;
+    // The page's px are its DPI times Windows' Text size (text_scale.rs).
+    let k = dpi as f64 / 96.0 * crate::text_scale::get();
+    let px = |v: f64| (v * k).round() as i32;
     (dpi > 0).then(|| RECT { left: at.left + px(r.x), top: at.top + px(r.y), right: at.left + px(r.x + r.w), bottom: at.top + px(r.y + r.h) })
 }
 
@@ -551,11 +558,17 @@ unsafe fn copy_data(spy: HWND, wparam: WPARAM, lparam: LPARAM) -> isize {
             unsafe { appbar(wparam, bytes, wait) }.unwrap_or_else(|| forward(WM_COPYDATA, wparam, lparam, wait))
         }
         Msg::Icon(op, icon) => {
+            // A copy handed back (COPYING): the message it copies goes on to Explorer once the copy returns.
+            if COPYING.with_borrow(|c| c.as_deref() == Some(bytes)) {
+                return 1;
+            }
             keep(spy, op, icon);
             // Another program's tray keeps its icons too; Explorer's answer is the one that goes back.
+            let outer = COPYING.replace(Some(bytes.to_vec()));
             for other in other_trays() {
                 let _ = send(HWND(other as _), WM_COPYDATA, wparam, lparam, false);
             }
+            COPYING.set(outer);
             forward(WM_COPYDATA, wparam, lparam, false)
         }
         Msg::Other => forward(WM_COPYDATA, wparam, lparam, false),
@@ -591,7 +604,8 @@ fn keep(spy: HWND, op: IconOp, data: IconData) {
 }
 
 /// Applies an icon message to the icons, as Windows' tray does: an add or a change of an icon it does not have adds it, if its
-/// window is there and is not Crest's (`own_pid`); a version is kept for the clicks. Whether what the bars show changed.
+/// window is there and is not Crest's (`own_pid`) nor Windows' own (`windows_own`); a version is kept for the clicks. Whether what
+/// the bars show changed.
 fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own_pid: u32) -> bool {
     let before = visible(icons);
     match (op, find(icons, &data.key)) {
@@ -616,7 +630,7 @@ fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own
                     at
                 }
                 Some(at) => at,
-                None if owner_pid == 0 || owner_pid == own_pid => return false,
+                None if owner_pid == 0 || owner_pid == own_pid || windows_own(&data.key) => return false,
                 None => {
                     let guid = match data.key {
                         IconKey::Guid(g) => Some(g),
@@ -653,6 +667,13 @@ fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own
         _ => {}
     }
     before != visible(icons)
+}
+
+/// Windows' own volume, network and power icons (`7820AE73`..`75`, as ManagedShell lists them): on some versions (23H2) Explorer
+/// still sends them to the tray, where a click reaches nothing, and Stato shows the same with its own panels (#99).
+fn windows_own(key: &IconKey) -> bool {
+    const SUFFIX: (u16, u16, [u8; 8]) = (0x23E3, 0x4229, [0x82, 0xC1, 0xE4, 0x1C, 0xB6, 0x7D, 0x5B, 0x9C]);
+    matches!(key, IconKey::Guid(g) if (0x7820_AE73..=0x7820_AE75).contains(&g.data1) && (g.data2, g.data3, g.data4) == SUFFIX)
 }
 
 /// The stored icon a message names: by its GUID when it has one, else by its window and id, which a GUID icon keeps too.
@@ -906,6 +927,20 @@ mod tests {
         assert!(!apply(&mut icons, IconOp::Add, icon(Some("Crest"), None), CREST, CREST));
         assert!(!apply(&mut icons, IconOp::Modify, icon(Some("Crest"), None), CREST, CREST));
         assert!(icons.is_empty());
+    }
+
+    #[test]
+    fn windows_own_volume_network_and_power_icons_are_left_out() {
+        let sca = |n: u32| IconKey::Guid(GUID::from_values(n, 0x23E3, 0x4229, [0x82, 0xC1, 0xE4, 0x1C, 0xB6, 0x7D, 0x5B, 0x9C]));
+        let mut icons = Vec::new();
+        for n in [0x7820_AE73, 0x7820_AE74, 0x7820_AE75] {
+            assert!(!apply(&mut icons, IconOp::Add, IconData { key: sca(n), ..icon(Some("Network"), None) }, APP, CREST));
+        }
+        assert!(icons.is_empty());
+        // The rest of the family (Location, 77) and an app's own GUID stay.
+        assert!(apply(&mut icons, IconOp::Add, IconData { key: sca(0x7820_AE77), ..icon(Some("Location"), None) }, APP, CREST));
+        let app = IconKey::Guid(GUID::from_values(0x7820_AE74, 2, 3, [4, 5, 6, 7, 8, 9, 10, 11]));
+        assert!(apply(&mut icons, IconOp::Add, IconData { key: app, ..icon(Some("Sync"), None) }, APP, CREST));
     }
 
     #[test]

@@ -2,7 +2,7 @@ import { createStore } from "../../lib/store";
 import { isNative } from "../../platform/native";
 import { taskbar, type InputLang } from "../../platform/services";
 
-/** In the bar's window: the input language Rust last sent, null with one keyboard layout (Windows then shows none either). */
+/** In the bar's window: the input language Rust last sent, null where Windows shows none either: one keyboard layout, not Chinese, Japanese or Korean (taskbar/input.rs). */
 export const inputLang = createStore<InputLang | null>(null);
 
 /**

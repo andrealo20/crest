@@ -272,9 +272,9 @@ export function MixerList({ data }: { data: MixerData }) {
   return (
     <motion.div
       className="flex min-h-0 flex-1 flex-col"
-      initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transition: { ...content.enter, delay: 0.06 } }}
-      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: { ...content.enter, delay: 0.06 } }}
+      exit={{ opacity: 0, transition: content.exit }}
     >
       <div className="mx-0.5 mt-2 mb-1.5 h-px shrink-0 bg-separator" />
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:none]">

@@ -1,6 +1,6 @@
 import { useNowPlaying } from "../platform/media";
 import { settings } from "../settings/store";
-import { discordToolOn, useDiscordCall } from "../features/discord/store";
+import { discordToolOn, useDiscord } from "../features/discord/store";
 import { useGamingLive } from "../features/system/gaming";
 import { timer } from "../features/timer/store";
 import { dueTasks } from "../features/todos/store";
@@ -15,7 +15,7 @@ export function useLiveActivity(): { id: string | null } {
   const t = timer.use();
   // The bar's Discord widget can hold a call with the tool off; then opening must still go to Water or Music.
   const discordOn = discordToolOn(settings.use());
-  const call = useDiscordCall() && discordOn;
+  const call = useDiscord((s) => !!s.call) && discordOn;
   const np = useNowPlaying();
   const reminder = dueTasks.use().length > 0;
   const drink = waterDue.use();

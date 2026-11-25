@@ -1,6 +1,7 @@
 import { navigate } from "../../notch/nav";
 import { settings, updateSettings } from "../../settings/store";
-import { Button, Group, Row, Switch } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Switch } from "../../ui/controls";
+import type { LauncherIconSize } from "./apps";
 import { t } from "../../i18n";
 import { slotStatus } from "./shortcuts";
 import { hotkeysResting, shortcutResult } from "./store";
@@ -18,6 +19,23 @@ export function LauncherSettings() {
 
   return (
     <Group title={t("Launcher")} id="settings-launcher">
+      <Row icon="apps" label={t("Symbolgröße")}>
+        <Segmented<LauncherIconSize>
+          id="launcher-icon-size"
+          label={t("Symbolgröße")}
+          size="sm"
+          value={l.iconSize}
+          onChange={(iconSize) => set({ iconSize })}
+          options={[
+            { value: "small", label: t("Klein") },
+            { value: "medium", label: t("Mittelgroß") },
+            { value: "large", label: t("Groß") },
+          ]}
+        />
+      </Row>
+      <Row icon="label" label={t("Namen anzeigen")} hint={t("Ohne Namen passen mehr Apps in eine Reihe; der Name zeigt sich unter dem Zeiger")}>
+        <Switch label={t("Namen anzeigen")} checked={l.names} onChange={(names) => set({ names })} />
+      </Row>
       <Row icon="keyboard"
         label={t("Alt+1 bis Alt+6")}
         hint={

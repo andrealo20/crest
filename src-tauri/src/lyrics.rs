@@ -69,10 +69,17 @@ fn simplified(s: &str) -> String {
     s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
 }
 
-/// A result is the song when one title contains the other and the length is within MAX_DRIFT_MS.
-fn same_song(found_title: &str, found_ms: f64, title: &str, duration: f64) -> bool {
+/// Past MAX_DRIFT_MS a result may be up to this much longer than the player reports: a player that crossfades reports each song
+/// short by the fade, Spotify by up to 12 s, and 2 s more as LRCLIB's own match allows (issue #98, lrc.ts CROSSFADE_SLACK).
+const CROSSFADE_MS: f64 = 14_000.0;
+
+/// A result is the song when one title contains the other and the length is within MAX_DRIFT_MS, or with `crossfade` up to
+/// CROSSFADE_MS longer than the player's. Never shorter past MAX_DRIFT_MS: a fade only cuts a song short.
+fn same_song(found_title: &str, found_ms: f64, title: &str, duration: f64, crossfade: bool) -> bool {
     let (a, b) = (simplified(found_title), simplified(title));
-    !a.is_empty() && !b.is_empty() && (a.contains(&b) || b.contains(&a)) && (found_ms - duration * 1000.0).abs() <= MAX_DRIFT_MS
+    let gap = found_ms - duration * 1000.0;
+    let near = gap.abs() <= MAX_DRIFT_MS || (crossfade && gap > 0.0 && gap <= CROSSFADE_MS);
+    !a.is_empty() && !b.is_empty() && (a.contains(&b) || b.contains(&a)) && near
 }
 
 // Kugou: search, then the KRC download (word timing, translation and romanisation in one file).
@@ -87,15 +94,19 @@ async fn kugou(client: &reqwest::Client, keyword: &str, title: &str, duration: f
     Ok(decode_krc(content).as_deref().and_then(krc_to_found))
 }
 
-/// Id and access key of the first candidate that is the song (Kugou sorts them by its own score).
+/// Id and access key of the first candidate that is the song (Kugou sorts them by its own score): one within MAX_DRIFT_MS first,
+/// then one a crossfading player cut short (`same_song`).
 fn kugou_pick(search: &Value, title: &str, duration: f64) -> Option<(String, String)> {
-    search.get("candidates")?.as_array()?.iter().find_map(|c| {
-        let song = c.get("song")?.as_str()?;
-        let ms = c.get("duration")?.as_f64()?;
-        if !same_song(song, ms, title, duration) {
-            return None;
-        }
-        Some((c.get("id")?.as_str()?.to_string(), c.get("accesskey")?.as_str()?.to_string()))
+    let candidates = search.get("candidates")?.as_array()?;
+    [false, true].into_iter().find_map(|crossfade| {
+        candidates.iter().find_map(|c| {
+            let song = c.get("song")?.as_str()?;
+            let ms = c.get("duration")?.as_f64()?;
+            if !same_song(song, ms, title, duration, crossfade) {
+                return None;
+            }
+            Some((c.get("id")?.as_str()?.to_string(), c.get("accesskey")?.as_str()?.to_string()))
+        })
     })
 }
 
@@ -182,10 +193,14 @@ async fn netease(client: &reqwest::Client, keyword: &str, title: &str, duration:
     Ok(netease_found(&lyric))
 }
 
+/// The first song that is the one playing: within MAX_DRIFT_MS first, then one a crossfading player cut short (`same_song`).
 fn netease_pick(search: &Value, title: &str, duration: f64) -> Option<u64> {
-    search.get("result")?.get("songs")?.as_array()?.iter().find_map(|s| {
-        let ok = same_song(s.get("name")?.as_str()?, s.get("duration")?.as_f64()?, title, duration);
-        ok.then(|| s.get("id")?.as_u64()).flatten()
+    let songs = search.get("result")?.get("songs")?.as_array()?;
+    [false, true].into_iter().find_map(|crossfade| {
+        songs.iter().find_map(|s| {
+            let ok = same_song(s.get("name")?.as_str()?, s.get("duration")?.as_f64()?, title, duration, crossfade);
+            ok.then(|| s.get("id")?.as_u64()).flatten()
+        })
     })
 }
 
@@ -242,6 +257,25 @@ mod tests {
         assert_eq!(netease_pick(&songs, "夜に駆ける", 261.0), Some(84072830));
         assert_eq!(netease_pick(&songs, "夜に駆ける", 240.0), None);
         assert_eq!(netease_pick(&json!({ "code": -462 }), "x", 1.0), None);
+    }
+
+    #[test]
+    fn a_crossfading_player_finds_the_song_up_to_14_s_longer_but_a_closer_match_first() {
+        // Spotify with an 8 s crossfade reported the song 6.5 s short (issue #98).
+        let one = |ms: f64| json!({ "candidates": [{ "song": "Foto kita blur", "duration": ms, "id": "1", "accesskey": "a" }] });
+        assert_eq!(kugou_pick(&one(271_000.0), "Foto kita blur", 264.5), Some(("1".into(), "a".into())));
+        assert_eq!(kugou_pick(&one(278_500.0), "Foto kita blur", 264.5), Some(("1".into(), "a".into())));
+        assert_eq!(kugou_pick(&one(279_000.0), "Foto kita blur", 264.5), None);
+        // Never shorter past 5 s: a fade only cuts a song short.
+        assert_eq!(kugou_pick(&one(257_000.0), "Foto kita blur", 264.5), None);
+        // One within 5 s wins, even listed after a longer one.
+        let two = json!({ "candidates": [
+            { "song": "Foto kita blur", "duration": 271000, "id": "1", "accesskey": "a" },
+            { "song": "Foto kita blur", "duration": 263000, "id": "2", "accesskey": "b" },
+        ] });
+        assert_eq!(kugou_pick(&two, "Foto kita blur", 264.5), Some(("2".into(), "b".into())));
+        let songs = json!({ "result": { "songs": [{ "name": "Bintang 5", "duration": 246000, "id": 7 }] } });
+        assert_eq!(netease_pick(&songs, "Bintang 5", 239.2), Some(7));
     }
 
     #[test]

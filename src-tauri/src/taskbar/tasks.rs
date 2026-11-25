@@ -27,7 +27,7 @@ use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyS
 use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
 use windows::Win32::UI::WindowsAndMessaging::{
     AllowSetForegroundWindow, GetAncestor, GetDesktopWindow, GetForegroundWindow, GetLastActivePopup, GetPropW, GetShellWindow, GetWindow, GetWindowLongPtrW,
-    CascadeWindows, GetWindowTextW, IsIconic, IsWindowVisible, IsZoomed, TileWindows, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
+    CascadeWindows, GetWindowTextW, IsHungAppWindow, IsIconic, IsWindowVisible, IsZoomed, SwitchToThisWindow, TileWindows, KillTimer, PostMessageW, SetForegroundWindow, SetTimer, ShowWindowAsync, EVENT_OBJECT_CLOAKED,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GA_ROOT, GA_ROOTOWNER, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HSHELL_HIGHBIT,
     HSHELL_LANGUAGE, HSHELL_MONITORCHANGED, HSHELL_REDRAW, HSHELL_WINDOWREPLACED, HSHELL_WINDOWREPLACING, MDITILE_HORIZONTAL, MDITILE_VERTICAL, MDITILE_ZORDER,
@@ -726,9 +726,9 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
     let listed: Vec<isize> = last().pids.iter().map(|&(h, _)| h).collect();
     let hwnd = HWND(id as _);
     match action.as_str() {
-        "activate" => activate(hwnd),
+        "activate" => bring(hwnd),
         "toggle" if toggle_minimizes(id, active_now(&listed), unsafe { IsIconic(hwnd) }.as_bool()) => minimize(hwnd, pid, &listed),
-        "toggle" => activate(hwnd),
+        "toggle" => bring(hwnd),
         "minimize" => minimize(hwnd, pid, &listed),
         "close" => close(hwnd, pid, &listed),
         "restore" => sys(hwnd, SC_RESTORE).and_then(|_| activate(hwnd)),
@@ -870,7 +870,7 @@ pub(crate) fn release() -> Option<isize> {
     let target = HWND(release_target(active_now(&listed), Some(LAST_APP.load(Ordering::SeqCst)), usable)? as _);
     activate(target).ok()?;
     // A dialog the app has open comes forward in its place (`activate`).
-    Some(unsafe { GetLastActivePopup(target) }.0 as isize)
+    Some(front_of(target).0 as isize)
 }
 
 /// Icons of listed apps without Start entries, from their exe, cached per group. Only listed groups: the page never names a
@@ -939,14 +939,35 @@ fn answers_to(start: Vec<launcher::App>, own: impl FnOnce() -> Vec<launcher::App
     pins.iter().any(|a| a.id == id)
 }
 
-/// Brings a window forward: restored if minimized, then the dialog it has open, or itself, in front.
+/// Brings a window forward: restored if minimized, then the dialog it has open, or itself, in front. "refused" when Windows keeps
+/// it back (its foreground lock); a click then tries again (`bring`). Never waits on the app: the main thread calls it too.
 pub(crate) fn activate(hwnd: HWND) -> Result<(), String> {
     unsafe {
         if IsIconic(hwnd).as_bool() {
             let _ = ShowWindowAsync(hwnd, SW_RESTORE);
         }
-        if SetForegroundWindow(GetLastActivePopup(hwnd)).as_bool() { Ok(()) } else { Err("failed".into()) }
+        if SetForegroundWindow(front_of(hwnd)).as_bool() { Ok(()) } else { Err("refused".into()) }
     }
+}
+
+/// The dialog `hwnd` has open, as Windows' taskbar brings it forward, else `hwnd`: never a popup hidden since it was last active.
+fn front_of(hwnd: HWND) -> HWND {
+    let popup = unsafe { GetLastActivePopup(hwnd) };
+    if popup != hwnd && unsafe { IsWindowVisible(popup) }.as_bool() { popup } else { hwnd }
+}
+
+/// A click's `activate`: refused, the window is switched to as Alt+Tab switches, which brought back a minimized window that
+/// SetForegroundWindow had left down (issue #94); still "refused" when it is not in front after that. Not for a hung app, which
+/// that switch would wait on, and only off the main thread (`taskbar_window`), as it may wait a moment on the app.
+fn bring(hwnd: HWND) -> Result<(), String> {
+    activate(hwnd).or_else(|refused| unsafe {
+        if IsHungAppWindow(hwnd).as_bool() {
+            return Err(refused);
+        }
+        SwitchToThisWindow(front_of(hwnd), true);
+        let root = |h: HWND| GetAncestor(h, GA_ROOTOWNER);
+        if root(GetForegroundWindow()) == root(hwnd) { Ok(()) } else { Err(refused) }
+    })
 }
 
 /// Minimizes a window as its own button does: only one that has the button and takes input. The app may hand its activation

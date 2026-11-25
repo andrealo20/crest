@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLOSED_SIZE_DEFAULTS, contentScale, defaultClosed, fitCapsuleTop, normalizeClosedSize, resizeClosed, roundThickness, sideLength, windowAlong, type ClosedSize } from "./collapsed.ts";
+import { CLOSED_SIZE_DEFAULTS, contentScale, defaultClosed, fitCapsuleTop, normalizeClosedSize, resizeClosed, roundThickness, lineFill, lineProgressFill, normalizeLineColor, sideLength, windowAlong, type ClosedSize } from "./collapsed.ts";
 import { closedGeometry, lineGeometry, peekGeometry } from "./geometry.ts";
 import { rowRoom, surfaceWidth } from "./row/layout.ts";
 import { COLUMN_ROOM, columnRoom, columnSurface } from "./column.ts";
@@ -138,4 +138,17 @@ test("resize grips: the ends widen both sides, the far side sets the height, hel
   assert.deepEqual(resizeClosed(s, "line", "depth", 0, 1.3, 1920), { lineThickness: 6.5 });
   assert.deepEqual(resizeClosed(s, "line", "end", 5, 0, 1920), { lineLength: 160 });
   assert.deepEqual(defaultClosed("capsule", "depth"), { capsuleHeight: 30 });
+});
+
+test("the line takes the closed notch's colour, white or the accent, and its song's progress stays visible on it (#87)", () => {
+  assert.equal(normalizeLineColor("white"), "white");
+  assert.equal(normalizeLineColor("accent"), "accent");
+  for (const bad of [undefined, null, "red", 3]) assert.equal(normalizeLineColor(bad), "notch");
+  assert.equal(lineFill("notch"), "var(--notch-closed)");
+  assert.equal(lineFill("white"), "rgb(255 255 255 / 0.92)");
+  assert.equal(lineFill("accent"), "var(--color-accent)");
+  // The progress is the accent over the line, white over an accent line.
+  assert.equal(lineProgressFill("notch"), "var(--color-accent)");
+  assert.equal(lineProgressFill("white"), "var(--color-accent)");
+  assert.equal(lineProgressFill("accent"), "rgb(255 255 255 / 0.92)");
 });

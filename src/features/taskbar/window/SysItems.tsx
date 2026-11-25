@@ -154,7 +154,7 @@ function SearchBox({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick" 
 
 /**
  * The input language, as Windows' indicator by the tray: the language over the region ("ITA" over "IT"), nothing while Windows has
- * one keyboard layout. It follows the window in front (taskbar/input.rs); a click opens Windows' switcher, as Win+Space.
+ * one keyboard layout and it is not Chinese, Japanese or Korean. It follows the window in front (taskbar/input.rs); a click opens Windows' switcher, as Win+Space.
  */
 function InputButton({ item, dragged }: { item: Omit<ItemProps, "onClick" | "children">; dragged: (e: { detail: number }) => boolean }) {
   useEffect(() => startInput(), []);
@@ -317,7 +317,7 @@ function EjectButton({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick
       {...item}
       name={name}
       // A note or an error over the button still wins over its name.
-      label={item.label === item.name ? name : item.label}
+      hoverLabel={name}
       onEnter={onEnter}
       onClick={(e) => {
         if (dragged(e)) return;

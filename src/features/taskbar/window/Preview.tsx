@@ -45,8 +45,10 @@ export function PreviewCard(props: {
   onEnter: () => void;
   onLeave: () => void;
   onClose: () => void;
+  /** A tile's or a row's window kept back by Windows ("refused"), heard after the card has closed: the app's button says so. */
+  onRefused: (code: unknown) => void;
 }) {
-  const { b, x, w, off, by, anchor, onPlace, onClose } = props;
+  const { b, x, w, off, by, anchor, onPlace, onClose, onRefused } = props;
   const edge = useBarEdge();
   const present = useIsPresent();
   const ref = useRef<HTMLDivElement>(null);
@@ -177,7 +179,7 @@ export function PreviewCard(props: {
     >
       {drag && drag.at !== null && <span aria-hidden className="pointer-events-none absolute inset-y-2 w-0.5 rounded-full bg-accent" style={{ left: drag.line }} />}
       {list ? (
-        <WindowList b={b} close={onClose} />
+        <WindowList b={b} close={onClose} onRefused={onRefused} />
       ) : (
         b.windows.map((win, i) => (
           // Two sibling buttons, never one in the other: the tile brings the window forward, the cross closes it.
@@ -204,9 +206,9 @@ export function PreviewCard(props: {
                 });
               }}
               onClick={(e) => {
-                if (e.detail > 0 && pressDragged()) return;
-                // A window of an app run as administrator may refuse; nothing changes then.
-                taskbar.window(win.id, "activate").catch(() => {});
+                // Only a tile that drags follows a press (two windows or more): a drag elsewhere on the bar leaves `dragged` set.
+                if (b.windows.length > 1 && e.detail > 0 && pressDragged()) return;
+                taskbar.window(win.id, "activate").catch(onRefused);
                 onClose();
               }}
             >

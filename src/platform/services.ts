@@ -1628,7 +1628,7 @@ export const taskbar = {
   /** Opens the bin in Explorer, or empties it after Windows' own confirmation. The bar only. */
   recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
   /** The lettered drives and their free space (taskbar/disks.rs), read now; null in the browser and where it fails. */
-  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[] | null>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
+  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[]>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
   /** Opens a drive of the last listing in File Explorer, by its letter, or a folder a scan of it listed, by its id. The bar only. */
   diskOpen: (letter: string, folder: number | null = null): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter, folder }) : Promise.resolve()),
   /**

@@ -287,6 +287,12 @@ pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
     let _ = place(&window, &state);
     crate::mirror::wake(window.app_handle());
     crate::timer_window::follow_text_size(window.app_handle());
+    // The bars' windows and the strip they keep are sized in their pages' px too.
+    #[cfg(windows)]
+    {
+        crate::taskbar::bar::place(window.app_handle());
+        crate::taskbar::reserve::refresh();
+    }
     let _ = window.emit("notch://monitors", ());
 }
 

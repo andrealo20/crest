@@ -36,7 +36,7 @@ import { barDisks } from "../disks";
 import { DiskFace, disksWidth } from "./DiskFaces";
 import { ANALOG, BarAnalog, BarClock, BarZones, barClockWidth, zonesWidth } from "./BarClock";
 import { dayPart, useDay, type DayOwn } from "./DayFaces";
-import { Item, type ItemProps } from "./Item";
+import { Item, useHovered, type ItemProps } from "./Item";
 import { ReadingBars, ReadingLine, barsWidth, lineWidth } from "./ReadingFaces";
 import { marketPart } from "./MarketFaces";
 import { micPart, trackPart, useTrack } from "./MediaFaces";
@@ -291,7 +291,7 @@ function useSlices(keys: (keyof BarFeed)[]): BarFeed {
  */
 export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointerDown }: {
   id: PartId;
-  item: Pick<ItemProps, "name" | "label" | "failed" | "lifted" | "size" | "markAt" | "plus" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
+  item: Pick<ItemProps, "name" | "label" | "failed" | "hover" | "hoverLabel" | "size" | "markAt" | "plus" | "tile" | "expanded" | "kind" | "onEnter" | "onLeave">;
   paused: boolean;
   /** `key`: the key on the face the click landed on (faceKeys.ts widgetKey), null for none; `slot`: the app under the pointer on Unread's version with each app (unread.ts unreadSlot). */
   onClick: (e: MouseEvent<HTMLButtonElement>, key: FaceKey | null, slot: number | null) => void;
@@ -302,6 +302,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const { taskbar, units, music } = settings.use();
   const { endsAt, duration } = timer.use();
   const feed = useSlices(SLICES[id]);
+  const lifted = useHovered(item.hover);
   // Checked here too: the list another window saved arrives as it is, and an unknown zone would throw while drawing.
   const zones = normalizeZones(clocks.use());
   const track = useTrack(id);
@@ -313,7 +314,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const { node, width, drawn, tip, weatherFrom } = widgetBody(id, {
     feed,
     paused,
-    hovered: item.lifted,
+    hovered: lifted,
     clock: taskbar.clock,
     h12: units.clock === "12",
     titleLoop: music.titleLoop,
@@ -335,12 +336,12 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
   const badgeAt = badgeStart(weatherFrom, k, pill?.pad ?? 0);
   const name = badge ? `${item.name}, ${t(count === 1 ? "{n} Mitteilung" : "{n} Mitteilungen", { n: count ?? 0 })}` : item.name;
   // The name shows above the widget under the pointer; a face that shows less than it knows adds the rest to it there.
-  const label = tip && item.label !== null && item.label === item.name ? `${item.label}: ${tip}` : item.label;
+  const hoverLabel = tip && item.hoverLabel ? `${item.hoverLabel}: ${tip}` : item.hoverLabel;
   return (
     <Item
       {...item}
       name={name}
-      label={label}
+      hoverLabel={hoverLabel}
       width={widgetWidth(width, k, pill?.pad ?? null)}
       describedBy={desc}
       onClick={(e) => {

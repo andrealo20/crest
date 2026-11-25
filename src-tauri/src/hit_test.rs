@@ -346,7 +346,9 @@ fn poll_zoned(app: &AppHandle, state: &HitState, last: &mut HashMap<isize, bool>
             continue;
         }
         let Some((dx, dy, scale)) = geometry(z.hwnd) else { continue };
-        let (inside, distance) = over(&z.zones, dx / scale, dy / scale);
+        // The bars' pages are drawn at Windows' Text size too: without it a bottom bar took no click above 100 %.
+        let (x, y) = to_page(dx, dy, scale, 1.0, crate::text_scale::get());
+        let (inside, distance) = over(&z.zones, x, y);
         near = near.min(distance);
         let was = last.get(&z.hwnd).copied();
         // Only on a change: every call goes through the event loop.

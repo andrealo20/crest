@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
@@ -45,3 +46,10 @@ export function reconnectDiscord() {
 export function useDiscordCall() {
   return discordState.use().call;
 }
+
+/**
+ * One plain value from the state (a boolean, a number, a string), the caller drawn again only when it changes: Rust sends the whole
+ * state with every SPEAKING_START and SPEAKING_STOP, several times a second in a lively call.
+ */
+export const useDiscord = <T extends string | number | boolean | null>(pick: (s: DiscordSnapshot) => T): T =>
+  useSyncExternalStore(discordState.subscribe, () => pick(discordState.get()));

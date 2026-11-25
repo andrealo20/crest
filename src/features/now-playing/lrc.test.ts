@@ -74,6 +74,23 @@ test("search result choice", () => {
   assert.equal(pickRecord([null, 3, {}], 10), null);
 });
 
+test("a crossfading player reports each song shorter: a record up to 14 s longer with the same title still counts, never a shorter one (#98)", () => {
+  const blur = (duration: number, trackName = "Foto kita blur") => ({ trackName, duration, syncedLyrics: "[00:01.00]a" });
+  // Spotify with an 8 s crossfade reported 264.5 s; LRCLIB has the song at 271 s. Past 5 s the title counts: a closer other song does not.
+  assert.equal(pickRecord([blur(271), blur(270, "Something else")], 264.5, "Foto kita blur")?.duration, 271);
+  // Without the title the window stays 5 s.
+  assert.equal(pickRecord([blur(271)], 264.5), null);
+  // A record within 5 s still wins over a longer one.
+  assert.equal(pickRecord([blur(271), blur(263)], 264.5, "Foto kita blur")?.duration, 263);
+  // Up to 14 s longer (12 s of fade and LRCLIB's own 2 s), never shorter past 5 s.
+  assert.equal(pickRecord([blur(278.5)], 264.5, "Foto kita blur")?.duration, 278.5);
+  assert.equal(pickRecord([blur(279)], 264.5, "Foto kita blur"), null);
+  assert.equal(pickRecord([blur(257)], 264.5, "Foto kita blur"), null);
+  // The title matches either way round, case and punctuation aside; another title never does.
+  assert.equal(pickRecord([blur(246, "Bintang 5 (Remastered)")], 239.2, "bintang 5")?.duration, 246);
+  assert.equal(pickRecord([blur(246, "Bulan")], 239.2, "Bintang 5"), null);
+});
+
 test("what a record means", () => {
   assert.deepEqual(lyricsOf(foundOf({ instrumental: true, syncedLyrics: null })), { kind: "instrumental" });
   assert.deepEqual(lyricsOf(null), { kind: "none" });

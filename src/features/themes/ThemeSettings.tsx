@@ -311,7 +311,13 @@ function ThemeChoice() {
       {!isMac && !demo && (
         <Row icon="blur_on"
           label={t("Glas")}
-          hint={fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
+          hint={
+            <>
+              {fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
+              {/* The copy of the screen behind keeps Crest out of captures while it is made, which NVIDIA reads as protected content (#88). */}
+              <span className="mt-1 block">{t("NVIDIA Instant Replay schaltet sich aus, sobald Crest sich aus Aufnahmen heraushält, und bleibt aus, bis du es in der NVIDIA-App wieder einschaltest")}</span>
+            </>
+          }
         >
           <Switch label={t("Glas")} checked={themes.glass} onChange={(glass) => updateSettings((cur) => ({ themes: { ...cur.themes, glass } }))} />
         </Row>

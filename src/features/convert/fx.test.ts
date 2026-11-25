@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { convertMoney, currencies, pairOf } from "./fx.ts";
+import { MAX_TARGETS, addTarget, convertMoney, currencies, pairOf, removeTarget, saved, targetsOf, toTop } from "./fx.ts";
 import type { Rates } from "../trading/portfolio.ts";
 
 /** Reference rate style: units per one GBP. */
@@ -37,4 +37,36 @@ test("the Converter's pair is the saved one while it is two codes, else the base
   assert.deepEqual(pairOf(null, "GBP"), ["GBP", "EUR"]);
   assert.deepEqual(pairOf(null, "EUR"), ["EUR", "USD"]);
   for (const saved of [undefined, "GBP", [], ["GBP"], ["GBP", "EUR", "USD"], ["gbp", "EUR"], ["GBPX", "EUR"], ["GBP", 3], { 0: "GBP", 1: "EUR" }]) assert.deepEqual(pairOf(saved, "CHF"), ["CHF", "EUR"]);
+});
+
+const eight = ["AUD", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK", "GBP"];
+
+test("the currencies under the amount: the bar's pair first, then the saved ones, each once, never the amount's own, at most eight (#87)", () => {
+  assert.deepEqual(targetsOf(["EUR", "USD"], ["GBP", "JPY"]), ["USD", "GBP", "JPY"]);
+  // Another window's list arrives as it is.
+  assert.deepEqual(targetsOf(["EUR", "USD"], ["USD", "EUR", "GBP", "gbp", 3, "GBPX", "GBP"]), ["USD", "GBP"]);
+  for (const more of [null, undefined, "GBP", { 0: "GBP" }]) assert.deepEqual(targetsOf(["EUR", "USD"], more), ["USD"]);
+  assert.equal(MAX_TARGETS, 8);
+  assert.deepEqual(targetsOf(["EUR", "USD"], [...eight, "HKD"]), ["USD", ...eight.slice(0, 7)]);
+});
+
+test("a currency is added once, never the amount's own and while there is room, and the last one listed stays", () => {
+  assert.deepEqual(addTarget("EUR", ["USD"], "GBP"), ["USD", "GBP"]);
+  assert.deepEqual(addTarget("EUR", ["USD"], "USD"), ["USD"]);
+  assert.deepEqual(addTarget("EUR", ["USD"], "EUR"), ["USD"]);
+  assert.deepEqual(addTarget("EUR", eight, "HKD"), eight);
+  assert.deepEqual(removeTarget(["USD", "GBP"], "USD"), ["GBP"]);
+  // The bar's exchange rate shows the amount's currency against the first listed one.
+  assert.deepEqual(removeTarget(["USD"], "USD"), ["USD"]);
+});
+
+test("a listed currency brought to the top swaps places with the amount's, so the rows keep their order", () => {
+  assert.deepEqual(toTop("EUR", ["USD", "GBP", "JPY"], "GBP"), { from: "GBP", targets: ["USD", "EUR", "JPY"] });
+  assert.deepEqual(toTop("EUR", ["USD", "GBP"], "USD"), { from: "USD", targets: ["EUR", "GBP"] });
+  assert.deepEqual(toTop("EUR", ["USD"], "CHF"), { from: "EUR", targets: ["USD"] });
+});
+
+test("what is saved: the pair the bar's exchange rate reads, then the rest", () => {
+  assert.deepEqual(saved("GBP", ["USD", "EUR", "JPY"]), { pair: ["GBP", "USD"], more: ["EUR", "JPY"] });
+  assert.deepEqual(saved("GBP", ["USD"]), { pair: ["GBP", "USD"], more: [] });
 });

@@ -131,7 +131,8 @@ pub fn taskbar_preview(window: WebviewWindow, slots: Vec<Slot>) -> Result<Vec<Op
         return Ok(vec![None; slots.len()]);
     }
     let monitor = tasks::monitor_of(owner);
-    let scale = window.scale_factor().map_err(|_| "failed")?;
+    // The page's px are the monitor's scale times Windows' Text size (text_scale.rs).
+    let scale = window.scale_factor().map_err(|_| "failed")? * crate::text_scale::get();
     let origin = window.inner_position().map_err(|_| "failed")?;
     let size = window.inner_size().map_err(|_| "failed")?;
     let view = (size.width as f64 / scale, size.height as f64 / scale);

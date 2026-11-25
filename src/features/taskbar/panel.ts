@@ -2,7 +2,7 @@ import { createStore } from "../../lib/store";
 import { settingsWindow } from "../../platform/native";
 import { taskbar } from "../../platform/services";
 import type { BarItem } from "./model";
-import { opensInBar, reportedTool, sameAnchor, sameContent, type OpenPanel, type PanelAnchor, type PanelContent, type QuickPage } from "./panelModel";
+import { closes, opensInBar, reportedTool, type OpenPanel, type PanelAnchor, type PanelContent, type QuickPage } from "./panelModel";
 
 /*
  * The panel above the bar, in the bar's window: what it shows and the item it opens over. The bar's items open it only through the
@@ -68,11 +68,13 @@ export function openPanel(content: PanelContent, anchor: PanelAnchor): void {
  * another item (several open the same tool): the panel moves over that item.
  */
 export function togglePanel(content: PanelContent, anchor: PanelAnchor): void {
-  const open = panel.get();
-  if (!open || !sameContent(open.content, content) || !sameAnchor(open.anchor, anchor)) return openPanel(content, anchor);
+  if (!closesPanel(content, anchor)) return openPanel(content, anchor);
   closePanel();
   void taskbar.release();
 }
+
+/** Whether togglePanel with these closes the panel, rather than opening it or moving it over from another item. */
+export const closesPanel = (content: PanelContent, anchor: PanelAnchor): boolean => closes(panel.get(), content, anchor);
 
 /** Closes the panel. The keyboard stays where it is: with whatever took the click that closed it, or with an app just started. */
 export function closePanel(): void {

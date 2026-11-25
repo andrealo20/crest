@@ -221,9 +221,9 @@ function Activity() {
           <motion.div
             key={item.key}
             className="absolute inset-0"
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           >
             <button
               onClick={() => navigate(item.tab)}

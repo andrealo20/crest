@@ -178,7 +178,8 @@ fn reconcile_locked(app: &AppHandle, flags: usize, hiding: bool) {
         .filter_map(|(label, hwnd)| {
             let hwnd = HWND(hwnd as _);
             let (monitor, _) = display::monitor_rect(HMONITOR(tasks::monitor_of(hwnd) as _))?;
-            Some((label, monitor, band_px(band_css, unsafe { GetDpiForWindow(hwnd) })))
+            // The band as drawn: Windows' Text size makes the page's px bigger too (text_scale.rs).
+            Some((label, monitor, band_px(band_css * crate::text_scale::get(), unsafe { GetDpiForWindow(hwnd) })))
         })
         .collect();
     one_per_monitor(&mut bars);

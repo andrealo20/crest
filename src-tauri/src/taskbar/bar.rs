@@ -376,7 +376,9 @@ pub(crate) fn place(app: &AppHandle) {
 pub(super) fn put(window: &WebviewWindow, monitor: &tauri::Monitor) {
     let area = monitor.work_area();
     let work = (area.position.x, area.position.y, area.size.width, area.size.height);
-    let (x, y, width, height) = bar_rect(ground(work, super::reserve::strip(window.label()), top()), monitor.scale_factor(), top());
+    // In the page's px, which Windows' Text size makes bigger too (text_scale.rs): the room above the bar stays as tall.
+    let scale = monitor.scale_factor() * crate::text_scale::get();
+    let (x, y, width, height) = bar_rect(ground(work, super::reserve::strip(window.label()), top()), scale, top());
     // Twice, as display::put does: moved onto a monitor with another scale, the window takes its size only after the first move.
     for _ in 0..2 {
         let _ = window.set_position(PhysicalPosition::new(x, y));

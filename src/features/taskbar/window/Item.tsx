@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type DragEventHandler, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
+import { memo, useLayoutEffect, useRef, useState, useSyncExternalStore, type DragEventHandler, type MouseEventHandler, type PointerEventHandler, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform, type MotionValue } from "motion/react";
+import { createStore } from "../../../lib/store";
 import { design } from "../../../design/design";
 import { fade, popover, pulse, springs } from "../../../design/motion";
 import { itemLayer, markShape, markThick, marks } from "../itemLook";
@@ -9,6 +10,7 @@ import { placeMenu, type BarEdge, type Indicator } from "../model";
 import { nudge } from "../position";
 import { useBarEdge } from "./barEdge";
 import { lineUnder, type Progress } from "../decorModel";
+import { barShown } from "../store";
 
 /** Thickness of the mark under an app, CSS px. */
 export const MARK = 3;
@@ -16,12 +18,25 @@ export const MARK = 3;
 /** The bar's pointer (clientX, Infinity off the bar), the pitch from one button to the next and how far the name rises over the grown icon. */
 export type Magnify = { pointer: MotionValue<number>; unit: number; rise: number };
 
+/**
+ * The key of the button under the pointer, kept out of the bar's state: a hover draws again only the button it leaves and the one it
+ * reaches, where drawing the whole bar cost 4 to 5 ms a time.
+ */
+export const barHover = createStore<string | null>(null);
+
+/** Whether the pointer is on the button with this key. */
+export const useHovered = (key: string | undefined): boolean => useSyncExternalStore(barHover.subscribe, () => key !== undefined && barHover.get() === key);
+
 /** A button on the bar: its icon lifts (or with `magnify`, grows) under the pointer, with its name (or what went wrong) in a label above. */
 export function Item(props: {
   name: string;
-  label: string | null;
+  /** What the label says: what went wrong or a note, nothing with null, and left out `hoverLabel` while the pointer is on the button. */
+  label?: string | null;
   failed: boolean;
-  lifted: boolean;
+  /** The button's key in `barHover`. */
+  hover?: string;
+  /** The label under the pointer: the name the bar gave the button, which a button that renames itself keeps unless it says otherwise. */
+  hoverLabel?: string;
   size: number;
   markAt: number;
   mark?: Indicator;
@@ -65,12 +80,14 @@ export function Item(props: {
 }) {
   const material = design.use() === "material";
   const edge = useBarEdge();
+  const lifted = useHovered(props.hover);
+  const label = props.label !== undefined ? props.label : lifted ? (props.hoverLabel ?? null) : null;
   const shape = itemLayer({ size: props.size, width: props.width ?? props.size + 16, layer: props.layer, tile: props.plus ? undefined : props.tile });
   const pill = props.mark !== undefined && marks(props.mark, "material").pill;
   // Stato draws a pill of its own, inside the lifted span: its layer rides there, over the pill's fill, as the pill lifts.
   const inPill = props.layer !== undefined;
   // Lit by the bar's hovered state, which Rust clears when the pointer leaves the window; :hover would stay on.
-  const layer = material && <span aria-hidden data-hover={props.lifted || undefined} className={`m3-layer absolute${inPill ? " inset-0 rounded-full" : ""}`} style={inPill ? undefined : shape} />;
+  const layer = material && <span aria-hidden data-hover={lifted || undefined} className={`m3-layer absolute${inPill ? " inset-0 rounded-full" : ""}`} style={inPill ? undefined : shape} />;
   return (
     // The gap at the screen's edge (GAP, h-1) belongs to the button beside it, so a click with the pointer pushed against the screen's
     // edge, left or right, lands on the button; the gap itself stays empty. A press shrinks only the icon, by `scale` (Motion's
@@ -108,7 +125,7 @@ export function Item(props: {
         <motion.span
           className={`relative flex transition-[scale] duration-140 ease-out motion-safe:group-active:scale-94${props.labelled ? " min-w-0" : ""}`}
           initial={false}
-          animate={{ transform: `translateY(${props.lifted ? -nudge(edge) : 0}px)` }}
+          animate={{ transform: `translateY(${lifted ? -nudge(edge) : 0}px)` }}
           transition={springs.peek}
         >
           {props.children}
@@ -116,7 +133,7 @@ export function Item(props: {
         </motion.span>
       )}
       {props.progress && lineUnder(props.mark, props.progress) === "progress" ? <ProgressLine p={props.progress} at={props.markAt} side={edge} width={props.size} /> : props.mark && <Mark kind={props.mark} at={props.markAt} side={edge} />}
-      <Label text={props.label} failed={props.failed} rise={props.magnify?.rise ?? 0} edge={edge} />
+      <Label text={label} failed={props.failed} rise={props.magnify?.rise ?? 0} edge={edge} />
     </button>
   );
 }
@@ -160,9 +177,10 @@ const ATTENTION = { ...pulse, repeat: 5 };
 /**
  * Under an app (over it on a top bar: `at` px from its `side`): a dot while it is open, a longer mark while it is in front (in Crest;
  * Material puts a pill behind it), the accent while a window asks for attention, pulsing when that starts. Both shapes are drawn whole
- * and change by opacity and scale only.
+ * and change by opacity and scale only. Memo: plain values only, so a bar drawn again for another button's change leaves its three
+ * animated spans alone.
  */
-export function Mark({ kind, at, side = "bottom" }: { kind: Indicator; at: number; side?: BarEdge }) {
+export const Mark = memo(function Mark({ kind, at, side = "bottom" }: { kind: Indicator; at: number; side?: BarEdge }) {
   const appDesign = design.use();
   const style = settings.use().taskbar.marks;
   const shape = markShape(style);
@@ -191,16 +209,20 @@ export function Mark({ kind, at, side = "bottom" }: { kind: Indicator; at: numbe
       />
     </motion.span>
   );
-}
+});
 
 const FILL = { normal: "bg-green", paused: "bg-caution", error: "bg-red", indeterminate: "bg-green" } as const;
 
 /**
  * An app's progress as Windows shows it, as wide as the icon: green, yellow while paused, red after an error; a third-wide segment
- * moving to and fro while the app cannot say how far it is, still under reduced motion. Transform only.
+ * moving to and fro while the app cannot say how far it is, still under reduced motion. Transform only. `p` is the decor store's own
+ * object, the same until the progress changes.
  */
-function ProgressLine({ p, at, side, width }: { p: Progress; at: number; side: BarEdge; width: number }) {
-  const still = useReducedMotion();
+const ProgressLine = memo(function ProgressLine({ p, at, side, width }: { p: Progress; at: number; side: BarEdge; width: number }) {
+  const reduced = useReducedMotion();
+  const shown = barShown.use();
+  // Still while the bar is hidden or slid away too: Rust hides the window without telling WebView2, so an endless one runs on.
+  const still = reduced || !shown;
   const moving = p.state === "indeterminate";
   return (
     <span aria-hidden className="absolute inset-x-0 flex justify-center" style={{ [side]: at, height: MARK }}>
@@ -215,12 +237,12 @@ function ProgressLine({ p, at, side, width }: { p: Progress; at: number; side: B
       </span>
     </span>
   );
-}
+});
 
 /** A button's name on the screen's side of it, or what went wrong; never takes the pointer. */
-function Label({ text, failed, rise, edge }: { text: string | null; failed: boolean; rise: number; edge: BarEdge }) {
+const Label = memo(function Label({ text, failed, rise, edge }: { text: string | null; failed: boolean; rise: number; edge: BarEdge }) {
   return <AnimatePresence>{text !== null && <Bubble key={text} text={text} failed={failed} rise={rise} edge={edge} />}</AnimatePresence>;
-}
+});
 
 /** `rise`: px past the usual 8 from the button, clear of a magnified icon. */
 function Bubble({ text, failed, rise, edge }: { text: string; failed: boolean; rise: number; edge: BarEdge }) {

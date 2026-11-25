@@ -10,13 +10,13 @@ import { OVERVIEW_PARTS_DEFAULT, normalizeOverviewParts, type OverviewParts } fr
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 import { THEME_DEFAULTS, legacyIconColors, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
 import type { ColorScheme } from "../features/system/levels";
-import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
+import { normalizeFavorites, normalizeIconSize, type Favorite, type LauncherIconSize } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
 import { DOCK_DEFAULTS, dockBesideBar, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
-import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
+import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, normalizeLineColor, type ClosedSize, type LineColor } from "../notch/collapsed";
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 import { normalizeSearch, type SearchSetting } from "../features/overview/search";
@@ -69,6 +69,8 @@ export interface Settings {
      * click work as usual.
      */
     idleStyle: "notch" | "capsule" | "line";
+    /** The line's colour wherever it shows (closed, in focus mode, under a window rule): the closed notch's, white or the accent (#87). */
+    lineColor: LineColor;
     /** Distance of the capsule from the top edge of the monitor in CSS px at 100 % (set by dragging or in the settings, 0 to 8000). */
     y: number;
   };
@@ -142,7 +144,7 @@ export interface Settings {
    * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
    * `hotkeyOffer`: the opt-in under the tiles, until its × hides it for good (the switch stays in Settings).
    */
-  launcher: { favorites: Favorite[] | null; hotkeys: boolean; hotkeyOffer: boolean };
+  launcher: { favorites: Favorite[] | null; hotkeys: boolean; hotkeyOffer: boolean; iconSize: LauncherIconSize; names: boolean };
   /** GitHub activity: the public username. An optional token is stored with the secrets. */
   github: { user: string };
   /** LeetCode activity: the public username. */
@@ -196,7 +198,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", focusClicks: false, idleStyle: "notch", y: 5 },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", focusClicks: false, idleStyle: "notch", lineColor: "notch", y: 5 },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -230,7 +232,7 @@ const defaults: Settings = {
   },
   themes: THEME_DEFAULTS,
   system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
-  launcher: { favorites: null, hotkeys: false, hotkeyOffer: true },
+  launcher: { favorites: null, hotkeys: false, hotkeyOffer: true, iconSize: "medium", names: true },
   github: { user: "" },
   leetcode: { user: "" },
   calendar: CALENDAR_DEFAULTS,
@@ -327,6 +329,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       ...s.display,
       focusStyle: s.display?.focusStyle === "line" ? "line" : "dim",
       focusClicks: s.display?.focusClicks === true,
+      lineColor: normalizeLineColor(s.display?.lineColor),
       y: fitCapsuleTop(s.display?.y), monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode) },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
@@ -356,7 +359,13 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     themes: normalizeThemeSettings(s.themes, legacyIconColors(s.system)),
     system: (({ iconColors: _moved, ...rest }: Partial<Settings["system"]> & { iconColors?: unknown }) => ({ ...defaults.system, ...rest }))(s.system ?? {}),
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
-    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true, hotkeyOffer: s.launcher?.hotkeyOffer !== false },
+    launcher: {
+      favorites: normalizeFavorites(s.launcher?.favorites),
+      hotkeys: s.launcher?.hotkeys === true,
+      hotkeyOffer: s.launcher?.hotkeyOffer !== false,
+      iconSize: normalizeIconSize(s.launcher?.iconSize),
+      names: s.launcher?.names !== false,
+    },
     github: { ...defaults.github, ...s.github },
     leetcode: { ...defaults.leetcode, ...s.leetcode },
     calendar: normalizeCalendar(s.calendar),

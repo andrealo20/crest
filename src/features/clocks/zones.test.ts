@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_ZONES, allZones, cityName, dayDelta, formatClock, formatDiff, formatUtc, hourOfDay, isDay, isZone, moveZone, normalizeZones, regionName, searchZones, wallTime, zoneOffset } from "./zones.ts";
+import { MAX_ZONES, allZones, cityName, dayDelta, formatClock, formatDiff, formatUtc, hourOfDay, isDay, isZone, moveZone, normalizeZones, regionName, searchHits, searchZones, wallTime, zoneOffset } from "./zones.ts";
 
 const utc = (y: number, mo: number, d: number, h = 0, mi = 0) => Date.UTC(y, mo - 1, d, h, mi);
 
@@ -89,7 +89,8 @@ test("the picker finds cities by their name, the old name of a renamed one, or t
   assert.deepEqual(searchZones("new y", zones), ["America/New_York"]);
   assert.deepEqual(searchZones("KOLK", zones), ["Asia/Calcutta"]);
   assert.deepEqual(searchZones("calcutta", zones), ["Asia/Calcutta"]);
-  assert.deepEqual(searchZones("new", zones), ["America/North_Dakota/New_Salem", "America/New_York"]); // Both start with it: by name.
+  // All three start with it, New Delhi through its alias (Kolkata's zone): by the name shown.
+  assert.deepEqual(searchZones("new", zones), ["Asia/Calcutta", "America/North_Dakota/New_Salem", "America/New_York"]);
   assert.deepEqual(searchZones("chi", ["Asia/Aching", "Asia/Chita"]), ["Asia/Chita", "Asia/Aching"]); // A city starting with it before one that only contains it.
   assert.deepEqual(searchZones("europe", zones), ["Europe/London", "Europe/Rome"]);
   assert.deepEqual(searchZones("  ", zones), []);
@@ -119,4 +120,26 @@ test("reordering moves one place and stops at the ends", () => {
   assert.deepEqual(moveZone(list, "c", 1), list);
   assert.deepEqual(moveZone(list, "x", 1), list);
   assert.deepEqual(list, ["a", "b", "c"]); // Never changed in place.
+});
+
+test("capitals and big cities without a zone of their own find the zone with their time, accents or not (#87)", () => {
+  const zones = ["America/Sao_Paulo", "America/New_York", "Asia/Calcutta", "Europe/Rome", "Asia/Shanghai"];
+  assert.deepEqual(searchZones("Brasília", zones), ["America/Sao_Paulo"]);
+  assert.deepEqual(searchZones("brasilia", zones), ["America/Sao_Paulo"]);
+  assert.deepEqual(searchZones("São Paulo", zones), ["America/Sao_Paulo"]);
+  assert.deepEqual(searchZones("washington", zones), ["America/New_York"]);
+  // The engine's older name of Kolkata's zone is the one found.
+  assert.deepEqual(searchZones("new delhi", zones), ["Asia/Calcutta"]);
+  assert.deepEqual(searchZones("milano", zones), ["Europe/Rome"]);
+  assert.deepEqual(searchZones("beijing", zones), ["Asia/Shanghai"]);
+  // An alias whose zone the engine lacks finds nothing.
+  assert.deepEqual(searchZones("canberra", zones), []);
+});
+
+test("the picker shows the name that was searched: the alias for an alias, the zone's city otherwise", () => {
+  const zones = ["America/Sao_Paulo", "Europe/Rome"];
+  assert.deepEqual(searchHits("brasi", zones), [{ zone: "America/Sao_Paulo", name: "Brasília" }]);
+  assert.deepEqual(searchHits("sao", zones), [{ zone: "America/Sao_Paulo", name: "Sao Paulo" }]);
+  // Rome by its own name and by Milan's alias: once, as Rome, which matched as well.
+  assert.deepEqual(searchHits("rom", zones), [{ zone: "Europe/Rome", name: "Rome" }]);
 });

@@ -71,10 +71,11 @@ async function ask(path: "get" | "search", params: Record<string, string>): Prom
 /** LRCLIB: the exact match first (it allows 2 s of difference), then a search. */
 async function fromLrclib(title: string, artist: string, duration: number): Promise<Found> {
   // The exact match needs an artist; without one only the search can help.
-  if (!artist) return foundOf(pickRecord(await ask("search", { track_name: title }), duration));
+  if (!artist) return foundOf(pickRecord(await ask("search", { track_name: title }), duration, title));
   const base: Record<string, string> = { track_name: title, artist_name: artist };
   const exact = (await ask("get", { ...base, duration: String(Math.round(duration)) })) as LrclibRecord | null;
-  return foundOf(exact?.instrumental || exact?.syncedLyrics ? exact : pickRecord(await ask("search", base), duration));
+  // The search finds a crossfading player's song too, whose length the exact match turns down (pickRecord).
+  return foundOf(exact?.instrumental || exact?.syncedLyrics ? exact : pickRecord(await ask("search", base), duration, title));
 }
 
 function fromSource(id: LyricSourceId, title: string, artist: string, duration: number): Promise<Found | null> {

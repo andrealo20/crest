@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseAmount } from "./parse.ts";
+import { amountText, parseAmount } from "./parse.ts";
+
+test("a converted value goes back into the amount in the language's decimal mark, Latin digits, and reads back the same", () => {
+  assert.equal(amountText(108.3249, "en"), "108.32");
+  assert.equal(amountText(108.3249, "it"), "108,32");
+  assert.equal(amountText(15890, "de"), "15890");
+  assert.equal(amountText(0.004, "en"), "0");
+  // Arabic writes its own digits and decimal mark, which the field does not read: the text stays in Latin digits.
+  assert.match(amountText(108.32, "ar"), /^[\d.,]+$/);
+  for (const [v, l] of [[108.32, "it"], [1234.5, "de"], [0.07, "en"], [15890, "ja"], [108.32, "ar"], [2.5, "fr"]] as const) assert.equal(parseAmount(amountText(v, l), l), v, l);
+});
 
 test("plain numbers and either decimal mark", () => {
   assert.equal(parseAmount("100"), 100);

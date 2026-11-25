@@ -26,7 +26,7 @@ import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box 
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
-import { closePanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
+import { closePanel, closesPanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
 import { dragThreshold, folderCols, opensInBar, sysPanel } from "../panelModel";
 import { folderKey, normalizeFolders, pinBefore } from "../folderModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
@@ -50,7 +50,7 @@ import { EjectMenu } from "./EjectMenu";
 import { FolderPanel } from "./FolderPanel";
 import { holdBriefly } from "./hold";
 import { HotspotMenu } from "./HotspotMenu";
-import { Item, type ItemProps } from "./Item";
+import { Item, barHover, type ItemProps } from "./Item";
 import { markThick } from "../itemLook";
 import { ItemDrop } from "./ItemDrop";
 import { runFaceKey } from "./MediaFaces";
@@ -123,8 +123,7 @@ export function TaskbarWindow() {
   // The keyboard is in the bar after one of its Windows keys, Tab or an arrow (not after a click): it holds a bar that slides away up.
   const keyNav = useRef(false);
   const [focusIn, setFocusIn] = useState(false);
-  // The button under the pointer, and a launch that failed (in its button's label for a while).
-  const [hovered, setHovered] = useState<string | null>(null);
+  // A launch that failed, in its button's label for a while. The button under the pointer is in barHover (Item), not here.
   const [error, setError] = useState<{ key: string; text: string } | null>(null);
   // An app's new volume after a wheel step, in its button's label for a moment.
   const [note, setNote] = useState<{ key: string; text: string } | null>(null);
@@ -194,7 +193,7 @@ export function TaskbarWindow() {
         if (inside) return;
         // No pointerleave reaches a click-through window: a tray icon's app hears the leave here.
         trayLeave();
-        setHovered(null);
+        barHover.set(null);
         lastX.current = Infinity;
         setCard(null);
         pointer.set(Infinity);
@@ -387,9 +386,12 @@ export function TaskbarWindow() {
     };
     if (c.kind === "launch") launcher.open(c.id, c.admin === true).catch(failed);
     else if (c.kind === "spawn") taskbar.launchWindow(c.id, c.admin === true).catch(failed);
-    // A window of an app run as administrator may refuse; nothing changes then.
-    else if (c.kind === "toggle" || c.kind === "activate") taskbar.window(c.id, c.kind).catch(() => {});
+    else if (c.kind === "toggle" || c.kind === "activate") taskbar.window(c.id, c.kind).catch(refusedOn(b));
     else if (c.kind === "closeAll") closeWindows(b);
+  };
+  /** Windows kept the window back even after the switch Alt+Tab makes (tasks.rs `bring`): the button says so (#94). Else nothing. */
+  const refusedOn = (b: BarButton) => (code: unknown) => {
+    if (code === "refused") setError({ key: b.key, text: t("Windows hat {name} nicht nach vorn gelassen", { name: b.name }) });
   };
   /** A file held over an app (K1): after DRAG_REST its one window comes forward, or its previews open for several. */
   const dragTimer = useRef<number | undefined>(undefined);
@@ -536,9 +538,10 @@ export function TaskbarWindow() {
     if (id === "keepawake") return awakeOn(awake.get(), Date.now()) ? stopAwake() : startAwake(null);
     const own = widgetPanel(id, primary);
     if (own) {
-      // Not on the click that closes it, or the closing panel would turn into the drives, or to its Bluetooth page, as it fades.
+      // Not on the click that closes it, or the closing panel would turn into the drives, or to its Bluetooth page, as it fades. The
+      // quick panel moved over from Stato's button turns to that page too (Stato's click turns it back).
       if (own === "disks" && panel.get()?.content.kind !== "disks") dropStaleScan();
-      if (own === "quick" && panel.get()?.content.kind !== "quick") quickPage.set({ page: "bluetooth", rows: 1, extra: 0 });
+      if (own === "quick" && !closesPanel({ kind: own }, spanOf(button))) quickPage.set({ page: "bluetooth", rows: 1, extra: 0 });
       return togglePanel({ kind: own }, spanOf(button));
     }
     const tool = widgetTool(id);
@@ -566,7 +569,7 @@ export function TaskbarWindow() {
           closePanel();
           setMenu(null);
           setCard(null);
-          setHovered(null);
+          barHover.set(null);
           pointer.set(Infinity);
         }
         move(x, y);
@@ -587,15 +590,16 @@ export function TaskbarWindow() {
 
   const item = (key: string, name: string) => ({
     name,
-    // An open menu or panel hides the names, which would show around it, and so does a drag.
-    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : note?.key === key ? note.text : hovered === key ? name : null,
+    // An open menu or panel hides the names, which would show around it, and so does a drag; left out, the name shows under the pointer.
+    label: menu || open || dragging || preview ? null : error?.key === key ? error.text : note?.key === key ? note.text : undefined,
     failed: error?.key === key,
-    lifted: hovered === key,
+    hover: key,
+    hoverLabel: name,
     size,
     markAt,
     plus: look.look === "plus",
-    onEnter: () => setHovered(key),
-    onLeave: () => setHovered((h) => (h === key ? null : h)),
+    onEnter: () => barHover.set(key),
+    onLeave: () => barHover.set((h) => (h === key ? null : h)),
   });
 
   /**
@@ -704,11 +708,11 @@ export function TaskbarWindow() {
             {...item(b.key, windowCount && windowBadge(b.windows.length) ? t("{name}, {n} Fenster", { name: b.title ?? b.name, n: b.windows.length }) : (b.title ?? b.name))}
             // Over an app with windows the pointer also rests for its previews.
             onEnter={() => {
-              setHovered(b.key);
+              barHover.set(b.key);
               showPreview(b);
             }}
             onLeave={() => {
-              setHovered((h) => (h === b.key ? null : h));
+              barHover.set((h) => (h === b.key ? null : h));
               leavePreview();
             }}
             ref={(el) => {
@@ -902,8 +906,10 @@ export function TaskbarWindow() {
             if (afterDrag(e)) return;
             setError(null);
             setMenu(null);
-            const r = e.currentTarget.getBoundingClientRect();
-            togglePanel({ kind: "quick" }, { x: r.x, w: r.width });
+            const r = e.currentTarget.getBoundingClientRect(), anchor = { x: r.x, w: r.width };
+            // Moved over from Device batteries, the panel turns back to its main page.
+            if (!closesPanel({ kind: "quick" }, anchor)) quickPage.set(null);
+            togglePanel({ kind: "quick" }, anchor);
           }}
           onPointerDown={dragFrom(id)}
           // No menu of its own, as a widget: the Crest menu over the pointer.
@@ -938,6 +944,8 @@ export function TaskbarWindow() {
     onDragLeave: () => fileDrag.set(null),
     onDrop: (e: DragEvent) => {
       fileDrag.set(null);
+      // A drop brings no dragleave: an app's rest (dragRest) would bring its window forward after the files were dropped.
+      window.clearTimeout(dragTimer.current);
       if (!e.dataTransfer.types.includes("Files")) return;
       e.preventDefault();
       dropBefore.current = placeAt(bar.current, { id: null, x: e.clientX, y: e.clientY }, between)?.before ?? null;
@@ -1114,7 +1122,7 @@ export function TaskbarWindow() {
               ) : menu.kind === "folder" ? (
                 <FolderMenu id={menu.b.folder!.id} close={closeMenu} rename={() => openFolder(menu.b.folder!.id, "name")} />
               ) : (
-                <WindowList b={menu.b} close={closeMenu} />
+                <WindowList b={menu.b} close={closeMenu} onRefused={refusedOn(menu.b)} />
               )}
             </BarMenu>
           )}
@@ -1135,6 +1143,7 @@ export function TaskbarWindow() {
               onEnter={() => window.clearTimeout(cardTimer.current)}
               onLeave={leavePreview}
               onClose={closeCard}
+              onRefused={refusedOn(cardButton)}
             />
           )}
         </AnimatePresence>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  ArrowSquareOut,
   ArrowsOutSimple,
   Check,
   ClipboardText,
@@ -18,6 +19,7 @@ import {
   Folder,
   ImageSquare,
   LinkSimple,
+  QrCode,
   TextAa,
   Trash,
   X,
@@ -28,6 +30,7 @@ import { HeaderActions, HeaderButton } from "../../notch/header";
 import { MAX_SIZE, requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { clipboard, useClipboard, type ClipItem, type ClipPreview } from "../../platform/clipboard";
+import { isMac } from "../../platform/native";
 import { Redacted, Segmented } from "../../ui/controls";
 import { settings } from "../../settings/store";
 import { usePresenting } from "../privacy/store";
@@ -36,6 +39,7 @@ import { t } from "../../i18n";
 import { clickAction } from "./click";
 import { isCode } from "./code";
 import { ClipChip, ClipDecodePane } from "./ClipChip";
+import { qrAction } from "./qr";
 
 const kindIcon: Record<ClipItem["kind"], Icon> = {
   text: TextAa,
@@ -182,7 +186,7 @@ export function ClipboardView() {
 
       <AnimatePresence>
         {previewId !== null && preview && (
-          <PreviewPane key="preview" preview={preview} paste={pasteOn} onPick={() => void pick(previewId, pasteOn)} onClose={() => setPreviewId(null)} />
+          <PreviewPane key="preview" id={previewId} preview={preview} paste={pasteOn} onPick={() => void pick(previewId, pasteOn)} onClose={() => setPreviewId(null)} />
         )}
       </AnimatePresence>
       <ClipDecodePane id={previewId} onClose={() => setPreviewId(null)} />
@@ -238,13 +242,53 @@ function usePreview(id: number | null, onFail: (id: number) => void): LoadedPrev
   return data;
 }
 
-function PreviewPane({ preview, paste, onPick, onClose }: { preview: LoadedPreview; paste: boolean; onPick: () => void; onClose: () => void }) {
+/**
+ * The words in an image entry: its QR code, looked for as the preview opens, and its text read with Windows' OCR when asked,
+ * then copied, so it joins the history. `note` says for a moment what happened, in the size's place.
+ */
+function useImageWords(id: number) {
+  const [qr, setQr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    setQr(null);
+    let alive = true;
+    clipboard.read(id, "qr").then((q) => alive && setQr(q), () => {});
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  useEffect(() => {
+    if (!note) return;
+    const timer = window.setTimeout(() => setNote(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [note]);
+  const copy = (text: string, done: string) => navigator.clipboard.writeText(text).then(() => setNote(done), () => setNote(t("Kopieren fehlgeschlagen")));
+  const copyText = () => {
+    setBusy(true);
+    clipboard
+      .read(id, "text")
+      .then((text) => (text ? copy(text, t("Text kopiert")) : setNote(t("Kein Text im Bild erkannt"))), () => setNote(t("Text nicht lesbar")))
+      .finally(() => setBusy(false));
+  };
+  const action = qr === null ? ({ kind: "none" } as const) : qrAction(qr);
+  // A link opens only through Rust, which reads the code again (clipboard.rs clipboard_open_qr).
+  const pressQr = () => {
+    if (action.kind === "open") clipboard.openQr(id).catch(() => setNote(t("Link nicht geöffnet")));
+    else if (action.kind === "copy" && qr) void copy(qr, t("QR-Inhalt kopiert"));
+  };
+  return { action, busy, note, copyText, pressQr };
+}
+
+function PreviewPane({ id, preview, paste, onPick, onClose }: { id: number; preview: LoadedPreview; paste: boolean; onPick: () => void; onClose: () => void }) {
+  const words = useImageWords(id);
+  const { action } = words;
   return (
     <motion.div
       className="flex min-h-0 flex-1 flex-col items-center gap-1.5 px-4 pt-2.5"
-      initial={{ opacity: 0, filter: "blur(6px)", transform: "translateY(-6px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)", transition: { ...content.enter, delay: 0.08 } }}
-      exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+      initial={{ opacity: 0, transform: "translateY(-6px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)", transition: { ...content.enter, delay: 0.08 } }}
+      exit={{ opacity: 0, transition: content.exit }}
     >
       {/* Image change: crossfade on top of each other, the area itself stays put. */}
       <div className="relative" style={{ width: preview.w, height: preview.h }}>
@@ -255,17 +299,32 @@ function PreviewPane({ preview, paste, onPick, onClose }: { preview: LoadedPrevi
             alt=""
             draggable={false}
             className="absolute inset-0 size-full rounded-[12px] object-contain"
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}
-            exit={{ opacity: 0, filter: "blur(4px)", transition: content.exit }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: content.enter }}
+            exit={{ opacity: 0, transition: content.exit }}
           />
         </AnimatePresence>
       </div>
       <div className="flex w-full items-center justify-between" style={{ maxWidth: Math.max(preview.w, 240) }}>
-        <span className="tabular flex items-center gap-1 text-caption text-label-3">
-          <ArrowsOutSimple size={11} weight="bold" /> {preview.width} × {preview.height}
+        <span aria-live="polite" className="tabular flex min-w-0 items-center gap-1 truncate text-caption text-label-3">
+          {words.note ?? (
+            <>
+              <ArrowsOutSimple size={11} weight="bold" /> {preview.width} × {preview.height}
+            </>
+          )}
         </span>
-        <div className="flex gap-0.5">
+        <div className="flex shrink-0 gap-0.5">
+          {action.kind !== "none" && (
+            <HeaderButton label={action.kind === "open" ? t("{name} öffnen", { name: action.host }) : t("QR-Inhalt kopieren")} onClick={words.pressQr}>
+              {action.kind === "open" ? <ArrowSquareOut size={13} weight="bold" /> : <QrCode size={13} weight="bold" />}
+            </HeaderButton>
+          )}
+          {/* Windows' OCR: a Mac has none here. */}
+          {!isMac && (
+            <HeaderButton label={t("Text kopieren")} disabled={words.busy} onClick={words.copyText}>
+              <TextAa size={13} weight="bold" />
+            </HeaderButton>
+          )}
           <HeaderButton label={paste ? t("Einfügen") : t("Kopieren")} onClick={onPick}>
             {paste ? <ClipboardText size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
           </HeaderButton>

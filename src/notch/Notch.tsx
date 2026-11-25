@@ -19,13 +19,13 @@ import { Nest } from "./pet/Nest";
 import { powerState, statusAlert } from "../features/status/store";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
-import { cycle } from "../features/window/model";
+import { cycle, startTool } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, lineCapsuleY, panelTop, surfaceOf, windowYFor } from "./capsule";
-import { contentScale, sideLength } from "./collapsed";
+import { contentScale, lineFill, lineProgressFill, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, monitors, notchBusy, sharedSpan } from "./monitor";
 import { useMirror } from "./mirror";
 import { ROW, rowRoom, surfaceWidth } from "./row/layout";
@@ -51,6 +51,7 @@ import { DropTrash, useTrashArmed } from "../features/taskbar/window/DropTrash";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { navRoute } from "./navRoute";
+import { stepTool, toolArrow } from "./toolKeys";
 import { windowKind } from "../lib/windowKind";
 import { update } from "../lib/update";
 import { findOnScreenTab, findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
@@ -160,7 +161,11 @@ export function Notch() {
       if (target) navigate(target);
       // A fresh install opens on the setup until it is finished or skipped.
       else if (!settings.get().setup.done) navigate(setupTab.id);
-      else if (!resumed && live.id && visible.some((t) => t.id === live.id)) navigate(live.id);
+      else {
+        // The live activity's tool, the tool open last or the one chosen (Settings, Window: Opens on, #87).
+        const start = startTool(settings.get().behavior.openOn, live.id ?? null, visible.map((t) => t.id), resumed);
+        if (start) navigate(start);
+      }
       trayTab.current = null;
     }
     if (status !== "open" && prevStatus.current === "open") closedAt.current = Date.now();
@@ -570,20 +575,28 @@ export function Notch() {
     };
   }, [status]);
 
-  // 1–9 switches tools while open and not typing.
+  // 1 to 9 switch tools while open and not typing; Left/Right step through them, Alt+Left/Right even while typing (toolKeys.ts).
   useEffect(() => {
     if (status !== "open") return;
     const onKey = (e: KeyboardEvent) => {
+      const step = toolArrow(e, isTextField(e.target), isMac, document.documentElement.dir === "rtl");
+      if (step) {
+        // Alt+Left would otherwise be WebView2's "back".
+        e.preventDefault();
+        const to = stepTool(visible.map((t) => t.id), tab.id, step);
+        if (to) navigate(to);
+        return;
+      }
       if (isTextField(e.target) || e.ctrlKey || e.altKey || e.metaKey) return;
-      const tab = visible[Number(e.key) - 1];
-      if (!tab) return;
+      const nth = visible[Number(e.key) - 1];
+      if (!nth) return;
       // Else the digit lands in the field the new tool focuses.
       e.preventDefault();
-      navigate(tab.id);
+      navigate(nth.id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [status, visible]);
+  }, [status, visible, tab]);
 
   // Off the top edge everything below is drawn in the edge's frame (edge.ts): as long as the window along the edge, mapped onto it.
   const frame = frameCss(edge, isNative ? windowLine(edge) : viewLine(drag.dock));
@@ -635,6 +648,7 @@ export function Notch() {
           elevated={status === "open"}
           edge={edge}
           thin={lineShape}
+          fill={lineShape ? lineFill(displaySettings.lineColor) : undefined}
           glass={glass}
           look={closedLook ? "closed" : "panel"}
           top={topValue}
@@ -745,7 +759,8 @@ const FILL_FADE = "transition-colors duration-300 ease-out motion-reduce:transit
 
 /** The song's progress along the idle line, as thick as the line: moved once a second with a 1 s linear transition, only while playing. `along`: the upright axis the edge runs on. */
 function LineProgress({ along }: { along: "x" | "y" }) {
-  const on = settings.use().closed.lineProgress;
+  const s = settings.use();
+  const on = s.closed.lineProgress;
   const np = useNowPlaying();
   const playing = on && !!np?.isPlaying && np.duration > 0;
   useSecondTick(playing);
@@ -754,8 +769,8 @@ function LineProgress({ along }: { along: "x" | "y" }) {
   return (
     <span
       aria-hidden
-      className={`absolute inset-0 bg-accent ${along === "x" ? "origin-left" : "origin-top"}`}
-      style={{ transform: along === "x" ? `scaleX(${f})` : `scaleY(${f})`, transition: "transform 1s linear" }}
+      className={`absolute inset-0 ${along === "x" ? "origin-left" : "origin-top"}`}
+      style={{ background: lineProgressFill(s.display.lineColor), transform: along === "x" ? `scaleX(${f})` : `scaleY(${f})`, transition: "transform 1s linear" }}
     />
   );
 }

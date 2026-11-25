@@ -271,28 +271,36 @@ pub struct Preview {
 
 const PREVIEW_SIZE: u32 = 1400;
 
-#[tauri::command]
-pub async fn clipboard_preview(id: u64, state: State<'_, ClipboardState>) -> Result<Option<Preview>, String> {
-    // Copy the image data and release the lock right away; encoding takes a while.
-    enum Source {
-        Png(Vec<u8>),
-        File(PathBuf),
-    }
-    let source = {
+/// An entry's picture: a copied image's PNG, or the first image among copied files.
+enum Picture {
+    Png(Vec<u8>),
+    File(PathBuf),
+}
+
+impl Picture {
+    /// Copied out of the history, so the lock goes before the slow decode. None for text, an entry that is gone, files without an image.
+    fn of(state: &ClipboardState, id: u64) -> Option<Self> {
         let entries = state.entries.lock().unwrap();
-        let Some(entry) = entries.iter().find(|e| e.id == id) else { return Ok(None) };
-        match &entry.content {
-            Content::Image(img) => Some(Source::Png(img.png.clone())),
-            Content::Files(files) => files.iter().find(|p| is_image_file(p)).cloned().map(Source::File),
+        match &entries.iter().find(|e| e.id == id)?.content {
+            Content::Image(img) => Some(Self::Png(img.png.clone())),
+            Content::Files(files) => files.iter().find(|p| is_image_file(p)).cloned().map(Self::File),
             Content::Text(_) => None,
         }
-    };
-    let Some(source) = source else { return Ok(None) };
+    }
+
+    fn rgba(self) -> Option<image::RgbaImage> {
+        Some(match self {
+            Self::Png(png) => image::load_from_memory_with_format(&png, image::ImageFormat::Png).ok()?.to_rgba8(),
+            Self::File(path) => image::open(path).ok()?.to_rgba8(),
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn clipboard_preview(id: u64, state: State<'_, ClipboardState>) -> Result<Option<Preview>, String> {
+    let Some(source) = Picture::of(&state, id) else { return Ok(None) };
     tauri::async_runtime::spawn_blocking(move || {
-        let rgba = match source {
-            Source::Png(png) => image::load_from_memory_with_format(&png, image::ImageFormat::Png).ok()?.to_rgba8(),
-            Source::File(path) => image::open(path).ok()?.to_rgba8(),
-        };
+        let rgba = source.rgba()?;
         let (width, height) = rgba.dimensions();
         let scale = (PREVIEW_SIZE as f32 / width.max(height) as f32).min(1.0);
         let (w, h) = (((width as f32 * scale) as u32).max(1), ((height as f32 * scale) as u32).max(1));
@@ -303,6 +311,53 @@ pub async fn clipboard_preview(id: u64, state: State<'_, ClipboardState>) -> Res
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// What an image entry says in words: `what` "text" reads it with Windows' OCR, a line to a line; "qr" is the first QR code in it.
+/// None for an entry without a picture, or nothing of that kind in it. Errors: "unsupported" (OCR off Windows), "no-ocr",
+/// "failed", "unknown".
+#[tauri::command]
+pub async fn clipboard_read(id: u64, what: String, state: State<'_, ClipboardState>) -> Result<Option<String>, String> {
+    let Some(picture) = Picture::of(&state, id) else { return Ok(None) };
+    match what.as_str() {
+        "qr" => tauri::async_runtime::spawn_blocking(move || picture.rgba().and_then(|img| qr_in(&img))).await.map_err(|e| e.to_string()),
+        "text" => ocr_text(picture).await,
+        _ => Err("unknown".into()),
+    }
+}
+
+fn qr_in(img: &image::RgbaImage) -> Option<String> {
+    crate::qr::decode(img.width() as usize, img.height() as usize, &crate::qr::luma_over_white(img.as_raw()))
+}
+
+#[cfg(windows)]
+async fn ocr_text(picture: Picture) -> Result<Option<String>, String> {
+    let read = move || picture.rgba().ok_or_else(|| "failed".to_string()).and_then(|img| crate::capture::find::read_picture(&img));
+    let text = tauri::async_runtime::spawn_blocking(read).await.map_err(|e| e.to_string())??;
+    Ok((!text.trim().is_empty()).then_some(text))
+}
+
+#[cfg(not(windows))]
+async fn ocr_text(_: Picture) -> Result<Option<String>, String> {
+    Err("unsupported".into())
+}
+
+/// Opens an image entry's QR code in the browser when it is a web link (`web_link`), read again here: the page never names the
+/// address that opens. Errors: "no-qr", "not-a-link".
+#[tauri::command]
+pub async fn clipboard_open_qr(id: u64, state: State<'_, ClipboardState>) -> Result<(), String> {
+    let picture = Picture::of(&state, id).ok_or("no-qr")?;
+    let text = tauri::async_runtime::spawn_blocking(move || picture.rgba().and_then(|img| qr_in(&img))).await.map_err(|e| e.to_string())?.ok_or("no-qr")?;
+    let url = web_link(&text).ok_or("not-a-link")?;
+    crate::open_url(url.as_str())
+}
+
+/// A QR code's text that opens: an http or https address with a host and no name or password before it (`user@` can pass
+/// one site off as another). Anything else (a Wi-Fi network, a sign-in secret, another scheme) never opens.
+fn web_link(text: &str) -> Option<reqwest::Url> {
+    let url = reqwest::Url::parse(text.trim()).ok()?;
+    let fine = matches!(url.scheme(), "http" | "https") && url.host_str().is_some_and(|h| !h.is_empty()) && url.username().is_empty() && url.password().is_none();
+    fine.then_some(url)
 }
 
 /// Texts above this are not handed out for decoding (src/features/clipboard/decode.ts looks at 100 KB at most).
@@ -635,6 +690,38 @@ fn emit(app: &AppHandle, state: &ClipboardState) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_a_web_link_in_a_qr_code_opens() {
+        let opens = |t: &str| super::web_link(t).map(|u| u.to_string());
+        assert_eq!(opens(" https://example.com/menu?table=12 ").as_deref(), Some("https://example.com/menu?table=12"));
+        assert_eq!(opens("http://192.168.1.20:8080/").as_deref(), Some("http://192.168.1.20:8080/"));
+        for no in [
+            "javascript:alert(1)",
+            "file:///C:/Windows/System32/cmd.exe",
+            "ms-settings:privacy",
+            "otpauth://totp/Crest:me?secret=JBSWY3DPEHPK3PXP",
+            "WIFI:S:Home;T:WPA;P:secret;;",
+            "https://google.com@evil.example/",
+            "https://user:pass@example.com/",
+            "example.com",
+            "",
+        ] {
+            assert!(opens(no).is_none(), "{no}");
+        }
+    }
+
+    /// Windows' OCR on a real screenshot from the docs, light text on dark. Ignored by default: it needs an OCR language on the PC
+    /// (`cargo test --lib ocr_reads -- --ignored`).
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn ocr_reads_a_screenshot_line_by_line() {
+        let img = image::open(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/media/features/clipboard.png")).unwrap().to_rgba8();
+        let text = crate::capture::find::read_picture(&img).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert!(lines.contains(&"Clipboard") && lines.contains(&"Nothing copied yet"), "{text}");
+    }
+
     #[test]
     fn the_same_text_or_picture_is_one_entry() {
         let image = |png: &[u8]| Content::Image(StoredImage { width: 2, height: 1, png: png.to_vec(), thumbnail: String::new() });

@@ -104,19 +104,97 @@ export function allZones(): string[] {
   return list.includes("UTC") ? list : [...list, "UTC"];
 }
 
-/** Zones whose city, region or full name contains the text; the ones whose city starts with it come first. */
-export function searchZones(query: string, zones: string[], limit = 40): string[] {
-  const q = query.trim().toLowerCase().replaceAll("_", " ");
+/**
+ * Capitals and big cities that have no zone of their own name, each with the zones that keep their time, the current name first
+ * and an older one an engine may list instead (Asia/Calcutta for Asia/Kolkata). Searched like a city; the clock added is the zone's.
+ */
+const ALIASES: readonly { name: string; zones: readonly string[] }[] = [
+  { name: "Brasília", zones: ["America/Sao_Paulo"] },
+  { name: "Rio de Janeiro", zones: ["America/Sao_Paulo"] },
+  { name: "Washington", zones: ["America/New_York"] },
+  { name: "Boston", zones: ["America/New_York"] },
+  { name: "Miami", zones: ["America/New_York"] },
+  { name: "Atlanta", zones: ["America/New_York"] },
+  { name: "Ottawa", zones: ["America/Toronto"] },
+  { name: "Houston", zones: ["America/Chicago"] },
+  { name: "Dallas", zones: ["America/Chicago"] },
+  { name: "Austin", zones: ["America/Chicago"] },
+  { name: "San Francisco", zones: ["America/Los_Angeles"] },
+  { name: "Seattle", zones: ["America/Los_Angeles"] },
+  { name: "Las Vegas", zones: ["America/Los_Angeles"] },
+  { name: "Quito", zones: ["America/Guayaquil"] },
+  { name: "New Delhi", zones: ["Asia/Kolkata", "Asia/Calcutta"] },
+  { name: "Delhi", zones: ["Asia/Kolkata", "Asia/Calcutta"] },
+  { name: "Mumbai", zones: ["Asia/Kolkata", "Asia/Calcutta"] },
+  { name: "Bengaluru", zones: ["Asia/Kolkata", "Asia/Calcutta"] },
+  { name: "Chennai", zones: ["Asia/Kolkata", "Asia/Calcutta"] },
+  { name: "Hyderabad", zones: ["Asia/Kolkata", "Asia/Calcutta"] },
+  { name: "Islamabad", zones: ["Asia/Karachi"] },
+  { name: "Beijing", zones: ["Asia/Shanghai"] },
+  { name: "Shenzhen", zones: ["Asia/Shanghai"] },
+  { name: "Guangzhou", zones: ["Asia/Shanghai"] },
+  { name: "Osaka", zones: ["Asia/Tokyo"] },
+  { name: "Kyoto", zones: ["Asia/Tokyo"] },
+  { name: "Busan", zones: ["Asia/Seoul"] },
+  { name: "Hanoi", zones: ["Asia/Ho_Chi_Minh", "Asia/Saigon"] },
+  { name: "Abu Dhabi", zones: ["Asia/Dubai"] },
+  { name: "Tel Aviv", zones: ["Asia/Jerusalem"] },
+  { name: "Ankara", zones: ["Europe/Istanbul"] },
+  { name: "Canberra", zones: ["Australia/Sydney"] },
+  { name: "Wellington", zones: ["Pacific/Auckland"] },
+  { name: "Abuja", zones: ["Africa/Lagos"] },
+  { name: "Cape Town", zones: ["Africa/Johannesburg"] },
+  { name: "Pretoria", zones: ["Africa/Johannesburg"] },
+  { name: "Milano", zones: ["Europe/Rome"] },
+  { name: "Milan", zones: ["Europe/Rome"] },
+  { name: "Naples", zones: ["Europe/Rome"] },
+  { name: "Florence", zones: ["Europe/Rome"] },
+  { name: "Munich", zones: ["Europe/Berlin"] },
+  { name: "Frankfurt", zones: ["Europe/Berlin"] },
+  { name: "Hamburg", zones: ["Europe/Berlin"] },
+  { name: "Barcelona", zones: ["Europe/Madrid"] },
+  { name: "Manchester", zones: ["Europe/London"] },
+  { name: "Edinburgh", zones: ["Europe/London"] },
+  { name: "Geneva", zones: ["Europe/Zurich"] },
+  { name: "Bern", zones: ["Europe/Zurich"] },
+  { name: "Saint Petersburg", zones: ["Europe/Moscow"] },
+];
+
+/** For matching: no accents, no case, "_" read as a space, one space between words. */
+const fold = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replaceAll("_", " ").replace(/\s+/g, " ").trim();
+
+/**
+ * Zones whose city, region or full name contains the text, accents or not, and the zones of the capitals and cities it names
+ * (ALIASES), each once with the name it is shown by: the city's own when that matches as well, else the alias. The ones whose
+ * name starts with the text come first, then by name.
+ */
+export function searchHits(query: string, zones: string[], limit = 40): { zone: string; name: string }[] {
+  const q = fold(query);
   if (!q) return [];
-  const hits: { zone: string; rank: number }[] = [];
+  const best = new Map<string, { rank: number; name: string }>();
+  const hit = (zone: string, rank: number, name: string) => {
+    const was = best.get(zone);
+    if (!was || rank < was.rank) best.set(zone, { rank, name });
+  };
   for (const zone of zones) {
-    const city = cityName(zone).toLowerCase();
-    const full = zone.toLowerCase().replaceAll("_", " ");
-    if (city.startsWith(q)) hits.push({ zone, rank: 0 });
-    else if (city.includes(q) || full.includes(q)) hits.push({ zone, rank: 1 });
+    const city = fold(cityName(zone));
+    if (city.startsWith(q)) hit(zone, 0, cityName(zone));
+    else if (city.includes(q) || fold(zone).includes(q)) hit(zone, 1, cityName(zone));
   }
-  return hits.sort((a, b) => a.rank - b.rank || cityName(a.zone).localeCompare(cityName(b.zone))).slice(0, limit).map((h) => h.zone);
+  for (const alias of ALIASES) {
+    const name = fold(alias.name);
+    const rank = name.startsWith(q) ? 0 : name.includes(q) ? 1 : -1;
+    const zone = rank < 0 ? undefined : alias.zones.find((z) => zones.includes(z));
+    if (zone) hit(zone, rank, alias.name);
+  }
+  return [...best]
+    .sort(([, a], [, b]) => a.rank - b.rank || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map(([zone, { name }]) => ({ zone, name }));
 }
+
+/** The zones of `searchHits`, in its order. */
+export const searchZones = (query: string, zones: string[], limit = 40): string[] => searchHits(query, zones, limit).map((h) => h.zone);
 
 /** What a saved list may hold: known zone names, once each, at most MAX_ZONES. Anything else is dropped. */
 export function normalizeZones(raw: unknown): string[] {
