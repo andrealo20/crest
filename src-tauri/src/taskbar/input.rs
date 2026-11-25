@@ -34,15 +34,22 @@ fn info(name: &[u16], kind: u32) -> String {
     String::from_utf16_lossy(&buf[..(n.max(1) as usize - 1).min(buf.len())])
 }
 
-/// The foreground window's keyboard layout as Windows' indicator writes it: "ITA" over "IT"; None with one layout installed,
-/// where Windows shows no indicator, or when the layout has no locale.
+/// Whether Windows shows its indicator: with more than one keyboard layout, or with a Chinese, Japanese or Korean one, whose
+/// input methods all share one layout (Microsoft Pinyin, WeChat and the rest are one zh-CN layout, #99).
+fn shown(layouts: i32, langid: u32) -> bool {
+    // The primary language: LANG_CHINESE, LANG_JAPANESE, LANG_KOREAN.
+    layouts >= 2 || (layouts == 1 && matches!(langid & 0x3ff, 0x04 | 0x11 | 0x12))
+}
+
+/// The foreground window's keyboard layout as Windows' indicator writes it: "ITA" over "IT"; None where Windows shows no
+/// indicator (`shown`), or when the layout has no locale.
 pub(crate) fn current() -> Option<InputLang> {
-    if unsafe { GetKeyboardLayoutList(None) } < 2 {
-        return None;
-    }
     let tid = unsafe { GetWindowThreadProcessId(GetForegroundWindow(), None) };
     // The low word is the language id, which is the locale id with the default sort.
     let langid = unsafe { GetKeyboardLayout(tid) }.0 as usize as u32 & 0xffff;
+    if !shown(unsafe { GetKeyboardLayoutList(None) }, langid) {
+        return None;
+    }
     let mut name = [0u16; 85];
     if unsafe { LCIDToLocaleName(langid, Some(&mut name), 0) } == 0 {
         return None;
@@ -77,6 +84,18 @@ mod tests {
     fn the_label_is_upper_case_and_trimmed() {
         assert_eq!(label("ita", "it"), InputLang { lang: "ITA".into(), region: "IT".into() });
         assert_eq!(label(" eng ", "gb"), InputLang { lang: "ENG".into(), region: "GB".into() });
+    }
+
+    #[test]
+    fn shown_with_two_layouts_or_with_a_chinese_japanese_or_korean_one() {
+        // Italian alone: Windows shows no indicator; with English as well, it does.
+        assert!(!shown(1, 0x0410));
+        assert!(shown(2, 0x0410));
+        // Every Chinese input method shares one layout (#99): Windows still shows its indicator, as for Japanese and Korean.
+        for langid in [0x0804, 0x0404, 0x0c04, 0x0411, 0x0412] {
+            assert!(shown(1, langid), "{langid:#06x}");
+        }
+        assert!(!shown(0, 0x0409));
     }
 
     #[test]
