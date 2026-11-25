@@ -604,7 +604,8 @@ fn keep(spy: HWND, op: IconOp, data: IconData) {
 }
 
 /// Applies an icon message to the icons, as Windows' tray does: an add or a change of an icon it does not have adds it, if its
-/// window is there and is not Crest's (`own_pid`); a version is kept for the clicks. Whether what the bars show changed.
+/// window is there and is not Crest's (`own_pid`) nor Windows' own (`windows_own`); a version is kept for the clicks. Whether what
+/// the bars show changed.
 fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own_pid: u32) -> bool {
     let before = visible(icons);
     match (op, find(icons, &data.key)) {
@@ -629,7 +630,7 @@ fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own
                     at
                 }
                 Some(at) => at,
-                None if owner_pid == 0 || owner_pid == own_pid => return false,
+                None if owner_pid == 0 || owner_pid == own_pid || windows_own(&data.key) => return false,
                 None => {
                     let guid = match data.key {
                         IconKey::Guid(g) => Some(g),
@@ -666,6 +667,13 @@ fn apply(icons: &mut Vec<Entry>, op: IconOp, data: IconData, owner_pid: u32, own
         _ => {}
     }
     before != visible(icons)
+}
+
+/// Windows' own volume, network and power icons (`7820AE73`..`75`, as ManagedShell lists them): on some versions (23H2) Explorer
+/// still sends them to the tray, where a click reaches nothing, and Stato shows the same with its own panels (#99).
+fn windows_own(key: &IconKey) -> bool {
+    const SUFFIX: (u16, u16, [u8; 8]) = (0x23E3, 0x4229, [0x82, 0xC1, 0xE4, 0x1C, 0xB6, 0x7D, 0x5B, 0x9C]);
+    matches!(key, IconKey::Guid(g) if (0x7820_AE73..=0x7820_AE75).contains(&g.data1) && (g.data2, g.data3, g.data4) == SUFFIX)
 }
 
 /// The stored icon a message names: by its GUID when it has one, else by its window and id, which a GUID icon keeps too.
@@ -919,6 +927,20 @@ mod tests {
         assert!(!apply(&mut icons, IconOp::Add, icon(Some("Crest"), None), CREST, CREST));
         assert!(!apply(&mut icons, IconOp::Modify, icon(Some("Crest"), None), CREST, CREST));
         assert!(icons.is_empty());
+    }
+
+    #[test]
+    fn windows_own_volume_network_and_power_icons_are_left_out() {
+        let sca = |n: u32| IconKey::Guid(GUID::from_values(n, 0x23E3, 0x4229, [0x82, 0xC1, 0xE4, 0x1C, 0xB6, 0x7D, 0x5B, 0x9C]));
+        let mut icons = Vec::new();
+        for n in [0x7820_AE73, 0x7820_AE74, 0x7820_AE75] {
+            assert!(!apply(&mut icons, IconOp::Add, IconData { key: sca(n), ..icon(Some("Network"), None) }, APP, CREST));
+        }
+        assert!(icons.is_empty());
+        // The rest of the family (Location, 77) and an app's own GUID stay.
+        assert!(apply(&mut icons, IconOp::Add, IconData { key: sca(0x7820_AE77), ..icon(Some("Location"), None) }, APP, CREST));
+        let app = IconKey::Guid(GUID::from_values(0x7820_AE74, 2, 3, [4, 5, 6, 7, 8, 9, 10, 11]));
+        assert!(apply(&mut icons, IconOp::Add, IconData { key: app, ..icon(Some("Sync"), None) }, APP, CREST));
     }
 
     #[test]

@@ -1606,19 +1606,28 @@ function FpsUnlockRow() {
 function Weather() {
   const { weather: w, units } = settings.use();
   const [searching, setSearching] = useState(false);
+  // The automatic place while it is looked up, and whether it was not found (#99).
+  const [lookup, setLookup] = useState<"idle" | "busy" | "failed">("idle");
+  // The switch follows the click: Manual while the search is open, Automatic while the place is looked up.
+  const mode = searching ? "manual" : lookup === "busy" || !w || w.auto ? "auto" : "manual";
+  const hint = lookup === "failed" ? t("Automatisch nicht gefunden, unter Manuell suchen") : w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined;
   return (
     <Group title={t("Wetter")} id="settings-weather">
-      <Row icon="my_location" label={t("Standort")} hint={w?.auto ? t("Ungefähr, aus deiner IP-Adresse") : undefined}>
+      <Row icon="my_location" label={t("Standort")} hint={hint}>
         <Segmented<"auto" | "manual">
           id="weather-mode"
           label={t("Standort")}
           size="sm"
-          value={!w || w.auto ? "auto" : "manual"}
+          value={mode}
           onChange={(m) => {
             if (m === "auto") {
               setSearching(false);
-              void detectPlace(true);
-            } else setSearching(true);
+              setLookup("busy");
+              void detectPlace(true).then((found) => setLookup(found ? "idle" : "failed"));
+            } else {
+              setSearching(true);
+              setLookup("idle");
+            }
           }}
           options={[
             { value: "auto", label: t("Automatisch") },
