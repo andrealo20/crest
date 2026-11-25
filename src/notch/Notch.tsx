@@ -51,6 +51,7 @@ import { DropTrash, useTrashArmed } from "../features/taskbar/window/DropTrash";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
 import { navRoute } from "./navRoute";
+import { stepTool, toolArrow } from "./toolKeys";
 import { windowKind } from "../lib/windowKind";
 import { update } from "../lib/update";
 import { findOnScreenTab, findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
@@ -574,20 +575,28 @@ export function Notch() {
     };
   }, [status]);
 
-  // 1–9 switches tools while open and not typing.
+  // 1 to 9 switch tools while open and not typing; Left/Right step through them, Alt+Left/Right even while typing (toolKeys.ts).
   useEffect(() => {
     if (status !== "open") return;
     const onKey = (e: KeyboardEvent) => {
+      const step = toolArrow(e, isTextField(e.target), isMac, document.documentElement.dir === "rtl");
+      if (step) {
+        // Alt+Left would otherwise be WebView2's "back".
+        e.preventDefault();
+        const to = stepTool(visible.map((t) => t.id), tab.id, step);
+        if (to) navigate(to);
+        return;
+      }
       if (isTextField(e.target) || e.ctrlKey || e.altKey || e.metaKey) return;
-      const tab = visible[Number(e.key) - 1];
-      if (!tab) return;
+      const nth = visible[Number(e.key) - 1];
+      if (!nth) return;
       // Else the digit lands in the field the new tool focuses.
       e.preventDefault();
-      navigate(tab.id);
+      navigate(nth.id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [status, visible]);
+  }, [status, visible, tab]);
 
   // Off the top edge everything below is drawn in the edge's frame (edge.ts): as long as the window along the edge, mapped onto it.
   const frame = frameCss(edge, isNative ? windowLine(edge) : viewLine(drag.dock));

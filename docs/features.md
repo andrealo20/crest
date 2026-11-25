@@ -468,7 +468,7 @@ Format, API, limits and the security model: [plugins.md](plugins.md).
 | Action | How |
 | --- | --- |
 | Open or close | Hover, click or **Ctrl + Alt + Space** (choose the trigger in settings) |
-| Switch tools | Tool bar at the bottom of the open notch, or under its header (**Settings → Window → Tool bar**) |
+| Switch tools | Tool bar at the bottom of the open notch, or under its header (**Settings → Window → Tool bar**); or, with the keyboard after **Ctrl + Alt + Space**, the keys **1** to **9**, **Left** and **Right**, and **Alt + Left/Right** inside a text field (**Cmd + Option + Left/Right** on a Mac) |
 | Hide a tool from the tool bar | Drag it off the bar onto the red disc that shows beside the bar, on the tool's side (above it, or below it with the bar under the header), rest there until the disc turns a deeper red with a ring, and let go: the tool is switched off in its place, and its switch in **Settings → Tools** brings it back there. The last tool on the bar does not drag. Let go anywhere else and nothing changes; Esc ends the drag and closes the notch |
 | Settings | Gear icon at the end of the tool bar, a right click on the notch, **Settings …** in the tray menu, or starting Crest again |
 | Tray icon | Left click opens the notch, right click shows the menu (open, settings, autostart, quit) |
