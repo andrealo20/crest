@@ -56,18 +56,18 @@ test("the name says each state, with the percentages", () => {
 test("the glyphs are two thirds of the icon and the item as wide as they are, 6 px apart with the pill's sides", () => {
   assert.equal(glyphSize(24), 16);
   assert.equal(glyphSize(20), 13);
-  assert.equal(statusWidth(24, 3, true, 44), 91);
+  assert.equal(statusWidth(24, 3, true, 44), 90);
   assert.equal(statusWidth(24, 3, false, 44), 80);
   assert.equal(statusWidth(24, 2, false, 44), 58);
-  assert.equal(statusWidth(24, 1, true, 44), 47);
+  assert.equal(statusWidth(24, 1, true, 44), 46);
   assert.equal(statusWidth(20, 3, true, 32), 74);
 });
 
 test("on Tiles Stato has no pill: its glyphs 4 px apart with the 8 px a bar button keeps on each side", () => {
-  assert.equal(statusWidth(24, 3, true, null), 83);
+  assert.equal(statusWidth(24, 3, true, null), 82);
   assert.equal(statusWidth(24, 3, false, null), 72);
   assert.equal(statusWidth(24, 2, false, null), 52);
-  assert.equal(statusWidth(24, 1, true, null), 43);
+  assert.equal(statusWidth(24, 1, true, null), 42);
   assert.equal(statusWidth(20, 3, true, null), 72);
 });
 

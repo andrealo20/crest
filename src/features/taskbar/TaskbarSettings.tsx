@@ -55,7 +55,7 @@ const APPS_ON_LABEL: Record<AppsOn, string> = { all: "Allen Taskleisten", main: 
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, allScreens, appsOn, clockAll, winKeys } = settings.use().taskbar;
+  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, batteryPercent, allScreens, appsOn, clockAll, winKeys } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
@@ -150,6 +150,9 @@ export function TaskbarGeneral() {
       </Row>
       <Row icon="volume_up" label={<span className="whitespace-normal">{t("Mausrad ändert die Lautstärke")}</span>} hint={t("Über einer App ihre eigene, sonst die von Windows. Über Status immer")}>
         <Switch label={t("Mausrad ändert die Lautstärke")} checked={wheelVolume} onChange={(on) => setTaskbar({ wheelVolume: on })} />
+      </Row>
+      <Row icon="battery_full" label={t("Akkustand in Prozent")} hint={t("Neben dem Akku in Status und in der Version Klassisch des Akku-Widgets")}>
+        <Switch label={t("Akkustand in Prozent")} checked={batteryPercent} onChange={(on) => setTaskbar({ batteryPercent: on })} />
       </Row>
       <Row icon="mouse" label={<span className="whitespace-normal">{t("Doppelklick auf eine freie Stelle")}</span>}>
         <Select

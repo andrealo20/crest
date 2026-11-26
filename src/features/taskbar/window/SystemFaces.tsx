@@ -7,7 +7,8 @@ import { BtLowest, btLowestWidth, btSpoken } from "../../../notch/row/parts/BtPa
 import { btIcon, type PowerState } from "../../../notch/row/status";
 import { STATUS_ICON } from "../../../notch/row/statusIcons";
 import { settings } from "../../../settings/store";
-import { batteryTint } from "../../../ui/glyphModel";
+import { batteryTint, batteryWidth, type BatteryTint } from "../../../ui/glyphModel";
+import { BatteryGlyph } from "../../../ui/glyphs";
 import { Lightning } from "../../../ui/iconset";
 import { AppIcon } from "../../system/AppIcon";
 import { processMemory } from "../../system/format";
@@ -66,10 +67,14 @@ function TopAppsFace({ apps, ram }: { apps: TopApp[]; ram: boolean }) {
 }
 
 type BatteryVersion = WidgetVariants["battery"];
-/** Each version's shape, the room after it and the charging bolt. */
-const SHAPE: Record<BatteryVersion, number> = { ring: 22, cells: 28, gauge: 26, dots: 24 };
+/** Each version's shape, the room after it and the charging bolt; Classic is Stato's battery at its size, its bolt inside. */
+const CLASSIC = 16;
+const SHAPE: Record<BatteryVersion, number> = { ring: 22, cells: 28, gauge: 26, dots: 24, classic: batteryWidth(CLASSIC) };
 const GAP = 4, BOLT = 9;
-const batteryFaceWidth = (v: BatteryVersion, charging: boolean) => SHAPE[v] + (v === "ring" ? 0 : GAP + measureTabular("100%")) + (charging ? GAP + BOLT : 0);
+/** The figure beside the shape: not on the ring, which has it inside, and on Classic only with the percentage switched on. */
+const figured = (v: BatteryVersion, percent: boolean) => v !== "ring" && (v !== "classic" || percent);
+const batteryFaceWidth = (v: BatteryVersion, charging: boolean, percent: boolean) =>
+  SHAPE[v] + (figured(v, percent) ? GAP + measureTabular("100%") : 0) + (charging && v !== "classic" ? GAP + BOLT : 0);
 
 /** A part not lit: the ink faint, or under Material on fill-3 as the Slider's track (TimerRing). */
 const DIM_FILL = { fill: "currentColor", fillOpacity: 0.18, className: "material:fill-fill-3 material:[fill-opacity:1]" } as const;
@@ -133,23 +138,29 @@ function Dots({ percent }: { percent: number | null }) {
   );
 }
 
-const SHAPES: Record<BatteryVersion, (p: { percent: number | null }) => ReactNode> = { ring: Ring, cells: Cells, gauge: Gauge, dots: Dots };
+/** Stato's battery, green while charging. */
+function Classic({ percent, charging, tint }: { percent: number | null; charging: boolean; tint: BatteryTint }) {
+  return <BatteryGlyph percent={percent} charging={charging} tint={tint} size={CLASSIC} />;
+}
 
-/** The charge as its version draws it, then its figure (the ring has it inside) and the bolt while charging; red as Stato's battery warns, green in Energy saver. */
-function BatteryFace({ power: p, version: v }: { power: PowerState; version: BatteryVersion }) {
-  const tint = batteryTint(batteryGlyph(p) === "warning", p.saver === true);
-  const tone = tint === "red" ? "text-red" : tint === "green" ? "text-green" : "text-label";
+const SHAPES: Record<BatteryVersion, (p: { percent: number | null; charging: boolean; tint: BatteryTint }) => ReactNode> = { ring: Ring, cells: Cells, gauge: Gauge, dots: Dots, classic: Classic };
+
+/** The charge as its version draws it, then its figure (the ring has it inside) and the bolt while charging; red as Stato's battery warns, yellow in Energy saver. */
+function BatteryFace({ power: p, version: v, percent }: { power: PowerState; version: BatteryVersion; percent: boolean }) {
+  const warning = batteryGlyph(p) === "warning", saver = p.saver === true;
+  const tint = batteryTint(warning, saver, false);
+  const tone = tint === "red" ? "text-red" : tint === "yellow" ? "text-yellow" : "text-label";
   const label = p.percent === null ? t("Akku") : p.charging ? t("Akku {p} %, lädt", { p: p.percent }) : t("Akku {p} %", { p: p.percent });
   const Shape = SHAPES[v];
   return (
     <span className={`flex shrink-0 items-center ${tone}`} style={{ gap: GAP }} role="img" aria-label={label}>
-      <Shape percent={p.percent} />
-      {v !== "ring" && (
+      <Shape percent={p.percent} charging={p.charging} tint={batteryTint(warning, saver, p.charging)} />
+      {figured(v, percent) && (
         <span className="tabular text-left text-footnote font-medium" style={{ width: measureTabular("100%") }}>
           {p.percent === null ? "-" : `${p.percent}%`}
         </span>
       )}
-      {p.charging && <Lightning size={BOLT} weight="fill" className="shrink-0" />}
+      {p.charging && v !== "classic" && <Lightning size={BOLT} weight="fill" className="shrink-0" />}
     </span>
   );
 }
@@ -172,7 +183,8 @@ export function systemPart(id: "processes" | "battery" | "temps", ctx: WidgetCon
   const p = ctx.feed.power;
   if (!p?.battery) return null;
   const v = variantOf(ctx.variants, "battery");
-  return { node: <BatteryFace power={p} version={v} />, width: batteryFaceWidth(v, p.charging) };
+  const percent = ctx.batteryPercent !== false;
+  return { node: <BatteryFace power={p} version={v} percent={percent} />, width: batteryFaceWidth(v, p.charging, percent) };
 }
 
 const RING = 22, RING_GAP = 4, RING_ICON = 11;

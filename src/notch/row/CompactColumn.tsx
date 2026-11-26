@@ -1,7 +1,9 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, Coffee, Pause, Play, Stop } from "../../ui/iconset";
+import { AlarmIcon, CheckCircle, Coffee, Pause, Play, Stop } from "../../ui/iconset";
+import { BATTERY_W } from "../../ui/glyphModel";
+import { BatteryGlyph } from "../../ui/glyphs";
 import { STATUS_ICON } from "./statusIcons";
 import { hueVar } from "../../features/themes/hues";
 import { content, pulse } from "../../design/motion";
@@ -120,7 +122,7 @@ function useNoticeLine(): Line | null {
       </button>
     ));
   if (kind === "status" && status) {
-    const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
+    const I = STATUS_ICON[status.icon];
     if (status.level !== undefined) {
       const level = status.level;
       // One id per kind, so a held key moves the bar in place.
@@ -141,7 +143,12 @@ function useNoticeLine(): Line | null {
     // Only the icon fits: the text goes in the tooltip and for screen readers, a key switched off or a device that left is dimmed.
     return line(`notice-${status.kind}-${status.icon}${status.off ? "-off" : ""}`, () => (
       <span className="flex" role="img" aria-label={status.text} title={status.text} style={{ color: status.accent ? hueVar(status.accent) : TONE[status.tone], opacity: status.off ? 0.45 : 1 }}>
-        <I size={NOTICE_ICON} weight="fill" />
+        {/* A power alert's battery as wide as an icon, so lower. */}
+        {status.charge ? (
+          <BatteryGlyph percent={status.charge.percent} charging={status.charge.charging} tint={null} size={Math.floor((NOTICE_ICON * 16) / BATTERY_W)} />
+        ) : (
+          <I size={NOTICE_ICON} weight="fill" />
+        )}
       </span>
     ));
   }

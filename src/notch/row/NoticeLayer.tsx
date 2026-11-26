@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, FilmStrip, Pause, Play, Stop, Waveform, ArrowSquareOut, ImageSquare } from "../../ui/iconset";
+import { AlarmIcon, CheckCircle, FilmStrip, Pause, Play, Stop, Waveform, ArrowSquareOut, ImageSquare } from "../../ui/iconset";
+import { batteryWidth } from "../../ui/glyphModel";
+import { BatteryGlyph } from "../../ui/glyphs";
 import { STATUS_ICON } from "./statusIcons";
 import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
@@ -250,13 +252,16 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
       </button>
     );
   } else if (kind === "status" && status) {
-    const I = status.icon === "battery" && status.tone !== "normal" ? (status.tone === "critical" ? BatteryWarning : BatteryLow) : STATUS_ICON[status.icon];
+    const I = STATUS_ICON[status.icon];
+    const { charge } = status;
+    // A power alert draws the battery, wider than an icon.
+    const iconW = charge ? batteryWidth(ICON) : ICON;
     // The volume and brightness HUD adds a level bar; its text keeps the width of "100 %", so the notch holds still while the level moves.
     const bar = status.level === undefined ? 0 : LEVEL_BAR + GAP;
     // Its digits are tabular, each as wide as an 8, which the canvas does not know.
     const tab = (text: string) => (bar ? measureTabular(text.replace(/\d/g, "8")) : measureText(text));
-    const textW = Math.min(Math.max(tab(status.text), bar && tab(t("{p} %", { p: 100 }))), max - ICON - GAP - bar);
-    width = ICON + GAP + bar + textW;
+    const textW = Math.min(Math.max(tab(status.text), bar && tab(t("{p} %", { p: 100 }))), max - iconW - GAP - bar);
+    width = iconW + GAP + bar + textW;
     // One key per kind: a newer alert of the same kind swaps its text in place instead of cross-fading.
     key = `status:${status.kind}`;
     // Only the icon in the alert's hue (volume blue, brightness yellow, Caps Lock on red); the bar and the text in its tone. Over clear glass (`mono`)
@@ -264,10 +269,10 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly, mono = false }: { 
     const ink = status.accent && !mono ? hueVar(status.accent) : TONE[status.tone];
     body = (
       <span className="flex h-full items-center" style={{ gap: GAP, color: TONE[status.tone] }}>
-        <span className="relative shrink-0" style={{ width: ICON, height: ICON, color: ink }}>
+        <span className="relative shrink-0" style={{ width: iconW, height: ICON, color: ink }}>
           <AnimatePresence initial={false}>
             <motion.span key={`${status.icon}:${status.tone}`} className="absolute inset-0 flex" initial={ICON_SWAP.from} animate={ICON_SWAP.to} exit={ICON_SWAP.from} transition={ICON_SWAP.transition}>
-              <I size={ICON} weight="fill" />
+              {charge ? <BatteryGlyph percent={charge.percent} charging={charge.charging} tint={null} size={ICON} /> : <I size={ICON} weight="fill" />}
             </motion.span>
           </AnimatePresence>
         </span>

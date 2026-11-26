@@ -57,6 +57,7 @@ const VARIANT_LABEL: Record<string, string> = {
   cells: "Zellen",
   gauge: "Zeiger",
   dots: "Punkte",
+  classic: "Klassisch",
   text: "Titelzeile",
   play: "Mit Wiedergabetaste",
   cover: "Cover und Tasten",

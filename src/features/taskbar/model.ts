@@ -94,6 +94,8 @@ export interface TaskbarSettings {
   windowCount: boolean;
   /** The wheel over the whole bar changes the volume: an app's own over its button, Windows' elsewhere (over Stato it always does). */
   wheelVolume: boolean;
+  /** The battery's percentage after it, in Stato and the Battery widget's Classic version. */
+  batteryPercent: boolean;
   /** The other monitors get a bar too, as Windows' "Show my taskbar on all displays". */
   allScreens: boolean;
   /** Where an app's button shows with several bars: the bar of its window's monitor, that one and the main bar, or every bar. */
@@ -158,6 +160,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   middleClick: "new",
   windowCount: false,
   wheelVolume: false,
+  batteryPercent: true,
   allScreens: true,
   appsOn: "own",
   clockAll: false,
@@ -205,7 +208,7 @@ export type WidgetVariants = {
   disk: "system" | "all" | "fullest";
   title: "text" | "play" | "cover" | "disc" | "track";
   processes: "cpu" | "ram";
-  battery: "ring" | "cells" | "gauge" | "dots";
+  battery: "ring" | "cells" | "gauge" | "dots" | "classic";
   mic: "mic" | "both";
   progress: "day" | "month" | "year";
   date: "fulldate" | "sheet" | "week";
@@ -226,7 +229,7 @@ export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVari
   disk: ["system", "all", "fullest"],
   title: ["text", "play", "cover", "disc", "track"],
   processes: ["cpu", "ram"],
-  battery: ["ring", "cells", "gauge", "dots"],
+  battery: ["ring", "cells", "gauge", "dots", "classic"],
   mic: ["mic", "both"],
   progress: ["day", "month", "year"],
   date: ["fulldate", "sheet", "week"],
@@ -292,6 +295,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     middleClick: s.middleClick === "close" ? "close" : "new",
     windowCount: s.windowCount === true,
     wheelVolume: s.wheelVolume === true,
+    batteryPercent: s.batteryPercent !== false,
     allScreens: s.allScreens !== false,
     appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,
     clockAll: s.clockAll === true,
@@ -319,6 +323,9 @@ function withItem(zones: Record<Zone, BarItem[]>, id: "tray" | "status"): Record
 
 /** Whether a zone holds the tray: what the notch sends Rust (`taskbar.trayOn`), on or off, so turning the bar off never stops the spy before Windows' taskbar is back. */
 export const trayOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some((z) => zones[z].includes("tray"));
+
+/** Whether a zone holds the Battery widget: Stato and the bar's Hardware widget then leave their battery out, one on the bar is enough. */
+export const batteryOnBar = (zones: Record<Zone, BarItem[]>): boolean => ZONES.some((z) => zones[z].includes("battery"));
 
 /** Whether the spy that records the tray's icons runs: while the bar is on and a zone holds the tray; otherwise Explorer keeps the tray alone. */
 export const trayWanted = (t: TaskbarSettings): boolean => t.enabled && trayOnBar(t.zones);

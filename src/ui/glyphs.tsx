@@ -4,12 +4,9 @@
 import { useId, type ReactNode } from "react";
 import { viewMetrics } from "../notch/viewZoom";
 import {
-  BATTERY_BODY,
   BATTERY_BOLT,
-  BATTERY_CAP,
-  BATTERY_DASH,
+  BATTERY_FILL,
   BATTERY_W,
-  BODY_BOLT,
   DIM,
   FAN_ARCS,
   FAN_WEDGE,
@@ -18,21 +15,20 @@ import {
   MERIDIAN,
   MONITOR,
   MUTE,
-  NUMBER_SIZE,
   PLANE,
   RUNE,
   SLASH,
-  SPEAKER,
   VEIN,
+  WAVE_W,
   WAVES,
-  batteryDigits,
-  batteryScale,
-  batteryTint,
-  batteryWideFill,
+  batteryFill,
+  batteryShape,
   batteryWidth,
+  speakerBody,
   speakerWaves,
   strip,
   wifiLit,
+  type BatteryTint,
   type NetGlyphName,
 } from "./glyphModel";
 
@@ -47,9 +43,9 @@ function Svg({ size, className, children }: { size: number; className?: string; 
   );
 }
 
-/** A linear part: a stroke 2 wide with round ends. */
-function Line({ d, opacity }: { d: string; opacity?: number }) {
-  return <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={opacity} />;
+/** A linear part: a stroke 2 wide with round ends, or `width` (the speaker's thin waves). */
+function Line({ d, opacity, width = 2 }: { d: string; opacity?: number; width?: number }) {
+  return <path d={d} fill="none" stroke="currentColor" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" opacity={opacity} />;
 }
 
 /** `children` with each cut [path, width, filled] taken out, so what is drawn over a cut stands apart from it by a gap. */
@@ -108,109 +104,57 @@ export function NetGlyph({ glyph, size, className }: { glyph: NetGlyphName; size
   );
 }
 
-/** The speaker with a wave per volume step, or a cross where the waves were when muted. */
+/** The speaker as on a Mac, with a wave per volume step, or muted a slash through it, cut out of the body with a gap. Its box is
+ *  drawn for the screen's device pixels (speakerBody), so a scale change redraws it through viewMetrics. */
 export function SpeakerGlyph({ glyph, size }: { glyph: "muted" | "low" | "mid" | "high"; size: number }) {
+  const { dpr } = viewMetrics.use();
+  const body = <path d={speakerBody(size * dpr)} />;
   return (
     <Svg size={size}>
-      <path d={SPEAKER} />
+      {glyph === "muted" ? (
+        <>
+          <Knock cuts={[[MUTE, WAVE_W + 1.5, false]]}>{body}</Knock>
+          <Line d={MUTE} width={WAVE_W} />
+        </>
+      ) : (
+        body
+      )}
       {WAVES.slice(0, speakerWaves(glyph)).map((d) => (
-        <Line key={d} d={d} />
+        <Line key={d} d={d} width={WAVE_W} />
       ))}
-      {glyph === "muted" && <Line d={MUTE} />}
     </Svg>
   );
 }
 
 /**
- * The battery, wider than the other glyphs, its charge written in it: the body lit as far as the level and dimmed beyond (red when
- * it warns, else green in Energy saver), the cap lit only at 100, a bolt in the cap's place while charging. Drawn for the screen's
- * device pixels, so a scale change redraws it through viewMetrics.
+ * The battery as on an iPhone, wider than the other glyphs: the outline, the charge a fill inside it with a gap all round, the cap
+ * on the right, and while charging a bolt across the body cut out of both with a gap. `tint` colours all of it (batteryTint), else
+ * it takes the text's colour. The level's edge lies on a device pixel, so a scale change redraws it through viewMetrics.
  */
-export function BatteryGlyph({ percent, charging, warning, saver = false, size }: { percent: number | null; charging: boolean; warning: boolean; saver?: boolean; size: number }) {
+export function BatteryGlyph({ percent, charging, tint, size }: { percent: number | null; charging: boolean; tint: BatteryTint; size: number }) {
   const { dpr } = viewMetrics.use();
-  const id = useId();
-  const [x0, y0, x1, y1] = BATTERY_BODY;
-  const { number, cut, baseline } = batteryScale(size * dpr);
-  const w = batteryWideFill(percent, size * dpr);
-  const tint = batteryTint(warning, saver);
-  const fill = tint ? `var(--color-${tint})` : undefined;
-  const part = (a: number, b: number, dimmed: boolean) => <path d={strip(x0, y0, x1, y1, a, b)} fill={fill} opacity={dimmed ? DIM : undefined} />;
-  const inBody = charging && !number;
-  let body: ReactNode;
-  if (w === null) {
-    // Unknown: the dimmed body and, in the number's place, the dash in a cut like the digits'; not with the bolt in the body.
-    body = part(x0, x1, true);
-    if (!inBody)
-      body = (
-        <>
-          <Knock cuts={[[BATTERY_DASH, 2 * cut, true]]} width={BATTERY_W}>
-            {body}
-          </Knock>
-          <path d={BATTERY_DASH} />
-        </>
-      );
-  } else {
-    body = (
-      <>
-        {w > 0 && part(x0, x0 + w, false)}
-        {w < 20 && part(x0 + w, x1, true)}
-      </>
-    );
-    if (number && percent !== null) {
-      // A digit cut out of the body, or written in the ink in a cut all round: the level's edge stays exact.
-      const digits = batteryDigits(percent, w, tint !== null);
-      const text = (i: number, attrs: { fill?: string; stroke?: string; strokeWidth?: number; strokeLinejoin?: "round" }) => (
-        <text
-          key={i}
-          x={digits[i].x}
-          y={baseline}
-          fontSize={NUMBER_SIZE}
-          textAnchor="middle"
-          fontFamily="'Inter Variable', sans-serif"
-          fontWeight={700}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-          {...attrs}
-        >
-          {digits[i].d}
-        </text>
-      );
-      const mask = svgId("k", id);
-      body = (
-        <>
-          <mask id={mask}>
-            <rect width={BATTERY_W} height="16" fill="#fff" />
-            {digits.map((g, i) => text(i, g.inked ? { fill: "#000", stroke: "#000", strokeWidth: 2 * cut, strokeLinejoin: "round" } : { fill: "#000" }))}
-          </mask>
-          <g mask={`url(#${mask})`}>{body}</g>
-          {digits.map((g, i) => g.inked && text(i, {}))}
-        </>
-      );
-    }
-  }
-  if (inBody) {
-    // The bolt cut out of the body and lit again right of the level's edge, so nothing is drawn twice.
-    const edge = x0 + (w ?? 0);
-    const clip = svgId("c", id);
-    body = (
-      <>
-        <Knock cuts={[[BODY_BOLT, 0, true]]} width={BATTERY_W}>
-          {body}
-        </Knock>
-        {edge < x1 && (
-          <>
-            <clipPath id={clip}>
-              <rect x={edge} width={BATTERY_W} height="16" />
-            </clipPath>
-            <path d={BODY_BOLT} clipPath={`url(#${clip})`} />
-          </>
-        )}
-      </>
-    );
-  }
+  const [x0, y0, x1, y1] = BATTERY_FILL;
+  const w = batteryFill(percent, size * dpr);
+  const { shell, cap, cut } = batteryShape(size * dpr);
+  const shape = (
+    <>
+      <path d={shell} fillRule="evenodd" />
+      <path d={cap} />
+      {!!w && <path d={strip(x0, y0, x1, y1, x0, x0 + w)} />}
+    </>
+  );
   return (
-    <svg width={batteryWidth(size)} height={size} viewBox={`0 0 ${BATTERY_W} 16`} preserveAspectRatio="xMinYMid meet" fill="currentColor" aria-hidden>
-      {body}
-      {charging && !inBody ? <path d={BATTERY_BOLT} /> : <path d={BATTERY_CAP} opacity={w === 20 ? undefined : DIM} />}
+    <svg width={batteryWidth(size)} height={size} viewBox={`0 0 ${BATTERY_W} 16`} preserveAspectRatio="xMinYMid meet" fill={tint ? `var(--color-${tint})` : "currentColor"} aria-hidden>
+      {charging ? (
+        <>
+          <Knock cuts={[[BATTERY_BOLT, cut, true]]} width={BATTERY_W}>
+            {shape}
+          </Knock>
+          <path d={BATTERY_BOLT} />
+        </>
+      ) : (
+        shape
+      )}
     </svg>
   );
 }

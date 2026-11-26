@@ -15,9 +15,9 @@ const f = (n: number) => +n.toFixed(3);
 /** The point r from (cx, cy) at angle a, in radians clockwise from straight up. */
 const at = (cx: number, cy: number, r: number, a: number) => `${f(cx + r * Math.sin(a))} ${f(cy - r * Math.cos(a))}`;
 
-/** An arc of radius r round (cx, cy) whose round ends stay inside the angle a0..a1. */
-export function arc(cx: number, cy: number, r: number, a0: number, a1: number): string {
-  const d = Math.asin(R / r);
+/** An arc of radius r round (cx, cy) whose round ends, `cap` in radius (half the stroke), stay inside the angle a0..a1. */
+export function arc(cx: number, cy: number, r: number, a0: number, a1: number, cap = R): string {
+  const d = Math.asin(cap / r);
   return `M${at(cx, cy, r, a0 + d)}A${r} ${r} 0 0 1 ${at(cx, cy, r, a1 - d)}`;
 }
 
@@ -54,13 +54,15 @@ export function capsule(x0: number, y0: number, x1: number, y1: number): string 
 /** Off, or nothing there: the slash over the glyph, drawn after a cut of R either side of it. */
 export const SLASH = "M2.5 2.5L13.5 13.5";
 
+// The Wi-Fi fan as on an iPhone: a wedge of radius 4 and two arcs 2 wide, 2 apart, as Apple's proportions come out on the 16 grid
+// (the arcs about 0.18 of the fan's radius, the gaps 0.15, the wedge a third).
 /** The y of the fan's apex, where the arcs are centred. */
-export const FAN_APEX_Y = 14.5;
-/** The fan's three arcs, inner to outer, 1 apart; each outer edge (FAN_APEX_Y - r - R) sits on a whole unit. */
-export const FAN_RADII = [5.5, 8.5, 11.5] as const;
-// 80 degrees wide: 90 with 2 unit strokes does not fit the 16 grid.
-const FAN_A = 40 * deg;
-export const FAN_WEDGE = wedge(8, FAN_APEX_Y, 3.5, -FAN_A, FAN_A);
+export const FAN_APEX_Y = 14;
+/** The fan's two arcs, inner to outer; each outer edge (FAN_APEX_Y - r - R) sits on a whole unit, the top one on y 2. */
+export const FAN_RADII = [7, 11] as const;
+// 88 degrees wide: Apple's 90 or so, as far as the outer arc's round ends fit the 16 grid.
+const FAN_A = 44 * deg;
+export const FAN_WEDGE = wedge(8, FAN_APEX_Y, 4, -FAN_A, FAN_A);
 export const FAN_ARCS: string[] = FAN_RADII.map((r) => arc(8, FAN_APEX_Y, r, -FAN_A, FAN_A));
 
 /** The screen on its stand, one body 12 by 11, the screen a frame 2 wide round its hole (evenodd), so it weighs about as much as the fan. */
@@ -72,12 +74,18 @@ export const GLOBE = "M8 1.5A6.5 6.5 0 0 1 8 14.5A6.5 6.5 0 0 1 8 1.5Z";
 /** The globe's one cut, 1 wide: a second one (the equator) made too many crumbs at 11 px. */
 export const MERIDIAN = "M8 1.5A3 6.5 0 0 1 8 14.5A3 6.5 0 0 1 8 1.5Z";
 
-/** The speaker, one body. */
-export const SPEAKER = poly([[1, 6], [3, 6], [6, 3], [6, 13], [3, 10], [1, 10]]);
-/** A wave per volume step round (4, 8), the fan's thickness and gaps, 70 degrees wide so the outer one spans the fan's height. */
-export const WAVES: string[] = [4.5, 7.5, 10.5].map((r) => arc(4, 8, r, 55 * deg, 125 * deg));
-/** Muted: a cross where the waves were, since a slash would cut the cone apart. */
-export const MUTE = "M9 5.5L14 10.5M14 5.5L9 10.5";
+// The speaker as on a Mac: one body, its back a box and its cone about as tall as the glyph (its corners at y 2 and 14 show it from
+// about 2.9 to 13.1 once rounded), and three thin waves round the cone's middle, 66 degrees wide, the outer one a little taller than
+// the cone. Muted, a slash through the body in the waves' weight.
+/** The waves' and the mute slash's stroke, Apple's thin line (a tenth of the speaker's height). */
+export const WAVE_W = 1.25;
+/** The body for a glyph `px` device pixels tall: the box 5 tall on half units from 32 (sharp at 200 %), else 4 on whole units. */
+export const speakerBody = (px: number) =>
+  px >= 32 ? poly([[0, 5.5], [2.5, 5.5], [7, 2], [7, 14], [2.5, 10.5], [0, 10.5]]) : poly([[0, 6], [2.5, 6], [7, 2], [7, 14], [2.5, 10], [0, 10]]);
+/** A wave per volume step round (5, 8), 2.6 apart. */
+export const WAVES: string[] = [4.8, 7.4, 10].map((r) => arc(5, 8, r, 57 * deg, 123 * deg, WAVE_W / 2));
+/** Muted: the slash from above the box to past the cone, crossing the cone's edge in its middle. */
+export const MUTE = "M1 2L12 13";
 
 // One slope, 6/11, for every diagonal, so the two long ones cross on the spine at y 8.
 const SLOPE = 6 / 11;
@@ -91,9 +99,10 @@ export const LEAF = "M11 2H13A1 1 0 0 1 14 3V5A8 8 0 0 1 6 13H4A1 1 0 0 1 3 12V1
 /** The leaf's vein, cut out of it 1 wide. */
 export const VEIN = "M4.5 11.5L10.5 5.5";
 
-/** Which parts of the Wi-Fi fan are lit: the wedge and the first `arcs` arcs; the rest are dimmed. */
+/** Which parts of the Wi-Fi fan are lit: the wedge and the first `arcs` arcs; the rest are dimmed. Three steps as on an iPhone, the
+ *  two weakest of the four signals both the wedge alone. */
 export function wifiLit(g: NetGlyphName): { wedge: boolean; arcs: number } {
-  const n = ({ "wifi-0": 0, "wifi-1": 1, "wifi-2": 2, "wifi-3": 3 } as Partial<Record<NetGlyphName, number>>)[g];
+  const n = ({ "wifi-0": 0, "wifi-1": 0, "wifi-2": 1, "wifi-3": 2 } as Partial<Record<NetGlyphName, number>>)[g];
   return n === undefined ? { wedge: false, arcs: 0 } : { wedge: true, arcs: n };
 }
 
@@ -115,54 +124,46 @@ export function strip(x0: number, y0: number, x1: number, y1: number, a: number,
   return d + "Z";
 }
 
-// The battery, the charge written in it, on the other glyphs' centre line: the body x 1..21, y 2..14, the cap x 22..24, y 5..11,
-// lit only at 100. Its width stays 27 in every state, so Stato keeps its size when the charger comes or goes. It is drawn for the
-// screen: `px` is its height in device pixels (size * devicePixelRatio), and batteryScale says what follows.
-export const BATTERY_W = 27;
-export const BATTERY_BODY = [1, 2, 21, 14] as const;
-export const BATTERY_CAP = poly([[22, 5], [24, 5], [24, 11], [22, 11]]);
-/** Charging beside the number, in the cap's place: as tall as the body, sharp like every bolt, its jog on y 8. */
-export const BATTERY_BOLT = "M26.5 2L25.5 8H27L22.5 14L23.5 8H22Z";
-/** Charging where the number does not fit: the bolt in the middle of the body, and the cap stays. */
-export const BODY_BOLT = "M13 2L12 8H15L9 14L10 8H7Z";
-/** Unknown: a dash in the number's place. */
-export const BATTERY_DASH = strip(8, 7, 14, 9, 8, 14);
-/** The number in Inter, bold, tabular figures: digits 7 units tall (cap height 0.7275 em). */
-export const NUMBER_SIZE = f(7 / 0.7275);
-/** A tabular digit's advance, 0.6465 em in Inter. */
-const DIGIT_ADVANCE = 0.6465 * NUMBER_SIZE;
+/** A rectangle x0..x1 by y0..y1 with its corners rounded to r. */
+const rounded = (x0: number, y0: number, x1: number, y1: number, r: number) =>
+  `M${x0 + r} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}Z`;
 
-/** ceil(size * 27 / 16): a whole px, so what follows Stato stays on whole pixels. */
-export const batteryWidth = (size: number) => Math.ceil((size * BATTERY_W) / 16);
+// The battery as on an iPhone, on the other glyphs' centre line: an outline round the body x 1..23, y 2..14, the charge a fill
+// x 3..21, y 4..12 inside it with a gap all round, the cap a half ellipse beyond the same gap, and while charging a bolt across the
+// body cut out of all of it with that gap again. Its width stays 26 in every state, so Stato keeps its size when the charger comes
+// or goes. It is drawn for the screen: `px` is its height in device pixels (size * devicePixelRatio). From 32 (200 %) it takes
+// Apple's proportions, the outline 1.5 and the gaps 0.5, on half units; below, the outline and the gaps are 1, on whole units.
+export const BATTERY_W = 26;
+/** Where the charge goes, 18 wide, its corners rounded to R: the same at every size. */
+export const BATTERY_FILL = [3, 4, 21, 12] as const;
+/** As tall as the body, sharp like every bolt, its jog on y 8. */
+export const BATTERY_BOLT = "M14 2L13 8H16L10 14L11 8H8Z";
 
-/** From the battery's height in device px: the number from 14, half units and baseline 11.5 from 32 (the renderer puts a baseline
- *  on a whole pixel, so 11.5 below would land on 12), the cut round what is drawn over the body one device px, never under 0.5. */
-export function batteryScale(px: number): { number: boolean; half: boolean; cut: number; baseline: 11 | 11.5 } {
-  const half = px >= 32;
-  return { number: px >= 14, half, cut: Math.max(0.5, 16 / px), baseline: half ? 11.5 : 11 };
+const half = (px: number) => px >= 32;
+
+/** The outline (the body's outer edge, corners 3, and its inner one, filled evenodd), the cap, and the cut round the bolt (a
+ *  stroke twice the gap). */
+export function batteryShape(px: number): { shell: string; cap: string; cut: number } {
+  return half(px)
+    ? { shell: rounded(1, 2, 23, 14, 3) + rounded(2.5, 3.5, 21.5, 12.5, 1.5), cap: "M23.5 6A1.75 2 0 0 1 23.5 10Z", cut: 1 }
+    : { shell: rounded(1, 2, 23, 14, 3) + rounded(2, 3, 22, 13, 2), cap: "M24 6A1.5 2 0 0 1 24 10Z", cut: 2 };
 }
 
-/** Lit width over x 1..21: 20 only at 100, at most a step less below, at least 2 while charge is left; null when unknown. */
-export function batteryWideFill(percent: number | null, px: number): number | null {
+/** ceil(size * 26 / 16): a whole px, so what follows Stato stays on whole pixels. */
+export const batteryWidth = (size: number) => Math.ceil((size * BATTERY_W) / 16);
+
+/** Lit width over the fill's 18: 18 only at 100, at most a step less below, at least 2 while charge is left; null when unknown.
+ *  A step is a unit, half a unit from 32 device px, so the level's edge lands on a device pixel. */
+export function batteryFill(percent: number | null, px: number): number | null {
   if (percent === null) return null;
   const p = Math.round(percent);
-  if (p >= 100) return 20;
-  const step = batteryScale(px).half ? 0.5 : 1;
-  const w = Math.min(20 - step, Math.max(0, Math.round((p * 0.2) / step) * step));
+  if (p >= 100) return 18;
+  const step = half(px) ? 0.5 : 1;
+  const w = Math.min(18 - step, Math.max(0, Math.round((p * 0.18) / step) * step));
   return p > 0 ? Math.max(2, w) : w;
 }
 
-/** The red of a warning wins over Energy saver's green: Windows turns Energy saver on under 20 %, and a battery about to run out
- *  must not read green. */
-export const batteryTint = (warning: boolean, saver: boolean): "red" | "green" | null => (warning ? "red" : saver ? "green" : null);
-
-/** Each digit of round(percent), centred in its tabular cell round x 11; `inked` when written in its cut, else cut out of the body.
- *  A digit whose cell's middle is lit is cut out, else inked, so no digit changes ink inside itself; on a tinted body every digit
- *  is inked (a hole in red or green shows the backdrop against a colour), but not at 100, which leaves no room for a cut. */
-export function batteryDigits(percent: number, fill: number, tinted: boolean): { d: string; x: number; inked: boolean }[] {
-  const digits = [...String(Math.round(percent))];
-  return digits.map((d, i) => {
-    const x = f(11 + (i - (digits.length - 1) / 2) * DIGIT_ADVANCE);
-    return { d, x, inked: !(x < 1 + fill && (!tinted || fill === 20)) };
-  });
-}
+export type BatteryTint = "red" | "yellow" | "green" | null;
+/** As on an iPhone: Energy saver yellow like Low Power Mode, also while charging, else charging green. A warning's red wins: Windows
+ *  turns Energy saver on under 20 %, and a battery about to run out must not read calm. */
+export const batteryTint = (warning: boolean, saver: boolean, charging: boolean): BatteryTint => (warning ? "red" : saver ? "yellow" : charging ? "green" : null);
