@@ -374,6 +374,9 @@ export function performance(x: { pnl: number; noCost?: number }): number {
   return x.pnl + (x.noCost ?? 0);
 }
 
+/** Totals' performance as the history records it (`performance` of a point): the P&L and the change of what has no cost basis. */
+export const totalPerformance = (t: Totals): number => t.unrealized + t.realized + t.noCost;
+
 export interface DayChange {
   change: number;
   pct: number | null;
@@ -412,6 +415,17 @@ export function combineChanges(parts: (DayChange | null)[]): DayChange | null {
 }
 
 export type Range = "1d" | "7d" | "30d" | "all";
+
+/**
+ * The performance over the last `days` daily points and its change, in percent of the value at the first of them: the bar's crypto
+ * widget over a week (8), a month (31) or a year (366). No change under two points or without a value to refer to.
+ */
+export function spanChange(h: History, days: number): { line: number[]; pct: number | null } {
+  const points = h.history.slice(-days);
+  const line = points.map(performance);
+  const first = points[0];
+  return { line, pct: line.length >= 2 && first.value > 0 ? ((line[line.length - 1] - line[0]) / first.value) * 100 : null };
+}
 
 /** Performance history for the range: 1D from intraday points, otherwise one point per day. */
 export function seriesFor(h: History, r: Range): number[] {

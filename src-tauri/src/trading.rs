@@ -204,12 +204,21 @@ pub async fn portfolio_prices(base: String, crypto: Vec<String>, fiats: Vec<Stri
     prices::fetch(&client()?, &mut cache, &base, &crypto, &fiats).await
 }
 
-/// One coin's price in `base`, its change over 24 h and its hourly prices over 7 days, for the bar's crypto widget, which the notch
-/// reads for it; None for a coin CoinGecko does not know. Public, no key, cached as the prices are.
+/// One coin's price in `base`, its change and its line over the widget's `range` ("1d", "1w", "1m" or "1y"), for the bar's crypto
+/// widget, which the notch reads for it; None for a coin CoinGecko does not know. Public, no key, cached as the prices are.
 #[tauri::command]
-pub async fn portfolio_coin(base: String, symbol: String, state: State<'_, TradingState>) -> Result<Option<prices::CoinDay>, String> {
+pub async fn portfolio_coin(base: String, symbol: String, range: String, state: State<'_, TradingState>) -> Result<Option<prices::CoinDay>, String> {
     let mut cache = state.prices.lock().await;
-    prices::coin_day(&client()?, &mut cache, &base, &symbol).await
+    prices::coin_day(&client()?, &mut cache, &base, &symbol, &range).await
+}
+
+/// One stock, fund or index by its Yahoo Finance symbol ("AAPL", "VWCE.DE", "^GSPC"): its price, its change and its line over the
+/// widget's `range`, for the bar's crypto widget, which the notch reads for it; None for a symbol Yahoo does not know. Public, no
+/// key, cached as the prices are.
+#[tauri::command]
+pub async fn portfolio_stock(symbol: String, range: String, state: State<'_, TradingState>) -> Result<Option<prices::StockDay>, String> {
+    let mut cache = state.prices.lock().await;
+    prices::stock_day(&client()?, &mut cache, &symbol, &range).await
 }
 
 /// The key of `provider` was deleted: drop its cache, its Kraken ledger and its history files.
