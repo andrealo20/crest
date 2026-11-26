@@ -415,7 +415,7 @@ pub(crate) fn item_png(item: &IShellItem) -> Option<String> {
 }
 
 /// 32-bit bitmap with premultiplied alpha (what the shell hands out) to a straight-alpha PNG.
-unsafe fn bitmap_to_png(bitmap: HBITMAP) -> Option<Vec<u8>> {
+pub(crate) unsafe fn bitmap_to_png(bitmap: HBITMAP) -> Option<Vec<u8>> {
     let mut bm = BITMAP::default();
     if GetObjectW(bitmap.into(), std::mem::size_of::<BITMAP>() as i32, Some((&mut bm as *mut BITMAP).cast())) == 0 {
         return None;

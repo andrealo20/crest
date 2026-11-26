@@ -30,6 +30,8 @@ mod downloads;
 #[cfg(windows)]
 mod drop;
 #[cfg(windows)]
+mod file_search;
+#[cfg(windows)]
 mod fps;
 mod github;
 mod leetcode;
@@ -193,6 +195,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "notices_open_app", "notices_copy_code", "notices_icon",
     "power_plans", "power_plan_set", "system_icon", "system_ipconfig", "system_battery_report", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
+    "search_files", "search_file_thumb",
     "phone_share_start", "phone_share_stop", "portfolio_prices",
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
     "lyrics_romanize", "translate_file",
@@ -416,6 +419,10 @@ pub fn run() {
             convert::open_path,
             convert::copy_files,
             convert::file_preview,
+            #[cfg(windows)]
+            file_search::search_files,
+            #[cfg(windows)]
+            file_search::search_file_thumb,
             downloads::downloads_configure,
             display::display_monitors,
             display::display_apply,

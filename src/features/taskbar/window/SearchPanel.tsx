@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Calculator, Check, Clock, File, Folder, FolderOpen, GearSix, Globe, MagnifyingGlass, SlidersHorizontal, Sparkle, type Icon } from "../../../ui/iconset";
 import { TextField } from "../../../ui/controls";
 import { english, locale, t } from "../../../i18n";
-import { launcher, type LauncherAppEntry } from "../../../platform/services";
+import { fileSearch, launcher, type FoundFile, type LauncherAppEntry } from "../../../platform/services";
 import { fetchRates } from "../../../platform/portfolio";
 import { settings } from "../../../settings/store";
 import { PART_IDS } from "../../../notch/row/parts";
@@ -17,6 +17,7 @@ import type { Rates } from "../../trading/portfolio";
 import { closePanel } from "../panel";
 import { answerHit, needsRates } from "../search/answers";
 import { appHits, toolHits, widgetHits } from "../search/catalog";
+import { fileHits, latestSearch } from "../search/files";
 import { arrange, firstSelected, settingsSearchHit, webOrPathHit, type Hit, type HitIcon } from "../search/model";
 import { runAction, type RunOutcome } from "../search/run";
 import { settingHits } from "../search/settingsTable";
@@ -37,6 +38,13 @@ const GLYPHS: Record<Extract<HitIcon, { glyph: string }>["glyph"], Icon> = {
 let appList: Promise<LauncherAppEntry[]> | null = null;
 const appIcons = new Map<string, string | null>();
 
+/** Files' pictures by path and size, the oldest dropped past THUMBS, so a long evening of searches keeps memory flat. */
+const thumbs = new Map<string, string | null>();
+const THUMBS = 100;
+const ROW_THUMB = 64;
+const PREVIEW = 320;
+const thumbKey = (path: string, size: number) => `${size}:${path}`;
+
 /**
  * The search box's panel: the rows for the text over the field, the best first (search/model.ts arrange), Enter or a click runs
  * the selected one (search/run.ts), Ctrl+Enter its second action. Fixed in size, so it never jumps while the text changes; with no
@@ -49,6 +57,7 @@ export function SearchPanel() {
   const [apps, setApps] = useState<LauncherAppEntry[]>([]);
   const [rates, setRates] = useState<Rates | null>(null);
   const [, setIconsIn] = useState(0);
+  const [files, setFiles] = useState<{ q: string; found: FoundFile[] }>({ q: "", found: [] });
   const [sel, setSel] = useState(-1);
   const [outcome, setOutcome] = useState<RunOutcome | null>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -77,6 +86,12 @@ export function SearchPanel() {
     };
   }, [wantRates, rates, base]);
 
+  // Files from the index, for the last text only and once the typing pauses (search/files.ts).
+  const searchFiles = useMemo(() => latestSearch((q) => fileSearch.find(q), (q, found) => setFiles({ q, found })), []);
+  useEffect(() => {
+    searchFiles(query);
+  }, [query, searchFiles]);
+
   const zones = useMemo(() => allZones(), []);
   const hits = useMemo(() => {
     if (!query.trim()) return [];
@@ -93,11 +108,12 @@ export function SearchPanel() {
         ...toolHits(query, tools, names),
         ...settingHits(query, { ...names, themes }),
         ...widgetHits(query, widgets, s.taskbar.zones, names),
+        ...(files.q === query ? fileHits(files.found, query) : []),
         settingsSearchHit(query.trim(), t),
         webOrPathHit(query, engine, t),
       ].filter((h): h is Hit => h !== null),
     );
-  }, [query, apps, rates, s, engine, zones]);
+  }, [query, apps, rates, s, engine, zones, files]);
 
   // A new list starts on its best row; the selected row stays in view.
   const keys = hits.map((h) => h.key).join("\n");
@@ -120,6 +136,24 @@ export function SearchPanel() {
       () => {},
     );
   }, [keys]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The files' pictures: small for the rows, large for the selected one, each asked once.
+  const picked = hits[sel];
+  const preview = picked && "file" in picked.icon && !picked.icon.folder ? picked.icon.file : null;
+  useEffect(() => {
+    const want: [string, number][] = hits.flatMap((h) => ("file" in h.icon ? [[h.icon.file, ROW_THUMB] as [string, number]] : []));
+    if (preview) want.push([preview, PREVIEW]);
+    for (const [path, size] of want) {
+      const key = thumbKey(path, size);
+      if (thumbs.has(key)) continue;
+      thumbs.set(key, null);
+      if (thumbs.size > THUMBS) thumbs.delete(thumbs.keys().next().value as string);
+      void fileSearch.thumb(path, size).then((src) => {
+        thumbs.set(key, src);
+        if (src) setIconsIn((n) => n + 1);
+      });
+    }
+  }, [keys, preview]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async (i: number, alt = false) => {
     const action = alt ? hits[i]?.alt : hits[i]?.action;
@@ -153,7 +187,14 @@ export function SearchPanel() {
     <div className="flex h-full flex-col gap-2 p-3" onKeyDownCapture={onKey}>
       <div ref={list} role="listbox" aria-label={t("Suchergebnisse")} className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
         {query.trim() ? (
-          hits.map((h, i) => <Row key={h.key} hit={h} index={i} selected={i === sel} onPick={() => void run(i)} onHover={() => setSel(i)} />)
+          <>
+            {preview && thumbs.get(thumbKey(preview, PREVIEW)) && (
+              <img src={thumbs.get(thumbKey(preview, PREVIEW)) ?? undefined} alt="" draggable={false} className="mb-2 h-36 w-full rounded-[10px] bg-fill-2 object-contain" />
+            )}
+            {hits.map((h, i) => (
+              <Row key={h.key} hit={h} index={i} selected={i === sel} onPick={() => void run(i)} onHover={() => setSel(i)} />
+            ))}
+          </>
         ) : (
           <div className="flex flex-col gap-2 p-1">
             <p className="text-caption text-label-3">{t("Probier")}</p>
@@ -219,6 +260,8 @@ function Row({ hit, index, selected, onPick, onHover }: { hit: Hit; index: numbe
 
 function RowIcon({ icon }: { icon: HitIcon }) {
   if ("app" in icon) return <AppIcon src={appIcons.get(icon.app)} size={24} />;
+  const picture = "file" in icon ? thumbs.get(thumbKey(icon.file, ROW_THUMB)) : null;
+  if (picture) return <img src={picture} alt="" draggable={false} className="h-6 w-6 shrink-0 rounded-[5px] object-cover" />;
   const Glyph: Icon | undefined =
     "tool" in icon ? toolInfo[icon.tool]?.icon : "part" in icon ? partInfo[icon.part]?.icon : "glyph" in icon ? GLYPHS[icon.glyph] : icon.folder ? Folder : File;
   return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-fill-2 text-label-2">{Glyph && <Glyph size={14} weight="bold" />}</span>;

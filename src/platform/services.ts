@@ -1412,6 +1412,29 @@ export const launcher = {
   },
 };
 
+/** A file or folder Windows' index found for the bar's search (src-tauri/src/file_search.rs). */
+export interface FoundFile {
+  path: string;
+  name: string;
+  folder: boolean;
+}
+
+const mockFileNames = ["Holiday 2025.mp4", "Holiday in Lisbon.jpg", "holiday-photos", "Holiday budget.xlsx", "Notes.txt", "Report.pdf"];
+
+/** Files by name from Windows' index and their pictures, for the bar's search. None on the Mac; a few made-up ones in the browser. */
+export const fileSearch = {
+  find: (query: string, limit = 12): Promise<FoundFile[]> =>
+    isNative
+      ? invoke<FoundFile[]>("search_files", { query, limit }).catch(() => [])
+      : Promise.resolve(
+          query.trim()
+            ? mockFileNames.filter((n) => n.toLowerCase().includes(query.trim().toLowerCase())).map((name) => ({ path: `C:\\Users\\demo\\Documents\\${name}`, name, folder: !name.includes(".") }))
+            : [],
+        ),
+  /** A photo's or a video's thumbnail, else the item's icon, `size` px square at most, as a PNG data URL. */
+  thumb: (path: string, size: number): Promise<string | null> => (isNative ? invoke<string | null>("search_file_thumb", { path, size }).catch(() => null) : Promise.resolve(null)),
+};
+
 // ---------- Taskbar ----------
 
 /** Windows' pins as `taskbar.windowsPins` reads them (src-tauri/src/taskbar/pins.rs `WindowsPins`). */
