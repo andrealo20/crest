@@ -57,6 +57,7 @@ import {
   taskbarShown,
   trayIcon,
   trayOnBar,
+  batteryOnBar,
   trayWanted,
   variantOf,
   windowBadge,
@@ -75,6 +76,9 @@ test("any saved value becomes valid bar settings", () => {
   assert.equal(normalizeTaskbar({ enabled: true }).enabled, true);
   assert.equal(normalizeTaskbar({ autoHide: true }).autoHide, true);
   assert.equal(normalizeTaskbar({ autoHide: "yes" }).autoHide, false);
+  // On unless switched off: settings saved before the switch keep the percentage they had.
+  assert.equal(normalizeTaskbar({}).batteryPercent, true);
+  assert.equal(normalizeTaskbar({ batteryPercent: false }).batteryPercent, false);
   assert.equal(normalizeTaskbar({ endTask: true }).endTask, true);
   assert.equal(normalizeTaskbar({ endTask: "yes" }).endTask, false);
   assert.equal(normalizeTaskbar({ height: 100 }).height, 64);
@@ -520,6 +524,11 @@ test("the notch tells Rust whether a zone holds the tray, whether the bar is on 
   assert.equal(trayOnBar(TASKBAR_DEFAULTS.zones), true);
   assert.equal(trayOnBar({ left: ["tray"], center: ["start", "apps"], right: ["crest"] }), true);
   assert.equal(trayOnBar({ left: [], center: ["start", "apps"], right: ["crest"] }), false);
+});
+
+test("with the Battery widget on the bar, Stato and the Hardware widget leave their battery out", () => {
+  assert.equal(batteryOnBar(TASKBAR_DEFAULTS.zones), false);
+  assert.equal(batteryOnBar({ left: ["battery"], center: ["start", "apps"], right: ["status"] }), true);
 });
 
 test("the bar offers every tool but the seven whose widget opens the same panel, and Find on screen last", () => {

@@ -8,7 +8,7 @@ const s = (ac: boolean, percent: number | null, battery = true, charging = ac) =
 test("power", () => {
   const low = { warned20: false, warned10: false };
   assert.equal(powerAlert(null, s(true, 64), low, tr), null);
-  assert.deepEqual(powerAlert(s(true, 64), s(false, 64), low, tr), { kind: "power", icon: "battery", text: "Akku · 64 %", tone: "normal" });
+  assert.deepEqual(powerAlert(s(true, 64), s(false, 64), low, tr), { kind: "power", icon: "battery", text: "Akku · 64 %", tone: "normal", charge: { percent: 64, charging: false } });
   assert.equal(powerAlert(s(false, 64), s(false, 63), low, tr), null);
   assert.equal(powerAlert(s(false, 21), s(false, 20), low, tr)?.tone, "warning");
   assert.equal(powerAlert(s(false, 20), s(false, 19), low, tr), null);
@@ -17,12 +17,16 @@ test("power", () => {
   // Plugged in but not taking charge (full, or a charge limit): it does not say it is charging.
   assert.equal(powerAlert(s(false, 100), s(true, 100, true, false), low, tr)?.text, "Am Netzteil · 100 %");
   assert.equal(powerAlert(s(false, null), s(true, null, true, false), low, tr)?.text, "Am Netzteil");
+  // Its battery is not green and has no bolt.
+  const idle = powerAlert(s(false, 100), s(true, 100, true, false), low, tr);
+  assert.equal(idle?.accent, undefined);
+  assert.deepEqual(idle?.charge, { percent: 100, charging: false });
   assert.deepEqual(low, { warned20: false, warned10: false });
   assert.equal(powerAlert(s(true, 50, false), s(false, 50, false), low, tr), null);
 });
 test("power: unplugging low takes the low tone at once", () => {
   const low = { warned20: false, warned10: false };
-  assert.deepEqual(powerAlert(s(true, 18), s(false, 18), low, tr), { kind: "power", icon: "battery", text: "Akku · 18 %", tone: "warning" });
+  assert.deepEqual(powerAlert(s(true, 18), s(false, 18), low, tr), { kind: "power", icon: "battery", text: "Akku · 18 %", tone: "warning", charge: { percent: 18, charging: false } });
   assert.equal(powerAlert(s(false, 18), s(false, 17), low, tr), null);
   assert.equal(powerAlert(s(false, 11), s(false, 10), low, tr)?.tone, "critical");
   assert.equal(powerAlert(s(true, 8), s(false, 8), { warned20: false, warned10: false }, tr)?.tone, "critical");
@@ -49,8 +53,8 @@ test("power: the warning fires again after plugging in", () => {
 });
 test("power: plug and unplug without a percent", () => {
   const low = { warned20: false, warned10: false };
-  assert.deepEqual(powerAlert(s(false, null), s(true, null), low, tr), { kind: "power", icon: "plug", text: "Lädt", tone: "normal" });
-  assert.deepEqual(powerAlert(s(true, null), s(false, null), low, tr), { kind: "power", icon: "battery", text: "Am Akku", tone: "normal" });
+  assert.deepEqual(powerAlert(s(false, null), s(true, null), low, tr), { kind: "power", icon: "plug", text: "Lädt", tone: "normal", accent: "green", charge: { percent: null, charging: true } });
+  assert.deepEqual(powerAlert(s(true, null), s(false, null), low, tr), { kind: "power", icon: "battery", text: "Am Akku", tone: "normal", charge: { percent: null, charging: false } });
   assert.equal(powerAlert(s(false, null), s(false, null), low, tr), null);
 });
 test("net", () => {
@@ -191,7 +195,7 @@ test("charged: charging stops on the charger near the top, once per charge, not 
   assert.equal(chargedAlert(at(true, 90, true), at(true, 90, false), charge, 2000, tr), null);
   assert.equal(chargedAlert(at(true, 90, false), at(true, 90, true), charge, 3000, tr), null);
   // Past it, charging that stops at 80 % or more is a full battery or a charge limit.
-  assert.deepEqual(chargedAlert(at(true, 100, true), at(true, 100, false), charge, later, tr), { kind: "power", icon: "battery-full", text: "Geladen · 100 %", tone: "normal", accent: "green" });
+  assert.deepEqual(chargedAlert(at(true, 100, true), at(true, 100, false), charge, later, tr), { kind: "power", icon: "battery-full", text: "Geladen · 100 %", tone: "normal", accent: "green", charge: { percent: 100, charging: false } });
   // Once per charge: trickle charging at the top flips it again.
   assert.equal(chargedAlert(at(true, 99, false), at(true, 99, true), charge, later + 1, tr), null);
   assert.equal(chargedAlert(at(true, 100, true), at(true, 100, false), charge, later + 2, tr), null);

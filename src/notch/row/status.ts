@@ -22,6 +22,8 @@ export interface StatusAlert {
   level?: number;
   /** A key switched off or a device that left: the side edge, which shows only the icon, draws it dimmed. */
   off?: boolean;
+  /** A power alert's battery, drawn as Stato draws it (glyphs.tsx BatteryGlyph) in place of the icon. */
+  charge?: { percent: number | null; charging: boolean };
 }
 /** Which low-battery levels already fired in this discharge. */
 export interface LowBattery { warned20: boolean; warned10: boolean }
@@ -42,10 +44,11 @@ export function powerAlert(prev: PowerState | null, next: PowerState, low: LowBa
   const fresh = level !== null && !(level === "critical" ? low.warned10 : low.warned20);
   if (level) { low.warned20 = true; low.warned10 ||= level === "critical"; }
   if (!prev) return null;
+  // Charging green, as on an iPhone.
   if (prev.ac !== next.ac) return next.ac
-    ? { kind: "power", icon: "plug", text: next.charging ? (p === null ? tr("Lädt") : tr("Lädt · {p} %", { p })) : p === null ? tr("Am Netzteil") : tr("Am Netzteil · {p} %", { p }), tone: "normal" }
-    : { kind: "power", icon: "battery", text: p === null ? tr("Am Akku") : tr("Akku · {p} %", { p }), tone: level ?? "normal" };
-  return fresh && level && p !== null ? { kind: "power", icon: "battery", text: tr("Akku {p} %", { p }), tone: level } : null;
+    ? { kind: "power", icon: "plug", text: next.charging ? (p === null ? tr("Lädt") : tr("Lädt · {p} %", { p })) : p === null ? tr("Am Netzteil") : tr("Am Netzteil · {p} %", { p }), tone: "normal", ...(next.charging && { accent: "green" as const }), charge: { percent: p, charging: next.charging } }
+    : { kind: "power", icon: "battery", text: p === null ? tr("Am Akku") : tr("Akku · {p} %", { p }), tone: level ?? "normal", charge: { percent: p, charging: false } };
+  return fresh && level && p !== null ? { kind: "power", icon: "battery", text: tr("Akku {p} %", { p }), tone: level, charge: { percent: p, charging: false } } : null;
 }
 
 /** Since when the charger is in (ms, 0 when out) and whether this charge already said it was done. */
@@ -65,7 +68,7 @@ export function chargedAlert(prev: PowerState | null, next: PowerState, charge: 
   const p = next.percent;
   if (!prev?.ac || !prev.charging || next.charging || charge.done || p === null || p < STATUS.charged || now - charge.since < STATUS.chargerSettleMs) return null;
   charge.done = true;
-  return { kind: "power", icon: "battery-full", text: tr("Geladen · {p} %", { p }), tone: "normal", accent: "green" };
+  return { kind: "power", icon: "battery-full", text: tr("Geladen · {p} %", { p }), tone: "normal", accent: "green", charge: { percent: p, charging: false } };
 }
 
 /** Energy saver switched on or off; the first reading, or one without the flag, says nothing. */

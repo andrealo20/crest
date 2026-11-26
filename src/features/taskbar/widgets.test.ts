@@ -189,7 +189,7 @@ test("the clock's versions: time and date, time alone, analog, flip, segments, t
   assert.deepEqual(versions("readings"), ["dials", "bars", "line", "net"]);
   assert.deepEqual(versions("title"), ["text", "play", "cover", "disc", "track"]);
   assert.deepEqual(versions("processes"), ["cpu", "ram"]);
-  assert.deepEqual(versions("battery"), ["ring", "cells", "gauge", "dots"]);
+  assert.deepEqual(versions("battery"), ["ring", "cells", "gauge", "dots", "classic"]);
   assert.deepEqual(versions("mic"), ["mic", "both"]);
   assert.deepEqual(versions("progress"), ["day", "month", "year"]);
   assert.deepEqual(versions("date"), ["fulldate", "sheet", "week"]);

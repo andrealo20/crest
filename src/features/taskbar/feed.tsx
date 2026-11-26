@@ -35,7 +35,7 @@ import { anyBarTool, barPanels, onBarShows } from "./barPanels";
 import { EMPTY_FEED, barFeed, feedStores, noticeCount, panelOpen, panelStores } from "./barStores";
 import { BluetoothSource, TempsSource } from "./deviceSources";
 import { CryptoSource, CurrencySource } from "./marketSources";
-import { variantOf } from "./model";
+import { batteryOnBar, variantOf } from "./model";
 import { useSlice } from "./slice";
 import { topApp, type TopApp } from "./systemWidgets";
 import { UnreadSource } from "./unreadSource";
@@ -136,8 +136,9 @@ function ReadingsSource() {
   const s = settings.use(), closed = s.closed;
   const v = variantOf(s.taskbar.variants, "readings");
   // The part forced on: the bar shows readings with the notch's part off; the network's line reads the network with NET off too.
-  // No gaming: the bar hides over full-screen apps.
-  useSlice("readings", useReadings({ ...closed, parts: { ...closed.parts, readings: true }, readings: { ...closed.readings, net: closed.readings.net || v === "net" } }, false));
+  // The battery goes while the Battery widget is on the bar (batteryOnBar); the notch keeps its own. No gaming: the bar hides over full-screen apps.
+  const readings = { ...closed.readings, net: closed.readings.net || v === "net", battery: closed.readings.battery && !batteryOnBar(s.taskbar.zones) };
+  useSlice("readings", useReadings({ ...closed, parts: { ...closed.parts, readings: true }, readings }, false));
   const { cpu, down, up } = system.use().history;
   // The history is filled linearly once a second when only the bar asks, every 2 to 3 s (design 2D); gaps go as null, since NaN crosses the bridge as JSON null.
   const last30 = (h: number[]) => h.slice(-30).map((x) => (Number.isNaN(x) ? null : Math.round(x)));

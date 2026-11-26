@@ -1,10 +1,17 @@
 import { useEffect, type MouseEventHandler, type ReactNode } from "react";
 import { t } from "../../../i18n";
+import { measureTabular } from "../../../notch/row/measure";
+import { batteryTint } from "../../../ui/glyphModel";
 import { BatteryGlyph, NetGlyph, SpeakerGlyph } from "../../../ui/glyphs";
+import { settings } from "../../../settings/store";
+import { batteryOnBar } from "../model";
 import { barStatus, startStatus } from "../status";
 import { batteryGlyph, glyphGap, glyphSize, netGlyph, soundGlyph, statusParts, statusPill, statusWidth } from "../statusModel";
 import { Item, type ItemProps } from "./Item";
 import type { Common } from "./Tray";
+
+/** Between the battery and its percentage. */
+const FIGURE_GAP = 4;
 
 /**
  * Stato: the network, the volume and the battery as one button, each glyph left out while it has nothing to say (no battery on a
@@ -27,7 +34,12 @@ export function Status(props: {
   onPointerDown: ItemProps["onPointerDown"];
 }) {
   useEffect(() => startStatus(), []);
-  const s = barStatus.use();
+  // With the Battery widget on the bar the battery is left out here, name included.
+  // shortcut: a Battery widget a narrow bar moves into its hidden widgets' panel still takes it out; check what the bar shows if that matters.
+  const { taskbar } = settings.use();
+  const widget = batteryOnBar(taskbar.zones);
+  const s = { ...barStatus.use() };
+  if (widget) s.power = null;
   const net = s.network && netGlyph(s.network);
   const sound = soundGlyph(s.sound);
   const battery = batteryGlyph(s.power);
@@ -35,8 +47,17 @@ export function Status(props: {
   const parts: [string, ReactNode][] = [];
   if (net) parts.push(["net", <NetGlyph glyph={net} size={size} />]);
   if (sound) parts.push(["sound", <SpeakerGlyph glyph={sound} size={size} />]);
+  // The charge written after the battery while its switch is on; a width that changes only from 9 to 10 and 99 to 100.
+  const figure = battery && taskbar.batteryPercent && s.power?.percent != null ? `${s.power.percent}%` : null;
+  const figureW = figure ? measureTabular(figure.replace(/\d/g, "8")) + FIGURE_GAP : 0;
   if (battery && s.power)
-    parts.push(["battery", <BatteryGlyph percent={s.power.percent} charging={s.power.charging} warning={battery === "warning"} saver={s.power.saver === true} size={size} />]);
+    parts.push([
+      "battery",
+      <span className="flex items-center" style={{ gap: FIGURE_GAP }}>
+        <BatteryGlyph percent={s.power.percent} charging={s.power.charging} tint={batteryTint(battery === "warning", s.power.saver === true, s.power.charging)} size={size} />
+        {figure && <span className="tabular text-footnote font-medium">{figure}</span>}
+      </span>,
+    ]);
   if (!parts.length) return null;
   const tile = props.tile(0);
   const pill = tile ? null : statusPill(props.height);
@@ -46,7 +67,7 @@ export function Status(props: {
       {...props.item("status", name)}
       kind="status"
       tile={tile}
-      width={statusWidth(props.size, parts.length, battery !== null, pill && props.height)}
+      width={statusWidth(props.size, parts.length, battery !== null, pill && props.height) + figureW}
       layer={pill?.height}
       expanded={props.expanded}
       onClick={props.onClick}
