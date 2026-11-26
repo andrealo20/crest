@@ -4,6 +4,8 @@ import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
 import { windowShell, type HotkeyState, type ScreenBehavior } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
+import { hotkeysPaused } from "../launcher/shortcuts";
+import { fullscreen } from "../system/gaming";
 import { conflicts, label, launcherKeys, normalize, toolConflicts, type HotkeyKind } from "./hotkeys";
 import type { WindowSettings } from "./model";
 
@@ -16,7 +18,7 @@ export function effectiveIdleStyle(idle: Settings["display"]["idleStyle"], behav
 }
 
 /** Each shortcut's state for the settings; "duplicate" = an earlier Crest shortcut has the combination. */
-export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset", mic: "unset" });
+export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset", mic: "unset", search: "unset" });
 /** The same for the tools' own shortcuts, by tool id; a tool that is off has none registered and no entry. */
 export const toolHotkeyStatus = createStore<Record<string, HotkeyState | "duplicate">>({});
 
@@ -57,7 +59,10 @@ export function activeToolHotkeys(s: Settings = settings.get()): [string, string
 /** Registers the saved shortcuts in Rust; a duplicate is not sent, so it can't take the other one's place. */
 function applyHotkeys() {
   const h = usableHotkeys(), launcher = takenByLauncher(), tools = activeToolHotkeys();
-  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${h.mic}|${launcher.join()}|${JSON.stringify(tools)}`;
+  const s = settings.get();
+  // The bar's search only with the bar on, and resting over a full-screen app or in gaming mode as Alt+1..6 do: those keep Alt+Space.
+  const barSearch = !isMac && s.taskbar.enabled && !hotkeysPaused(s.gaming.mode, fullscreen.get());
+  const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${h.mic}|${barSearch ? h.search : ""}|${launcher.join()}|${JSON.stringify(tools)}`;
   if (key === lastHotkeys) return;
   lastHotkeys = key;
   const clash = conflicts(h, launcher);
@@ -69,6 +74,7 @@ function applyHotkeys() {
     resize: send("resize"),
     find: send("find"),
     mic: send("mic"),
+    search: barSearch ? send("search") : "",
     tools: paused ? [] : tools.filter(([id]) => !toolClash[id]).map(([id, keys]) => ({ id, keys })),
     openLabel: label(h.open),
   };
@@ -78,8 +84,8 @@ function applyHotkeys() {
     .then(() => windowShell.applyHotkeys(config))
     .then((r) => {
       if (wasPaused) return;
-      const status = (k: HotkeyKind) => (clash[k] ? "duplicate" : r[k]);
-      hotkeyStatus.set({ open: status("open"), hide: status("hide"), resize: status("resize"), find: status("find"), mic: status("mic") });
+      const status = (k: HotkeyKind) => (clash[k] ? "duplicate" : (r[k] ?? "unset"));
+      hotkeyStatus.set({ open: status("open"), hide: status("hide"), resize: status("resize"), find: status("find"), mic: status("mic"), search: status("search") });
       toolHotkeyStatus.set(Object.fromEntries(tools.map(([id]) => [id, toolClash[id] ? "duplicate" : (r.tools?.[id] ?? "unset")])));
     })
     .catch(() => {});
@@ -109,4 +115,5 @@ export function startWindowBehavior() {
   windowShell.onScreen((b) => screen.set(b));
   applyHotkeys();
   settings.subscribe(applyHotkeys);
+  fullscreen.subscribe(applyHotkeys);
 }

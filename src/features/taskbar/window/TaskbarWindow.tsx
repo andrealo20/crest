@@ -26,7 +26,7 @@ import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box 
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
-import { closePanel, closesPanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
+import { closePanel, closesPanel, fileDrag, itemDrag, openPanel, panel, pinDrag, quickPage, togglePanel } from "../panel";
 import { dragThreshold, folderCols, opensInBar, sysPanel } from "../panelModel";
 import { folderKey, normalizeFolders, pinBefore } from "../folderModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
@@ -466,6 +466,12 @@ export function TaskbarWindow() {
    * without it).
    */
   const onKey = async (k: BarKey) => {
+    if (k.kind === "search") {
+      // Crest's own search key: the panel over the search box, or over the bar's middle when this bar has no box.
+      await taskbar.focus().catch(() => {});
+      const box = bar.current?.querySelector<HTMLElement>('[data-kind="sys:searchbox"]');
+      return openPanel({ kind: "search" }, box ? spanOf(box) : { x: innerWidth / 2 - 1, w: 2 });
+    }
     keyNav.current = true;
     if (k.kind === "number") {
       const b = buttonAt(laid, k.n);

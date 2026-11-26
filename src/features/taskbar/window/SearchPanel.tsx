@@ -4,7 +4,8 @@ import { TextField } from "../../../ui/controls";
 import { english, locale, t } from "../../../i18n";
 import { fileSearch, launcher, type FoundFile, type LauncherAppEntry } from "../../../platform/services";
 import { fetchRates } from "../../../platform/portfolio";
-import { settings } from "../../../settings/store";
+import { isMac } from "../../../platform/native";
+import { settings, updateSettings } from "../../../settings/store";
 import { PART_IDS } from "../../../notch/row/parts";
 import { partInfo } from "../../../notch/row/partInfo";
 import { allZones } from "../../clocks/zones";
@@ -24,6 +25,7 @@ import { runAction, type RunOutcome } from "../search/run";
 import { settingHits } from "../search/settingsTable";
 import { barWindows } from "../store";
 import { toolInfo } from "../toolInfo";
+import { label } from "../../window/hotkeys";
 
 const GLYPHS: Record<Extract<HitIcon, { glyph: string }>["glyph"], Icon> = {
   calc: Calculator,
@@ -234,6 +236,7 @@ export function SearchPanel() {
                 </button>
               ))}
             </div>
+            {!isMac && <ShortcutLine keys={s.behavior.hotkeys.search} />}
           </div>
         )}
       </div>
@@ -298,4 +301,22 @@ function RowIcon({ icon }: { icon: HitIcon }) {
   const Glyph: Icon | undefined =
     "tool" in icon ? toolInfo[icon.tool]?.icon : "part" in icon ? partInfo[icon.part]?.icon : "glyph" in icon ? GLYPHS[icon.glyph] : icon.folder ? Folder : File;
   return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-fill-2 text-label-2">{Glyph && <Glyph size={14} weight="bold" />}</span>;
+}
+
+/** The search's own key: the one that opens it from any app, or the offer of Alt+Space, unset by default since Windows and PowerToys Run use it. */
+function ShortcutLine({ keys }: { keys: string }) {
+  if (keys) return <p className="text-caption text-label-3">{t("{keys} öffnet diese Suche aus jeder App", { keys: label(keys) })}</p>;
+  return (
+    <div className="flex items-center gap-2">
+      <p className="min-w-0 flex-1 text-caption text-label-3">{t("Öffne diese Suche aus jeder App mit {keys}", { keys: label("Alt+Space") })}</p>
+      <button
+        type="button"
+        className="pressable shrink-0 text-caption font-medium text-accent hover:underline material:text-primary"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => updateSettings((cur) => ({ behavior: { ...cur.behavior, hotkeys: { ...cur.behavior.hotkeys, search: "Alt+Space" } } }))}
+      >
+        {t("Einschalten")}
+      </button>
+    </div>
+  );
 }

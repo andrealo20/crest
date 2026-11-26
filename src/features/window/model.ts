@@ -59,7 +59,7 @@ export type RulesPayload = WindowSettings["rules"] & { apps: AppRule[] };
 export const WINDOW_DEFAULTS: WindowSettings = {
   rules: { maximized: "normal", borderless: "normal", exclusive: "normal", background: true },
   apps: [],
-  hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "" },
+  hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "", search: "" },
   toolHotkeys: {},
   sizes: {},
   textSizes: {},
@@ -154,6 +154,8 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
       resize: normalize("resize", text(h.resize)),
       find: typeof h.find === "string" ? normalize("find", h.find) : d.hotkeys.find,
       mic: normalize("mic", text(h.mic)),
+      // Unset unless asked for: the offer in the bar's search panel sets Alt+Space, which Windows and PowerToys Run use too.
+      search: normalize("search", text(h.search)),
     },
     toolHotkeys: toolHotkeys(s.toolHotkeys),
     sizes: normalizeSizes(s.sizes),

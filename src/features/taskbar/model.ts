@@ -697,7 +697,7 @@ export function clickAction(b: BarButton, mods: ClickMods = {}, o: { active?: nu
 
 /** A Windows key Rust sends the bar (keys.rs Key): Win+number with its modifiers, Win+T (by 1) and Win+Shift+T (by -1), Win+B. */
 export type BarKeyMods = "plain" | "shift" | "ctrl" | "ctrlShift" | "alt";
-export type BarKey = { kind: "number"; n: number; mods: BarKeyMods } | { kind: "apps"; by: 1 | -1 } | { kind: "tray" };
+export type BarKey = { kind: "number"; n: number; mods: BarKeyMods } | { kind: "apps"; by: 1 | -1 } | { kind: "tray" } | { kind: "search" };
 
 /** The button Win+n acts on, counting every button in the bar's order, those behind "…" too, as Windows counts its own; Win+0 is the tenth. */
 export const buttonAt = (buttons: BarButton[], n: number): BarButton | undefined => buttons[n - 1];

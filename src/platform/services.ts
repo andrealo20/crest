@@ -2029,13 +2029,15 @@ export interface RunningApp {
 /** in-use: another program holds the combination. */
 export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
 /** `tools`: each tool shortcut sent, by tool id (an older backend leaves it out). */
-export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState; tools?: Record<string, HotkeyState> };
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState; search?: HotkeyState; tools?: Record<string, HotkeyState> };
 export interface HotkeyConfig {
   open: string;
   hide: string;
   resize: string;
   find: string;
   mic: string;
+  /** The bar's search: only while the bar is on and no full-screen app is in front. */
+  search: string;
   /** The tools' own shortcuts: each opens the notch on its tool (shell.rs). */
   tools: { id: string; keys: string }[];
   openLabel: string;

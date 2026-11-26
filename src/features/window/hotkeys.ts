@@ -3,8 +3,8 @@
 // ("KeyK", "Digit1", "F9", "Space"), joined by "+". The resize shortcut is its modifiers and "Arrows": the four arrow keys.
 // Pure (no DOM): parsing, recording from a key event, labels and conflicts. src-tauri/src/shell.rs registers them.
 
-export type HotkeyKind = "open" | "hide" | "resize" | "find" | "mic";
-export const HOTKEY_KINDS: HotkeyKind[] = ["open", "hide", "resize", "find", "mic"];
+export type HotkeyKind = "open" | "hide" | "resize" | "find" | "mic" | "search";
+export const HOTKEY_KINDS: HotkeyKind[] = ["open", "hide", "resize", "find", "mic", "search"];
 
 const MODS = ["Ctrl", "Alt", "Shift", "Win"] as const;
 export type Mod = (typeof MODS)[number];
@@ -118,7 +118,7 @@ const ownEntries = (h: Record<HotkeyKind, string>, launcher: string[]) => [
 ];
 
 /**
- * Which earlier shortcut each one collides with (order: open, hide, resize, find, mic), or "launcher" for the launcher's Alt+N keys
+ * Which earlier shortcut each one collides with (order: open, hide, resize, find, mic, search), or "launcher" for the launcher's Alt+N keys
  * (`launcher`, while they are switched on); the later one yields and is not registered. Unset or invalid shortcuts collide with nothing.
  */
 export function conflicts(h: Record<HotkeyKind, string>, launcher: string[] = []): Record<HotkeyKind, Exclude<Holder, `tool:${string}`> | null> {
