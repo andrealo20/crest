@@ -25,9 +25,10 @@ function toned(argb: number, dark: boolean): string {
 /**
  * A theme in the Material style: its accent seeds an M3 scheme (spec 2021) on the theme's side, and resolveTheme derives the
  * rest from the scheme's roles, so the glass, the hues and the readability checks come from the same code as in Crest.
- * `contrast` 1 is the system's "more contrast".
+ * `contrast` 1 is the system's "more contrast". `black`: a dark scheme keeps a black background instead of its surface, as Android's
+ * pure black themes do; the fills and the rest follow from the background as ever.
  */
-export function resolveMaterial(file: ThemeFile, { contrast = 0 }: { contrast?: 0 | 1 } = {}): ResolvedTheme {
+export function resolveMaterial(file: ThemeFile, { contrast = 0, black = false }: { contrast?: 0 | 1; black?: boolean } = {}): ResolvedTheme {
   const dark = isDark(over(parseColor(file.colors.background) ?? BLACK, BLACK));
   const accent = parseColor(file.colors.accent) ?? parseColor(MODES[dark ? "dark" : "light"].accent)!;
   const seed = argbFromRgb(accent.r, accent.g, accent.b);
@@ -36,7 +37,7 @@ export function resolveMaterial(file: ThemeFile, { contrast = 0 }: { contrast?: 
   const scheme = new (source.chroma < 8 ? SchemeMonochrome : SchemeTonalSpot)(source, dark, contrast);
   const role = (c: DynamicColor) => hexFromArgb(c.getArgb(scheme));
   const colors: ThemeFile["colors"] = {
-    background: role(M.surface),
+    background: black && dark ? "#000000" : role(M.surface),
     foreground: role(M.onSurface),
     secondary: role(M.onSurfaceVariant),
     tertiary: role(M.outline),
@@ -67,6 +68,6 @@ export function resolveMaterial(file: ThemeFile, { contrast = 0 }: { contrast?: 
 }
 
 /** The closed notch stays black in the Material style, so its ink is the dark scheme of the same seed. */
-export function materialInk(file: ThemeFile, opts?: { contrast?: 0 | 1 }): ResolvedTheme {
+export function materialInk(file: ThemeFile, opts?: { contrast?: 0 | 1; black?: boolean }): ResolvedTheme {
   return resolveMaterial({ ...file, colors: { ...file.colors, background: "#000000" } }, opts);
 }

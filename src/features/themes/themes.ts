@@ -57,9 +57,16 @@ export interface ThemeSettings {
   design: Design;
   /** The settings window's contour lines under the Material style (src/features/settings/contours.ts); the Crest style never draws them. */
   contours: boolean;
+  /** Under the Material style, a dark theme keeps a black background instead of Material's dark grey surface (material.ts). */
+  materialBlack: boolean;
+  /** Under the Material style, the shapes behind the CPU and GPU loads and in the settings window's mark: Material's wavy ones (hero.ts), a circle or a rounded square. */
+  materialShape: MaterialShape;
   /** The whole app's font (FONTS, or "auto" for the style's own: fontStack), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
 }
+
+export type MaterialShape = "wavy" | "circle" | "square";
+export const MATERIAL_SHAPES: readonly MaterialShape[] = ["wavy", "circle", "square"];
 
 /** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width
  *  take Inter's digits first ("Crest Digits", global.css). */
@@ -682,6 +689,8 @@ export const THEME_DEFAULTS: ThemeSettings = {
   glassAlerts: true,
   design: "crest",
   contours: true,
+  materialBlack: false,
+  materialShape: "wavy",
   font: "auto",
 };
 
@@ -738,6 +747,8 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     glassAlerts: s.glassAlerts !== false,
     design: s.design === "material" ? "material" : "crest",
     contours: s.contours !== false,
+    materialBlack: s.materialBlack === true,
+    materialShape: MATERIAL_SHAPES.includes(s.materialShape as MaterialShape) ? (s.materialShape as MaterialShape) : THEME_DEFAULTS.materialShape,
     // Saved before the Style setting (no `design`), "inter" was the default nobody picked: it becomes the style's font. Saved beside a
     // style, it was picked, and stays.
     font: font === "inter" && s.design === undefined ? "auto" : font,

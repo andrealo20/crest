@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowCounterClockwise, WarningCircle } from "../../ui/iconset";
-import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import { Button, Group, Row, Segmented, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import type { RowSymbol } from "../../ui/materialNames";
 import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
@@ -43,6 +43,7 @@ import {
   EDITOR_KEYS,
   FONT_NAMES,
   GLASS_RANGE,
+  MATERIAL_SHAPES,
   SYSTEM_THEME,
   editorKeys,
   findTheme,
@@ -53,6 +54,7 @@ import {
   themeChoices,
   type Adjustment,
   type FontId,
+  type MaterialShape,
   type ThemeFile,
   type ThemeKey,
 } from "./themes";
@@ -128,6 +130,27 @@ function StyleChoice() {
           />
         </Row>
       )}
+      {chosen === "material" && (
+        <Row icon="dark_mode" label={t("Reines Schwarz")} hint={t("Bei dunklen Themes ein schwarzer Hintergrund statt des dunklen Graus von Material")}>
+          <Switch
+            label={t("Reines Schwarz")}
+            checked={themes.materialBlack}
+            onChange={(materialBlack) => updateSettings((cur) => ({ themes: { ...cur.themes, materialBlack } }))}
+          />
+        </Row>
+      )}
+      {chosen === "material" && (
+        <Row icon="category" label={t("Formen")} hint={t("Hinter den Werten von CPU und GPU und im Zeichen der Einstellungen")}>
+          <Segmented<MaterialShape>
+            id="material-shape"
+            label={t("Formen")}
+            size="sm"
+            value={themes.materialShape}
+            onChange={(materialShape) => updateSettings((cur) => ({ themes: { ...cur.themes, materialShape } }))}
+            options={MATERIAL_SHAPES.map((value) => ({ value, label: t(SHAPE_LABEL[value]) }))}
+          />
+        </Row>
+      )}
     </Group>
   );
 }
@@ -147,9 +170,13 @@ function CrestThumb({ file }: { file: ThemeFile }) {
   );
 }
 
-/** A tonal button and the M3 switch on the theme's surface, as the Material style draws them. */
+/** The Material shapes by name. */
+const SHAPE_LABEL: Record<MaterialShape, string> = { wavy: "Wellig", circle: "Kreis", square: "Quadrat" };
+
+/** A tonal button and the M3 switch on the theme's surface, as the Material style draws them, black as the setting asks. */
 function MaterialThumb({ file }: { file: ThemeFile }) {
-  const v = useMemo(() => resolveMaterial(file).vars, [file]);
+  const black = settings.use().themes.materialBlack;
+  const v = useMemo(() => resolveMaterial(file, { black }).vars, [file, black]);
   return (
     <span className="flex h-full w-full items-center justify-center gap-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
       <span className="flex h-3.5 w-7 items-center justify-center rounded-full" style={{ background: v["--color-secondary-container"] }}>
@@ -438,7 +465,8 @@ export function GlassSlider(props: { label: string; hint: ReactNode; icon?: RowS
 
 /** A tiny panel in the theme's colours as the style draws them: accent dot, two text lines, warning and critical dots. */
 function ThemePreview({ theme, style }: { theme: ThemeFile; style: Design }) {
-  const v = useMemo(() => (style === "material" ? resolveMaterial(theme) : resolveTheme(theme)).vars, [theme, style]);
+  const black = settings.use().themes.materialBlack;
+  const v = useMemo(() => (style === "material" ? resolveMaterial(theme, { black }) : resolveTheme(theme)).vars, [theme, style, black]);
   return (
     <span className="flex h-full w-full items-center gap-1.5 px-2 forced-color-adjust-none" style={{ background: v["--color-notch"] }}>
       <span className="size-2 shrink-0 rounded-full" style={{ background: v["--theme-accent"] }} />

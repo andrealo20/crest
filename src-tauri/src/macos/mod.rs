@@ -14,7 +14,7 @@ use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use objc2_app_kit::{
-    NSApplicationActivationOptions, NSPasteboard, NSRunningApplication, NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior, NSWorkspace,
+    NSApplicationActivationOptions, NSNormalWindowLevel, NSPasteboard, NSRunningApplication, NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior, NSWorkspace,
 };
 use objc2_foundation::{NSDictionary, NSNumber, NSString};
 use tauri::WebviewWindow;
@@ -57,6 +57,19 @@ pub fn raise(window: &WebviewWindow) {
                 | NSWindowCollectionBehavior::FullScreenAuxiliary
                 | NSWindowCollectionBehavior::IgnoresCycle,
         );
+    });
+}
+
+/// "Behind other windows": one level under the apps' windows (and above the desktop's icons), on every Space, out of the window cycle.
+pub fn sink(window: &WebviewWindow) {
+    let _ = window.set_always_on_top(false);
+    let Ok(ptr) = window.ns_window() else { return };
+    let ptr = ptr as usize;
+    let _ = window.run_on_main_thread(move || {
+        // SAFETY: Tauri's NSWindow for this window, used on the main thread, where the window lives.
+        let ns = unsafe { &*(ptr as *const NSWindow) };
+        ns.setLevel(NSNormalWindowLevel - 1);
+        ns.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::Stationary | NSWindowCollectionBehavior::IgnoresCycle);
     });
 }
 

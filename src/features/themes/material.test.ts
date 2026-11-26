@@ -152,3 +152,14 @@ test("the colour library stays at exactly 0.3.0: another version can change ever
   const pkg = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8"));
   assert.equal(pkg.dependencies["@material/material-color-utilities"], "0.3.0");
 });
+
+test("Material: Pure black keeps a dark theme's background black and leaves a light one as Material draws it", () => {
+  const dark = BUILT_IN_THEMES.find((t) => t.id === "dark")!;
+  const black = { r: 0, g: 0, b: 0, a: 1 };
+  assert.notDeepEqual(resolveMaterial(dark).colors.background, black);
+  assert.deepEqual(resolveMaterial(dark, { black: true }).colors.background, black);
+  const light = BUILT_IN_THEMES.find((t) => t.id === "light")!;
+  assert.deepEqual(resolveMaterial(light, { black: true }).colors.background, resolveMaterial(light).colors.background);
+  // Black still resolves with no correction, and the text keeps its minimum on it.
+  assert.deepEqual(resolveMaterial(dark, { black: true }).adjustments, []);
+});

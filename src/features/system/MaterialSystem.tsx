@@ -14,7 +14,7 @@ import { compactRate, driveSizes, gigabytes, processMemory, processShare, watts 
 import { ofRate, ofShare, type Level } from "./levels";
 import { degrees, tempLevel } from "./temps";
 import { holdProcesses, type SystemState } from "./store";
-import { SHAPES, loadShape, niceMax, shapePoints, systemFit, type ShapeName } from "./hero";
+import { SHAPES, loadShape, niceMax, styledPoints, systemFit, type ShapeName } from "./hero";
 import { MorphPath } from "./Morph";
 import { BatteryHealth, CoreColumns, LocalIpChip, NetDetail, ProcessCard, ProcessRow, PublicIpChip, Trend } from "./SystemView";
 import { useHue, type Hue } from "../themes/hues";
@@ -116,7 +116,11 @@ export function MaterialSystemLayout(p: {
         <div className="relative grid min-h-0 min-w-0 grid-rows-[minmax(104px,126fr)_minmax(80px,152fr)] gap-2">
           <div className={`grid min-h-0 gap-2 ${st.drives.length ? "grid-cols-2" : "grid-cols-1"}`}>
             <MemoryCard st={st} tone={at(PRIMARY)} level={p.memLevel} ring={fit.ring} />
-            {st.drives.length > 0 && <DriveCard drives={st.drives} tone={tone} ringTone={at(TERTIARY)} ring={fit.ring} />}
+            {st.drives.length > 1 ? (
+              <DriveList drives={st.drives} tone={at(TERTIARY)} />
+            ) : (
+              st.drives.length === 1 && <DriveCard drive={st.drives[0]} tone={tone} ringTone={at(TERTIARY)} ring={fit.ring} />
+            )}
           </div>
           <ProcessesCard st={st} fit={fit} cores={cores} setDetail={p.setDetail} />
           <AnimatePresence>{p.detail && <ProcessCard key="card" proc={st.processes?.cpu.find((x) => x.id === p.detail!.id) ?? p.detail} cores={cores} onClose={() => p.setDetail(null)} />}</AnimatePresence>
@@ -189,14 +193,16 @@ function Reading({ icon: I, text, color, fraction, bar, title, label }: { icon: 
   );
 }
 
-/** The shape of a load, from Stellaria: it changes only when the gliding percent crosses a threshold, and morphs then. */
+/** The shape of a load, from Stellaria: it changes only when the gliding percent crosses a threshold, and morphs then; a circle or
+ *  a rounded square stays as it is (Themes, Shapes). */
 function LoadShape({ value, size }: { value: MotionValue<number> | null; size: 48 | 60 | 72 }) {
+  const style = settings.use().themes.materialShape;
   // Under reduced motion the value is already the load at mount, and no change comes to tell.
   const [shape, setShape] = useState<ShapeName>(() => (value ? loadShape("cookie4", value.get()) : "cookie4"));
   const idle = useMotionValue(0);
   useMotionValueEvent(value ?? idle, "change", (v) => value && setShape((prev) => loadShape(prev, v)));
   const shown = value ? shape : "cookie4";
-  const points = useMemo(() => shapePoints(SHAPES[shown][0], SHAPES[shown][1]), [shown]);
+  const points = useMemo(() => styledPoints(style, SHAPES[shown][0], SHAPES[shown][1]), [style, shown]);
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} className="absolute inset-0" aria-hidden>
       <MorphPath points={points} className="fill-secondary-container forced-colors:fill-[Canvas] forced-colors:stroke-[CanvasText] [vector-effect:non-scaling-stroke]" />
@@ -344,27 +350,18 @@ function MemoryCard({ st, tone, level, ring }: { st: SystemState; tone: (l: Leve
   );
 }
 
-/** One drive at a time, like Stellaria's button; with more than one a click goes to the next and the ring glides to its share. */
-function DriveCard({ drives, tone, ringTone, ring }: { drives: SystemState["drives"]; tone: (l: Level) => string; ringTone: (l: Level) => string; ring: Fit["ring"] }) {
-  const [index, setIndex] = useState(0);
-  const d = drives[index % drives.length];
+/** The only drive, like Stellaria's button: the ring of its share, its letters and its sizes. */
+function DriveCard({ drive: d, tone, ringTone, ring }: { drive: SystemState["drives"][number]; tone: (l: Level) => string; ringTone: (l: Level) => string; ring: Fit["ring"] }) {
   const share = d.total ? (d.used / d.total) * 100 : 0;
   const glided = useGlide(share, 0);
   const sz = driveSizes(d.used, d.total);
-  const many = drives.length > 1;
   return (
-    <motion.div
-      {...enter(1)}
-      {...press(many ? () => setIndex((i) => (i + 1) % drives.length) : undefined)}
-      title={many ? `${d.model} · ${t("Klicken für das nächste Laufwerk")}` : d.model}
-      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5 ${many ? "pressable cursor-pointer" : ""}`}
-    >
+    <motion.div {...enter(1)} title={d.model} className="relative flex min-h-0 min-w-0 flex-col items-center justify-center rounded-[24px] bg-fill-1 pt-2.5 pb-1.5">
       <Ring size={ring} stroke={8} sweep={270} arcs={[{ value: glided, color: ringTone(ofShare(share)) }]}>
         <Glide value={glided} format={percent} className="text-[15px] leading-5 font-semibold tabular text-label" />
       </Ring>
       <span className="-mt-2 flex max-w-full items-center gap-1 px-2 text-caption font-medium">
         <span className="tabular truncate text-label">{d.letters}</span>
-        {many && <span className="tabular shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2">{`${(index % drives.length) + 1}/${drives.length}`}</span>}
         {d.temp !== null && (
           <span className="tabular shrink-0" style={{ color: tone(d.tempLevel) }}>
             {degrees(d.temp)}°
@@ -374,6 +371,32 @@ function DriveCard({ drives, tone, ringTone, ring }: { drives: SystemState["driv
       <span className="tabular max-w-full truncate px-2 text-caption text-label-2">
         {sz.used}/{sz.total} {sz.unit}
       </span>
+    </motion.div>
+  );
+}
+
+/**
+ * Two drives or more, all at once as the Crest style lists them, the first three: each its letters and its share over a bar of it,
+ * its model, sizes and temperature under the pointer.
+ */
+function DriveList({ drives, tone }: { drives: SystemState["drives"]; tone: (l: Level) => string }) {
+  return (
+    <motion.div {...enter(1)} className="flex min-h-0 min-w-0 flex-col justify-center gap-2 overflow-hidden rounded-[24px] bg-fill-1 px-3 py-2">
+      {drives.slice(0, 3).map((d) => {
+        const share = d.total ? (d.used / d.total) * 100 : 0;
+        const sz = driveSizes(d.used, d.total);
+        return (
+          <div key={d.key} title={[d.model, `${sz.used}/${sz.total} ${sz.unit}`, d.temp !== null ? `${degrees(d.temp)} °C` : null].filter(Boolean).join(" · ")} className="flex min-w-0 flex-col gap-1">
+            <span className="flex items-center justify-between gap-1 text-caption font-medium">
+              <span className="tabular truncate text-label">{d.letters}</span>
+              <span className="tabular shrink-0 text-label-2">{percent(Math.round(share))}</span>
+            </span>
+            <span className="relative h-1.5 overflow-hidden rounded-full bg-fill-2">
+              <span className="absolute inset-y-0 start-0 rounded-full" style={{ width: `${share}%`, background: tone(ofShare(share)) }} />
+            </span>
+          </div>
+        );
+      })}
     </motion.div>
   );
 }

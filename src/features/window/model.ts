@@ -46,6 +46,9 @@ export interface WindowSettings {
   toolBarFill: boolean;
   /** The tool an open without a target lands on: "live" (the live activity's, as before), "last" (the tool open last) or a tool's id (#87). */
   openOn: string;
+  /** "Behind other windows": the notch rests on the desktop under every window, and comes on top only while opened with the shortcut, the
+   *  tray or the Launcher and not kept open, or while an indicator shows (display.rs `rests_below`). */
+  behind: boolean;
 }
 
 export const MAX_APP_RULES = 32;
@@ -69,6 +72,7 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   toolBar: "bottom",
   toolBarFill: true,
   openOn: "live",
+  behind: false,
 };
 
 const BEHAVIORS: Behavior[] = ["normal", "line", "hide"];
@@ -163,6 +167,7 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
     toolBar: s.toolBar === "top" ? "top" : "bottom",
     toolBarFill: bool(s.toolBarFill, d.toolBarFill),
     openOn: typeof s.openOn === "string" && /^[A-Za-z0-9:_-]{1,64}$/.test(s.openOn) ? s.openOn : d.openOn,
+    behind: bool(s.behind, d.behind),
   };
 }
 

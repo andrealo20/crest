@@ -48,7 +48,6 @@ const INTERACTIVE: [string, string, string][] = [
     "Contour lines in the theme's colours behind the settings window, drifting on at every change of page",
     "Curve di livello nei colori del tema dietro la finestra delle impostazioni, che si spostano a ogni cambio di pagina",
   ],
-  ["Klicken für das nächste Laufwerk", "Click for the next drive", "Clicca per il disco successivo"],
   ["Gefühlt", "Feels like", "Percepita"],
 ];
 

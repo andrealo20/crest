@@ -61,7 +61,7 @@ export function startStatusWatch() {
     const everywhere = settings.get().closed.statusAlerts.everywhere;
     if (!alert || !on || focusMode.get() || heldBack(alert.kind, { fullscreen: fullscreen.get(), everywhere }) || ((alert.kind === "bt" || alert.kind === "output") && presentingNow())) return false;
     statusAlert.set(alert);
-    reveal(everywhere && INDICATORS.has(alert.kind));
+    reveal((everywhere || settings.get().behavior.behind) && INDICATORS.has(alert.kind));
     clearTimeout(hide);
     hide = window.setTimeout(() => {
       statusAlert.set(null);

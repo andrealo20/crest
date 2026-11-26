@@ -260,6 +260,12 @@ test("settings normalisation", () => {
   assert.deepEqual(s.custom.map((t) => t.name), ["Mine"]);
   assert.deepEqual(s.schedule, { on: true, day: "light", night: "dark", dayStart: "07:00", nightStart: "21:30", sun: false });
   assert.equal(normalizeThemeSettings({ schedule: { sun: true } }).schedule.sun, true);
+  // Material's grey and wavy shapes unless picked otherwise.
+  assert.equal(normalizeThemeSettings({}).materialBlack, false);
+  assert.equal(normalizeThemeSettings({ materialBlack: true }).materialBlack, true);
+  assert.equal(normalizeThemeSettings({}).materialShape, "wavy");
+  assert.equal(normalizeThemeSettings({ materialShape: "square" }).materialShape, "square");
+  assert.equal(normalizeThemeSettings({ materialShape: "hexagon" }).materialShape, "wavy");
   assert.equal(normalizeThemeSettings({ schedule: { sun: "yes" } }).schedule.sun, false);
   assert.equal(findTheme("gone", s.custom).id, "dark");
 });

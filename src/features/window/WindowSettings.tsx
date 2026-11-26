@@ -68,11 +68,17 @@ function Rules() {
           </Row>
         </>
       )}
-      <Row icon="flip_to_front" label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt")}>
-        <Button icon={ArrowLineUp} onClick={windowShell.raise}>
-          {t("Jetzt")}
-        </Button>
+      <Row icon="desktop_windows" label={t("Hinter anderen Fenstern")} hint={t("Crest bleibt auf dem Desktop unter allen Fenstern, auch offen gehalten. Mit dem Tastenkürzel oder aus dem Infobereich geöffnet kommt es nach vorne, bis es sich schließt; Lautstärke und Helligkeit erscheinen darüber")}>
+        <Switch label={t("Hinter anderen Fenstern")} checked={s.behavior.behind} onChange={(behind) => updateBehavior(() => ({ behind }))} />
       </Row>
+      {/* Resting under the windows on purpose, there is nothing to bring to the front. */}
+      {!s.behavior.behind && (
+        <Row icon="flip_to_front" label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt")}>
+          <Button icon={ArrowLineUp} onClick={windowShell.raise}>
+            {t("Jetzt")}
+          </Button>
+        </Row>
+      )}
     </Group>
   );
 }

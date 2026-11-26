@@ -106,6 +106,11 @@ impl HitState {
         self.refresh.store(true, Ordering::Relaxed);
     }
 
+    /// The notch is kept open (its pin).
+    pub(crate) fn kept_open(&self) -> bool {
+        *self.pinned.lock().unwrap()
+    }
+
     pub fn set_edge(&self, edge: &str) {
         self.edge.store(match edge { "bottom" => 1, "left" => 2, "right" => 3, _ => 0 }, Ordering::Relaxed);
     }
@@ -136,9 +141,11 @@ pub fn set_passthrough(on: bool, state: State<'_, HitState>) {
     state.passthrough.store(on, Ordering::Relaxed);
 }
 
+/// Kept open (the pin in the notch's header); with Behind on, kept open it rests under the windows again (display.rs `restack`).
 #[tauri::command]
-pub fn set_pinned(pinned: bool, state: State<'_, HitState>) {
+pub fn set_pinned(pinned: bool, state: State<'_, HitState>, app: AppHandle) {
     *state.pinned.lock().unwrap() = pinned;
+    crate::display::restack(&app);
 }
 
 /// Lets the pointer through `label`'s window except over the zones its page reports, none until it reports. The caller
@@ -476,6 +483,10 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
 
             let inside = if drag_active { rect.grown(state.edge.load(Ordering::Relaxed)) } else { rect }.contains(x, y);
             let on_pet = !inside && pet.is_some_and(|p| p.contains(x, y));
+            // Resting under the other windows (Behind), a window over the notch takes the pointer: no hover opens it beneath.
+            // shortcut: Windows only; on a Mac a notch under a window can still open beneath it, as it has no such check yet.
+            #[cfg(windows)]
+            let (inside, on_pet) = if (inside || on_pet) && crate::display::covered(hwnd) { (false, false) } else { (inside, on_pet) };
             let ignore = !inside && !on_pet && !*state.pinned.lock().unwrap();
             if (on_pet && !last_on_pet) || (inside && last_inside != Some(true)) {
                 crate::remember_foreground(&window);

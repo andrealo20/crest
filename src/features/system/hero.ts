@@ -26,6 +26,23 @@ export function shapePoints(lobes: number, amplitude: number): number[] {
   return points;
 }
 
+/** A rounded square (a squircle, |x|^4 + |y|^4 = 1) in the same 100 x 100 box with as many points, its sides touching the box. */
+export function squarePoints(): number[] {
+  const points: number[] = [];
+  for (let i = 0; i < STEPS; i++) {
+    const angle = (i / STEPS) * 2 * Math.PI;
+    const r = 50 / (Math.abs(Math.cos(angle)) ** 4 + Math.abs(Math.sin(angle)) ** 4) ** 0.25;
+    points.push(50 + r * Math.cos(angle), 50 + r * Math.sin(angle));
+  }
+  return points;
+}
+
+/** A polar shape as the Material shapes setting draws it: Material's wavy one, a circle (no lobes) or a rounded square. */
+export function styledPoints(style: "wavy" | "circle" | "square", lobes: number, amplitude: number): number[] {
+  // A circle is one lobe of no amplitude: no lobes at all would divide by zero.
+  return style === "circle" ? shapePoints(1, 0) : style === "square" ? squarePoints() : shapePoints(lobes, amplitude);
+}
+
 export function mixPoints(a: number[], b: number[], t: number): number[] {
   return a.map((n, i) => n * (1 - t) + b[i] * t);
 }
