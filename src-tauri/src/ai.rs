@@ -41,6 +41,9 @@ pub struct ChatConfig {
     pub model: String,
     /// low | medium | high | xhigh | off (or empty: no parameter, for models that do not reason)
     pub effort: Option<String>,
+    /// A system prompt in place of Ask's own: the bar's search, which wants one JSON action back. Ask sends none.
+    #[serde(default)]
+    pub system: Option<String>,
 }
 
 #[derive(Default)]
@@ -89,6 +92,7 @@ pub async fn stream_chat(
     }
     let effort = config.effort.as_deref().filter(|e| !matches!(*e, "" | "off"));
     let anthropic = config.provider == "anthropic";
+    let system = config.system.as_deref().unwrap_or(SYSTEM_PROMPT);
 
     let url = match config.provider.as_str() {
         "anthropic" => "https://api.anthropic.com/v1/messages".to_string(),
@@ -116,7 +120,7 @@ pub async fn stream_chat(
             "model": model,
             "max_tokens": 64000,
             "stream": true,
-            "system": SYSTEM_PROMPT,
+            "system": system,
             "messages": messages.iter().map(|m| json!({ "role": m.role, "content": m.content })).collect::<Vec<_>>(),
         });
         if let Some(e) = effort {
@@ -129,7 +133,7 @@ pub async fn stream_chat(
         }
         req.json(&body)
     } else {
-        let mut all = vec![json!({ "role": "system", "content": SYSTEM_PROMPT })];
+        let mut all = vec![json!({ "role": "system", "content": system })];
         all.extend(messages.iter().map(|m| json!({ "role": m.role, "content": m.content })));
         let mut body = json!({ "model": model, "stream": true, "messages": all });
         if let Some(e) = effort {
@@ -316,7 +320,7 @@ mod tests {
     fn a_server_on_this_computer_needs_no_key() {
         for key in ["", "secret"] {
             let (port, server) = serve_once();
-            let config = ChatConfig { provider: "custom".into(), base_url: Some(format!("http://127.0.0.1:{port}/v1")), model: "local".into(), effort: None };
+            let config = ChatConfig { provider: "custom".into(), base_url: Some(format!("http://127.0.0.1:{port}/v1")), model: "local".into(), effort: None, system: None };
             let mut out = String::new();
             let hi = [Msg { role: "user".into(), content: "hi".into() }];
             let result = tauri::async_runtime::block_on(stream_chat(&config, key, &hi, |t| out.push_str(t), || false));
@@ -331,6 +335,19 @@ mod tests {
         }
         for remote in ["https://api.example.com/v1", "http://localhost.example.com/v1", "http://localhost@evil.example/v1", ""] {
             assert!(!on_this_computer(remote), "{remote}");
+        }
+    }
+
+    #[test]
+    fn a_system_prompt_of_its_own_takes_asks_place() {
+        for (system, expect) in [(None, "du bist ask"), (Some("answer with one json object"), "answer with one json object")] {
+            let (port, server) = serve_once();
+            let config = ChatConfig { provider: "custom".into(), base_url: Some(format!("http://127.0.0.1:{port}/v1")), model: "local".into(), effort: None, system: system.map(String::from) };
+            let hi = [Msg { role: "user".into(), content: "hi".into() }];
+            let result = tauri::async_runtime::block_on(stream_chat(&config, "", &hi, |_| {}, || false));
+            assert_eq!(result, Ok(()));
+            let request = server.join().unwrap();
+            assert!(request.contains(expect), "{request}");
         }
     }
 

@@ -37,6 +37,8 @@ export async function streamChat(
   messages: ChatMessage[],
   onDelta: (text: string) => void,
   signal: AbortSignal,
+  /** A system prompt in place of Ask's own (ai.rs `ChatConfig.system`): the bar's search sends one. */
+  system?: string,
 ): Promise<void> {
   if (!isNative) return demoStream(messages, onDelta, signal);
 
@@ -49,7 +51,7 @@ export async function streamChat(
   // Stop pressed while the listener was being set up.
   if (signal.aborted) onAbort();
   try {
-    await invoke("ai_chat", { id, config: { provider, ...config }, messages });
+    await invoke("ai_chat", { id, config: { provider, ...config, system }, messages });
   } catch (e) {
     throw new Error(String(e));
   } finally {

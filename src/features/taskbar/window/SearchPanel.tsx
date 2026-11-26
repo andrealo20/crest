@@ -18,7 +18,8 @@ import { closePanel } from "../panel";
 import { answerHit, needsRates } from "../search/answers";
 import { appHits, toolHits, widgetHits } from "../search/catalog";
 import { fileHits, latestSearch } from "../search/files";
-import { arrange, firstSelected, settingsSearchHit, webOrPathHit, type Hit, type HitIcon } from "../search/model";
+import { askIntent, askReadyNow } from "../search/askIntent";
+import { arrange, firstSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
 import { runAction, type RunOutcome } from "../search/run";
 import { settingHits } from "../search/settingsTable";
 import { barWindows } from "../store";
@@ -60,7 +61,20 @@ export function SearchPanel() {
   const [files, setFiles] = useState<{ q: string; found: FoundFile[] }>({ q: "", found: [] });
   const [sel, setSel] = useState(-1);
   const [outcome, setOutcome] = useState<RunOutcome | null>(null);
+  const [askOn, setAskOn] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const asking = useRef<AbortController | null>(null);
   const list = useRef<HTMLDivElement>(null);
+
+  // Capisci only with Ask set up; a question still out stops when the panel closes.
+  useEffect(() => {
+    let live = true;
+    void askReadyNow().then((on) => live && setAskOn(on));
+    return () => {
+      live = false;
+      asking.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     appList ??= launcher.apps().catch(() => []);
@@ -109,11 +123,12 @@ export function SearchPanel() {
         ...settingHits(query, { ...names, themes }),
         ...widgetHits(query, widgets, s.taskbar.zones, names),
         ...(files.q === query ? fileHits(files.found, query) : []),
+        askOn ? understandHit(query.trim(), t) : null,
         settingsSearchHit(query.trim(), t),
         webOrPathHit(query, engine, t),
       ].filter((h): h is Hit => h !== null),
     );
-  }, [query, apps, rates, s, engine, zones, files]);
+  }, [query, apps, rates, s, engine, zones, files, askOn]);
 
   // A new list starts on its best row; the selected row stays in view.
   const keys = hits.map((h) => h.key).join("\n");
@@ -155,12 +170,26 @@ export function SearchPanel() {
     }
   }, [keys, preview]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const show = (out: RunOutcome) => (out.close ? closePanel() : setOutcome(out.done || out.error ? out : null));
   const run = async (i: number, alt = false) => {
     const action = alt ? hits[i]?.alt : hits[i]?.action;
     if (!action) return;
-    const out = await runAction(action, engine);
-    if (out.close) return closePanel();
-    setOutcome(out.done || out.error ? out : null);
+    if (action.do === "understand") return understand(action);
+    show(await runAction(action, engine));
+  };
+  // Capisci: Ask says what the sentence means, and it runs as if its row had been picked, with the same limits and Rückgängig.
+  const understand = async (action: Extract<SearchAction, { do: "understand" }>) => {
+    asking.current?.abort();
+    const stop = new AbortController();
+    asking.current = stop;
+    setOutcome(null);
+    setThinking(true);
+    const answer = await askIntent(action.text, apps, stop.signal);
+    if (stop.signal.aborted) return;
+    setThinking(false);
+    if ("error" in answer) return setOutcome({ error: answer.error });
+    if (!answer.action) return setOutcome({ error: t("Das habe ich nicht verstanden") });
+    show(await runAction(answer.action, engine));
   };
   const undo = async () => {
     if (!outcome?.undo) return;
@@ -215,6 +244,9 @@ export function SearchPanel() {
           onChange={(v) => {
             setQuery(v);
             setOutcome(null);
+            // New text: a question still out to Ask no longer fits it.
+            asking.current?.abort();
+            setThinking(false);
           }}
           placeholder={t("App, Datei, Widget, Rechnung oder Einstellung suchen")}
           width="flex-1"
@@ -224,7 +256,8 @@ export function SearchPanel() {
       </div>
       <p role="status" className={`flex h-4 min-w-0 items-center gap-1.5 text-caption ${outcome?.error ? "text-red" : "text-label-3"}`}>
         {outcome?.done && <Check size={12} weight="bold" className="shrink-0" />}
-        <span className="truncate">{outcome?.error ?? outcome?.done ?? ""}</span>
+        {thinking && <Sparkle size={12} weight="bold" className="shrink-0" />}
+        <span className="truncate">{thinking ? t("Ask denkt nach…") : (outcome?.error ?? outcome?.done ?? "")}</span>
         {outcome?.undo && (
           <button type="button" className="pressable ml-auto shrink-0 font-medium text-accent hover:underline material:text-primary" onMouseDown={(e) => e.preventDefault()} onClick={() => void undo()}>
             {t("Rückgängig")}
