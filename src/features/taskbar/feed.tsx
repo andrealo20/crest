@@ -226,7 +226,8 @@ function DiskSource() {
  * to-do, the note, Keep awake and the wallpaper: the bar counts the time itself, Rust tells the bar about the microphone and the
  * wallpaper, Keep awake comes with the feed's stores, and the others are saved stores.
  */
-const SOURCES: Partial<Record<PartId, () => null>> = {
+// A source may render the one of its widget's version (CryptoSource).
+const SOURCES: Partial<Record<PartId, () => ReactNode>> = {
   weather: WeatherSource,
   title: TitleSource,
   equalizer: EqualizerSource,

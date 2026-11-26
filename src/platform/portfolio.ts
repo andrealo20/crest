@@ -19,16 +19,38 @@ export function fetchRates(base: string, crypto: string[], fiats: string[]): Pro
   return isNative ? invoke<Rates>("portfolio_prices", { base, crypto, fiats }) : Promise.resolve(mockRates(base));
 }
 
-/** One coin for the bar's crypto widget: its price in the base, its change over 24 h in percent and its hourly prices over 7 days, oldest first. */
+/**
+ * One coin for the bar's crypto widget over its range (prices.rs `CoinDay`): its price in the base, its change over the range in
+ * percent, its line, oldest first, and how many of its last points the bar draws.
+ */
 export interface CoinDay {
   price: number;
   change: number | null;
   line: number[];
+  day: number;
 }
 
-/** One coin by its symbol in `base` (trading.rs `portfolio_coin`, the notch's only); null for a coin CoinGecko does not know. */
-export function fetchCoin(base: string, symbol: string): Promise<CoinDay | null> {
-  return isNative ? invoke<CoinDay | null>("portfolio_coin", { base, symbol }) : Promise.resolve(mockCoin(base, symbol));
+/** One coin by its symbol in `base` over the widget's `range` (trading.rs `portfolio_coin`, the notch's only); null for a coin CoinGecko does not know. */
+export function fetchCoin(base: string, symbol: string, range: string): Promise<CoinDay | null> {
+  return isNative ? invoke<CoinDay | null>("portfolio_coin", { base, symbol, range }) : Promise.resolve(mockCoin(base, symbol, range));
+}
+
+/**
+ * One stock, fund or index for the bar's crypto widget over its range (prices.rs `StockDay`): its price in its own `currency`, its
+ * change over the range in percent, its line, oldest first, of which the bar draws the last `day` points, and its name.
+ */
+export interface StockDay {
+  price: number;
+  currency: string;
+  change: number | null;
+  line: number[];
+  day: number;
+  name: string | null;
+}
+
+/** One stock by its Yahoo Finance symbol over the widget's `range` (trading.rs `portfolio_stock`, the notch's only); null for a symbol Yahoo does not know. */
+export function fetchStock(symbol: string, range: string): Promise<StockDay | null> {
+  return isNative ? invoke<StockDay | null>("portfolio_stock", { symbol, range }) : Promise.resolve(mockStock(symbol, range));
 }
 
 export interface RecordEntry {
@@ -136,12 +158,19 @@ function mockRates(base: string): Rates {
 }
 
 /** A week of hourly prices climbing in waves to the sample's price, up 1.8 % on the day; the others CoinGecko would not know. */
-function mockCoin(base: string, symbol: string): CoinDay | null {
+function mockCoin(base: string, symbol: string, range: string): CoinDay | null {
   const eurPrice = coinsEur[symbol];
   if (!eurPrice) return null;
   const price = eurPrice * (eur[base] ?? 1);
   const line = Array.from({ length: 168 }, (_, i) => price * (1 - (0.04 * (167 - i)) / 167 + 0.006 * Math.sin((i - 167) / 7)));
-  return { price, change: 1.8, line };
+  return { price, change: 1.8, line, day: range === "1d" ? 25 : line.length };
+}
+
+/** In the browser: five sessions of 26 quarter hours ending at a fixed price, a gentle climb; "X" stands for a symbol nobody knows. */
+function mockStock(symbol: string, range: string): StockDay | null {
+  if (symbol === "X") return null;
+  const line = Array.from({ length: 130 }, (_, i) => 350 * (1 + (0.02 * i) / 129 + 0.004 * Math.sin(i / 5)));
+  return { price: line[129], currency: "USD", change: 0.43, line, day: range === "1d" ? 26 : line.length, name: `${symbol} Inc.` };
 }
 
 /** 30 days of growth with a dip, ending at today's P&L; intraday from 9:00 every 2 min. */

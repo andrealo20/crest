@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Plus, X } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { PART_IDS } from "../../notch/row/parts";
@@ -5,10 +6,10 @@ import { partInfo } from "../../notch/row/partInfo";
 import { settings, updateSettings, type Settings } from "../../settings/store";
 import { clocks } from "../clocks/store";
 import { isZone } from "../clocks/zones";
-import { Select, SubSwitch } from "../../ui/controls";
+import { Select, SubSwitch, TextField } from "../../ui/controls";
 import { setMusic } from "../now-playing/music";
 import { shownIds } from "../usage/cards";
-import { CRYPTO_COINS, TOOL_BUTTONS, variantOf, type SysItem, type ToolItem, type Zone } from "./model";
+import { CRYPTO_COINS, TOOL_BUTTONS, stockSymbol, variantOf, type SysItem, type ToolItem, type Zone } from "./model";
 import { setTaskbar } from "./store";
 import { toolInfo } from "./toolInfo";
 import { addableSys, addableTools, addWidget, barWidgets, clockHasSeconds, isSys, isTool, isWidget, removeWidget, sysOf, toolOf, toolShown, type Removable } from "./widgets";
@@ -45,6 +46,7 @@ export function WidgetOptions({ id }: { id: Removable }) {
   const readingsOn = MAIN_READINGS.filter((k) => s.closed.readings[k]).length;
   const zoned = isZone(clocks.use()[0]);
   const needs = widgetNeeds(s, zoned);
+  const crypto = variantOf(s.taskbar.variants, "crypto");
   const switches =
     id === "clock" ? (
       clockHasSeconds(s.taskbar.variants, zoned) && <SubSwitch label={t("Sekunden")} checked={s.taskbar.clock.seconds} onChange={(seconds) => setTaskbar((cur) => ({ clock: { ...cur.clock, seconds } }))} />
@@ -64,11 +66,22 @@ export function WidgetOptions({ id }: { id: Removable }) {
         <SubSwitch label={t("Endlos scrollen")} checked={s.music.titleLoop} onChange={(titleLoop) => setMusic({ titleLoop })} />
       </>
     ) : id === "crypto" ? (
-      <Select value={s.taskbar.coin} options={CRYPTO_COINS.map((c) => ({ value: c, label: c }))} onChange={(coin) => setTaskbar({ coin })} width="w-24" />
+      // The coin or the stock of the version picked on the Widgets page; the portfolio is the Depot's.
+      crypto === "coin" ? (
+        <Select value={s.taskbar.coin} options={CRYPTO_COINS.map((c) => ({ value: c, label: c }))} onChange={(coin) => setTaskbar({ coin })} width="w-24" />
+      ) : (
+        crypto === "stock" && <StockField value={s.taskbar.stock} />
+      )
     ) : null;
   // A tool button whose tool is off in the notch stays here, hidden on the bar until the tool is on again.
   const caption =
-    id === "readings" || id === "title" ? t("Gilt auch für die Notch") : isTool(id) ? !toolShown(toolOf(id), s.tools) && t("In der Notch ausgeschaltet") : needs[id];
+    id === "readings" || id === "title"
+      ? t("Gilt auch für die Notch")
+      : isTool(id)
+        ? !toolShown(toolOf(id), s.tools) && t("In der Notch ausgeschaltet")
+        : id === "crypto" && crypto !== "coin"
+          ? t(crypto === "stock" ? "Symbol wie bei Yahoo Finance, etwa VWCE.DE" : "Aus dem Depot")
+          : needs[id];
   return (
     <div className="flex min-w-0 items-center gap-3">
       {(switches || caption) && (
@@ -92,6 +105,16 @@ export function WidgetOptions({ id }: { id: Removable }) {
       </button>
     </div>
   );
+}
+
+/** The stock's Yahoo Finance symbol, saved once it is one (stockSymbol) at Enter or on leaving the field; red while it is not, and back to
+ *  the saved one when left so. */
+export function StockField({ value }: { value: string }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const symbol = stockSymbol(text);
+  const save = () => (symbol ? setTaskbar({ stock: symbol }) : setText(value));
+  return <TextField value={text} onChange={setText} onSubmit={save} onBlur={save} invalid={!symbol} placeholder="AAPL" width="w-28" />;
 }
 
 /** A zone's "+": the widgets, the tray, Stato and the Crest button not on the bar; the one picked goes last in the zone, before the Crest button (addWidget). */

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  stockSymbol,
   jumpHeading,
   GROUP_MENU,
   movedOrder,
@@ -165,8 +166,23 @@ test("the bar's clock has its own date and seconds", () => {
 });
 
 test("each widget with versions starts on today's look", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system", title: "text", processes: "cpu", battery: "ring", mic: "mic", progress: "day", date: "fulldate", world: "world", temps: "history", bluetooth: "lowest", keepawake: "icon", unread: "badge", screentime: "total", timeline: "fullday", wallpaper: "thumb" });
+  assert.deepEqual(Object.fromEntries(Object.entries(WIDGET_VARIANTS).map(([id, v]) => [id, v[0]])), { weather: "temp", clock: "digital", readings: "dials", timer: "countdown", disk: "system", title: "text", processes: "cpu", battery: "ring", mic: "mic", progress: "day", date: "fulldate", world: "world", temps: "history", bluetooth: "lowest", keepawake: "icon", unread: "badge", screentime: "total", timeline: "fullday", wallpaper: "thumb", crypto: "coin" });
   assert.deepEqual(TASKBAR_DEFAULTS.variants, {});
+});
+
+test("the crypto widget shows a coin, a stock by its Yahoo Finance symbol or the Depot, and keeps only a symbol Yahoo could know", () => {
+  assert.deepEqual(normalizeTaskbar({ variants: { crypto: "stock" } }).variants, { crypto: "stock" });
+  assert.deepEqual(normalizeTaskbar({ variants: { crypto: "bond" } }).variants, {});
+  assert.equal(stockSymbol(" vwce.de "), "VWCE.DE");
+  for (const ok of ["AAPL", "BRK-B", "^GSPC", "EURUSD=X", "ENI.MI"]) assert.equal(stockSymbol(ok), ok);
+  for (const bad of ["", "...", "A B", "AAPL/X", "ÄPPL", "ABCDEFGHIJKLMNOP", 42, null]) assert.equal(stockSymbol(bad), null, String(bad));
+  assert.equal(normalizeTaskbar({}).stock, "AAPL");
+  assert.equal(normalizeTaskbar({ stock: "msft" }).stock, "MSFT");
+  assert.equal(normalizeTaskbar({ stock: "a b" }).stock, "AAPL");
+  // Its range: today unless a week, a month or a year was picked.
+  assert.equal(normalizeTaskbar({}).marketRange, "1d");
+  assert.equal(normalizeTaskbar({ marketRange: "1y" }).marketRange, "1y");
+  assert.equal(normalizeTaskbar({ marketRange: "5y" }).marketRange, "1d");
 });
 
 test("the second group's versions are kept as saved, anything else dropped", () => {

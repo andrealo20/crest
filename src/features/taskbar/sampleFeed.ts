@@ -6,6 +6,7 @@ import type { Reading } from "../../notch/row/parts/Readings";
 import type { ClosedSettings } from "../../notch/row/parts";
 import type { NowPlaying } from "../../platform/media/types";
 import type { BarFeed } from "./barStores";
+import type { Market } from "./markets";
 import { WHATSAPP } from "./unread";
 
 /** 14:30 today: the time the sample's clocks show, which never tick. */
@@ -42,6 +43,17 @@ const NET_UP = [20, 25, 30, 60, 150, 140, 90, 40, 30, 25, 20, 20, 50, 110, 140, 
 const COIN_DAY = [82100, 82350, 82200, 82600, 82900, 82750, 83100, 83400, 83250, 83600, 83500, 83900, 84200, 84050, 83800, 83950, 84300, 84600, 84400, 84150, 84350, 84500, 84250, 84100, 84215];
 /** The coin over 7 days, hourly: six days climbing in waves, then its last day. */
 const COIN_WEEK = [...Array.from({ length: 168 - COIN_DAY.length }, (_, i) => Math.round(78400 + i * 26 + 600 * Math.sin(i / 9))), ...COIN_DAY];
+/** The stock over 5 sessions of 26 quarter hours, a dip on the third day, ending on its price. */
+const STOCK_WEEK = Array.from({ length: 130 }, (_, i) => +(345 + i * 0.08 - 4 * Math.exp(-(((i - 65) / 12) ** 2)) + 1.2 * Math.sin(i / 4)).toFixed(2)).map((v, i, a) => (i === a.length - 1 ? 355.58 : v));
+/** Today's performance of the Depot, every 2 minutes from the open: a slow rise. */
+const PORTFOLIO_DAY = Array.from({ length: 40 }, (_, i) => Math.round(12380 + i * 2.6 + 18 * Math.sin(i / 3)));
+
+/** The crypto widget's three versions with sample figures, for the bar in the dev server and the Widgets page, each drawing its own. */
+export const SAMPLE_MARKETS: Record<Market["kind"], Market> = {
+  coin: { kind: "coin", range: "1d", symbol: "BTC", base: "EUR", price: 84215, change: 2.41, line: COIN_WEEK, day: COIN_DAY.length },
+  stock: { kind: "stock", range: "1d", symbol: "AAPL", name: "Apple Inc.", base: "USD", price: 355.58, change: 0.43, line: STOCK_WEEK, day: 26 },
+  portfolio: { kind: "portfolio", range: "1d", symbol: "", base: "EUR", price: 12480, change: 0.82, line: PORTFOLIO_DAY, day: PORTFOLIO_DAY.length },
+};
 
 /** Today's Screen Time per hour, 3 h 05 min from 8 to 14:30. */
 const SCREEN_HOURS = Array.from({ length: 24 }, (_, h) => [0, 0, 0, 0, 0, 0, 0, 0, 1800, 3000, 2400, 1500, 600, 1200, 600][h] ?? 0);
@@ -131,7 +143,7 @@ export function sampleFeed(on: ClosedSettings["readings"]): BarFeed {
       ],
     },
     currency: { from: "GBP", to: "EUR", rate: 1.1835 },
-    crypto: { symbol: "BTC", base: "EUR", price: 84215, change: 2.41, line: COIN_WEEK },
+    crypto: SAMPLE_MARKETS.coin,
     // The same three apps as the Top apps.
     screenTime: {
       total: 11100,

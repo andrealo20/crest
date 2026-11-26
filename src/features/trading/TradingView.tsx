@@ -12,7 +12,7 @@ import { Button, Empty, Segmented, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
 import { usePresenting } from "../privacy/store";
 import { manualHoldings } from "./manual";
-import { combineChanges, seriesFor, todayChange, type DayChange, type History, type Line, type Range, type Totals } from "./portfolio";
+import { combineChanges, seriesFor, todayChange, totalPerformance, type DayChange, type History, type Line, type Range, type Totals } from "./portfolio";
 import { providerName } from "./providers";
 import { usePortfolio, type AccountState } from "./usePortfolio";
 
@@ -87,8 +87,8 @@ export function TradingView() {
   }
   // The total compares only accounts with points on both days, so a new or failing one is no jump.
   const today = selected
-    ? selected.history && todayChange(performance(totals), selected.history)
-    : combineChanges(accounts.map((a) => (a.summary && a.history ? todayChange(performance(a.summary), a.history) : null)));
+    ? selected.history && todayChange(totalPerformance(totals), selected.history)
+    : combineChanges(accounts.map((a) => (a.summary && a.history ? todayChange(totalPerformance(a.summary), a.history) : null)));
 
   return (
     <div className="flex h-full flex-col px-5 pt-1 pb-2">
@@ -105,7 +105,6 @@ export function TradingView() {
 type MoneyFn = (v: number, opts?: { signed?: boolean }) => string;
 
 /** Performance now: P&L plus the value of positions without a cost basis (see portfolio.ts). */
-const performance = (t: Totals) => t.unrealized + t.realized + t.noCost;
 
 function Overview(props: { totals: Totals; history: History | null; today: DayChange | null; range: Range; money: MoneyFn; title: ReactNode }) {
   const { totals, history, today, range: r, money, title } = props;

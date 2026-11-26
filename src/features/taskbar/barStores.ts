@@ -8,6 +8,7 @@ import { github } from "../github/store";
 import { hotkeysResting, shortcutResult } from "../launcher/store";
 import { leetcode } from "../leetcode/store";
 import type { ScriptPart } from "../notices/scriptParts";
+import type { Market } from "./markets";
 import { history } from "../notices/store";
 import { awake } from "../overview/store";
 import { privacy, snoozed } from "../privacy/store";
@@ -55,11 +56,8 @@ export interface BarFeed {
   weatherDays: Pick<Forecast, "daily" | "offset"> | null;
   /** The Converter's pair and one unit's rate, read hourly (marketSources.tsx). */
   currency: { from: string; to: string; rate: number } | null;
-  /**
-   * The crypto widget's coin in the base currency, read every 2 minutes (marketSources.tsx): its price, its change over 24 h in percent,
-   * and its hourly prices over the last 7 days, oldest first, of which the widget draws the last day and its panel all.
-   */
-  crypto: { symbol: string; base: string; price: number; change: number | null; line: number[] } | null;
+  /** The crypto widget's coin, stock or portfolio as its version reads it (marketSources.tsx); see Market. */
+  crypto: Market | null;
   /** Today's Screen Time: the total and the first three apps in seconds, and the seconds per hour, 24 of them; null while it does not record. */
   screenTime: { total: number; apps: { key: string; name: string; path: string | null; secs: number }[]; hours: number[] } | null;
   /** The Day timeline's timed events from midnight to tomorrow noon, without titles, and Screen Time per hour while it records. */

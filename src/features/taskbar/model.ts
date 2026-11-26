@@ -114,6 +114,10 @@ export interface TaskbarSettings {
   allDesktops: boolean;
   /** The crypto widget's coin, priced in the Depot's base currency. */
   coin: CryptoCoin;
+  /** Its stock in its Stock version, by its Yahoo Finance symbol (stockSymbol), priced in its own currency. */
+  stock: string;
+  /** What its line and its change span, in every version. */
+  marketRange: MarketRange;
   /** The apps the Unread widget counts, lower-case AppUserModelIDs in the order picked, three at most (unread.ts). */
   unread: string[];
   /** Folders of pinned apps; the apps stay in `pinned` (folderModel.ts). */
@@ -125,6 +129,17 @@ export const MARK_STYLES: readonly MarkStyle[] = ["dot", "large", "line"];
 /** The Start button's icons, the default first. */
 export type StartIcon = "windows" | "crest" | "dots" | "rocket" | "sparkle" | "star";
 export const START_ICONS: readonly StartIcon[] = ["windows", "crest", "dots", "rocket", "sparkle", "star"];
+/** A Yahoo Finance symbol as the crypto widget keeps it: trimmed, upper case, 1 to 15 of the letters, digits and marks its symbols use
+ *  ("AAPL", "VWCE.DE", "BRK-B", "^GSPC"), with a letter or digit among them (prices.rs `stock_url` asks the same); null otherwise. */
+export function stockSymbol(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim().toUpperCase() : "";
+  return /^[A-Z0-9.^=-]{1,15}$/.test(s) && /[A-Z0-9]/.test(s) ? s : null;
+}
+
+/** What the crypto widget's line and change span: today (a coin's last 24 hours, a stock's last session), a week, a month or a year. */
+export type MarketRange = "1d" | "1w" | "1m" | "1y";
+export const MARKET_RANGES: readonly MarketRange[] = ["1d", "1w", "1m", "1y"];
+
 /** The coins the crypto widget offers, Bitcoin first. */
 export const CRYPTO_COINS = ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "LTC"] as const;
 export type CryptoCoin = (typeof CRYPTO_COINS)[number];
@@ -170,6 +185,8 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   startIcon: "windows",
   allDesktops: false,
   coin: "BTC",
+  stock: "AAPL",
+  marketRange: "1d",
   unread: [WHATSAPP],
   folders: [],
 };
@@ -220,6 +237,7 @@ export type WidgetVariants = {
   screentime: "total" | "apps" | "hourly";
   timeline: "fullday" | "ahead";
   wallpaper: "thumb" | "keys";
+  crypto: "coin" | "stock" | "portfolio";
 };
 export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVariants[K][] } = {
   weather: ["temp", "icon", "condition", "hours", "details", "forecast", "sun"],
@@ -241,6 +259,7 @@ export const WIDGET_VARIANTS: { [K in keyof WidgetVariants]: readonly WidgetVari
   screentime: ["total", "apps", "hourly"],
   timeline: ["fullday", "ahead"],
   wallpaper: ["thumb", "keys"],
+  crypto: ["coin", "stock", "portfolio"],
 };
 
 export const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -305,6 +324,8 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     startIcon: START_ICONS.includes(s.startIcon as StartIcon) ? (s.startIcon as StartIcon) : d.startIcon,
     allDesktops: s.allDesktops === true,
     coin: CRYPTO_COINS.includes(s.coin as CryptoCoin) ? (s.coin as CryptoCoin) : d.coin,
+    stock: stockSymbol(s.stock) ?? d.stock,
+    marketRange: MARKET_RANGES.includes(s.marketRange as MarketRange) ? (s.marketRange as MarketRange) : d.marketRange,
     unread: normalizeUnread(s.unread, d.unread),
     folders: normalizeFolders(s.folders, pinned),
   };

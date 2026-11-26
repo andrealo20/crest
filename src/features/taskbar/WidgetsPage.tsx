@@ -7,19 +7,20 @@ import { PART_IDS, type PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { settings, type Settings } from "../../settings/store";
 import type { RowSymbol } from "../../ui/materialNames";
-import { Group, Row, Select } from "../../ui/controls";
+import { Group, Row, Segmented, Select } from "../../ui/controls";
 import { clocks } from "../clocks/store";
 import { normalizeZones } from "../clocks/zones";
 import { liveSupport } from "../../notch/glass/live";
 import { darkInk, useClosedInk } from "../themes/store";
 import { barLook } from "./look";
-import { SYS_IDS, type SysId, type Zone } from "./model";
+import { RANGE_LABEL } from "./markets";
+import { CRYPTO_COINS, MARKET_RANGES, SYS_IDS, variantOf, type SysId, type Zone } from "./model";
 import { SYS_INFO } from "./window/SysItems";
 import { SAMPLE_AT, SAMPLE_TIMER, sampleFeed } from "./sampleFeed";
 import { statusPill } from "./statusModel";
 import { setTaskbar } from "./store";
 import { UnreadPicks } from "./UnreadPicks";
-import { widgetNeeds } from "./WidgetRows";
+import { StockField, widgetNeeds } from "./WidgetRows";
 import { addWidget, applyChoice, barWidgets, chosenChoice, pillWidget, previewInk, removeWidget, variantKey, widgetChoices, type Removable, type WidgetChoice } from "./widgets";
 import { widgetBody } from "./window/Widget";
 
@@ -58,6 +59,9 @@ const VARIANT_LABEL: Record<string, string> = {
   gauge: "Zeiger",
   dots: "Punkte",
   classic: "Klassisch",
+  coin: "Münze",
+  stock: "Aktie",
+  portfolio: "Depot",
   text: "Titelzeile",
   play: "Mit Wiedergabetaste",
   cover: "Cover und Tasten",
@@ -272,7 +276,7 @@ function Versions({ id, s, zones }: { id: PartId; s: Settings; zones: readonly s
     (e.currentTarget.parentElement?.children[j] as HTMLElement | undefined)?.focus();
     pick(j);
   };
-  return (
+  const radios = (
     <div role="radiogroup" aria-label={t("Version")} className="flex flex-wrap gap-3 px-3 pb-3">
       {choices.map((c, i) => (
         <button
@@ -292,6 +296,36 @@ function Versions({ id, s, zones }: { id: PartId; s: Settings; zones: readonly s
           <span className={`px-1.5 pb-1 text-caption ${i === chosen ? "text-label material:text-on-secondary-container" : "text-label-2"}`}>{choiceLabel(c)}</span>
         </button>
       ))}
+    </div>
+  );
+  return id === "crypto" ? (
+    <>
+      {radios}
+      <MarketOptions s={s} />
+    </>
+  ) : (
+    radios
+  );
+}
+
+/**
+ * Under the crypto widget's versions: the coin of the Coin version or the stock of the Stock version (both also in its row in Items),
+ * and the range every version's line and change span.
+ */
+function MarketOptions({ s }: { s: Settings }) {
+  const v = variantOf(s.taskbar.variants, "crypto");
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3 pb-3">
+      {v === "coin" && <Select value={s.taskbar.coin} options={CRYPTO_COINS.map((c) => ({ value: c, label: c }))} onChange={(coin) => setTaskbar({ coin })} width="w-24" />}
+      {v === "stock" && <StockField value={s.taskbar.stock} />}
+      <Segmented
+        id="market-range"
+        label={t("Zeitspanne")}
+        size="sm"
+        value={s.taskbar.marketRange}
+        onChange={(marketRange) => setTaskbar({ marketRange })}
+        options={MARKET_RANGES.map((r) => ({ value: r, label: t(RANGE_LABEL[r]) }))}
+      />
     </div>
   );
 }

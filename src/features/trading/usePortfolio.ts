@@ -42,9 +42,10 @@ type Slot = { id: string; scope: string; account: Account | null; error: string 
 
 /**
  * Fetches every set-up account in parallel and publishes the state each time one settles, so
- * the first paint does not wait for the slowest provider. History is recorded once at the end.
+ * the first paint does not wait for the slowest provider. History is recorded once at the end. `pollMs`: how often it reads
+ * again, the Depot's view every POLL_MS, the bar's crypto widget less often.
  */
-export function usePortfolio() {
+export function usePortfolio(pollMs = POLL_MS) {
   const { env, base: stored } = settings.use().trading;
   const base = effectiveBase(stored);
   const manual = manualHoldings.use();
@@ -160,12 +161,12 @@ export function usePortfolio() {
   useEffect(() => {
     epoch.current++;
     void refresh();
-    const id = setInterval(() => void refresh(), POLL_MS);
+    const id = setInterval(() => void refresh(), pollMs);
     return () => {
       epoch.current++;
       clearInterval(id);
     };
-  }, [refresh]);
+  }, [refresh, pollMs]);
 
   return { state, loading, updatedAt, refresh };
 }

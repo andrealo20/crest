@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changeTone, rateText, spanPoints } from "./markets.ts";
+import { changeTone, dayLine, rateText, spanPoints } from "./markets.ts";
 
 test("a rate keeps five significant digits in the language's own figures, so the widget's room fits any pair", () => {
   assert.equal(rateText(1.183456, "en"), "1.1835");
@@ -37,4 +37,11 @@ test("a change is up or down as it shows at two decimals, flat below that or unk
   assert.equal(changeTone(0.004), "flat");
   assert.equal(changeTone(-0.004), "flat");
   assert.equal(changeTone(null), "flat");
+});
+
+test("the bar draws the line's last day: the coin's 24 hours, the stock's session, all of the Depot's today", () => {
+  assert.deepEqual(dayLine({ line: [1, 2, 3, 4, 5], day: 2 }), [4, 5]);
+  assert.deepEqual(dayLine({ line: [1, 2, 3], day: 3 }), [1, 2, 3]);
+  assert.deepEqual(dayLine({ line: [1, 2, 3], day: 9 }), [1, 2, 3]);
+  assert.deepEqual(dayLine({ line: [1, 2, 3], day: 0 }), []);
 });

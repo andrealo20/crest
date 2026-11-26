@@ -1,5 +1,6 @@
 import { barFeed } from "../features/taskbar/barStores";
-import { sampleFeed } from "../features/taskbar/sampleFeed";
+import { variantOf } from "../features/taskbar/model";
+import { SAMPLE_MARKETS, sampleFeed } from "../features/taskbar/sampleFeed";
 import { barStatus } from "../features/taskbar/status";
 import { inputLang } from "../features/taskbar/input";
 import { barWindows } from "../features/taskbar/store";
@@ -33,4 +34,11 @@ export function fillSample(): void {
     });
   barStatus.set({ power: mockStatus.seed().power, network: { kind: "wireless", wifi: true, bars: 4, ssid: "Crest Lab" }, sound: { level: 40, muted: false }, microphone: false });
   barFeed.set(sampleFeed(settings.get().closed.readings));
+  // The crypto widget's sample follows its version and its range, as the notch's source does.
+  const market = () => {
+    const { variants, marketRange: range } = settings.get().taskbar;
+    barFeed.set((f) => ({ ...f, crypto: { ...SAMPLE_MARKETS[variantOf(variants, "crypto")], range } }));
+  };
+  market();
+  settings.subscribe(market);
 }

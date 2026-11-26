@@ -392,6 +392,7 @@ pub fn run() {
             trading::portfolio_fetch,
             trading::portfolio_prices,
             trading::portfolio_coin,
+            trading::portfolio_stock,
             trading::portfolio_record,
             trading::portfolio_forget,
             usage::usage_fetch,
@@ -1378,6 +1379,7 @@ mod tests {
         // The bar's Converter and Calculator read the public reference rates themselves; the crypto widget's coin is the notch's.
         assert!(ok("taskbar", "portfolio_prices") && ok("taskbar-1", "portfolio_prices"));
         assert!(!ok("taskbar", "portfolio_coin") && ok("notch", "portfolio_coin"));
+        assert!(!ok("taskbar", "portfolio_stock") && ok("notch", "portfolio_stock"));
         // The bar's Depot asks which keys are stored, reads the accounts with them and records its history, as the notch's does. It
         // never stores, reads or forgets a key: that is the settings' (secret_set, portfolio_forget), and the Vault's secrets stay
         // the notch's alone.

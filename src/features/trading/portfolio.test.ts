@@ -8,6 +8,7 @@ import {
   parseAmount,
   priceNeeds,
   seriesFor,
+  spanChange,
   summarize,
   toBase,
   todayChange,
@@ -182,6 +183,10 @@ test("today's change and chart series", () => {
   assert.equal(todayChange(150, { history: [], intraday: [] }), null);
   assert.deepEqual(seriesFor(h, "1d"), [100, 110, 150]);
   assert.deepEqual(seriesFor(h, "7d"), [100, 150]);
+  // The crypto widget over a week: the performance of the daily points, its change in percent of the first one's value.
+  assert.deepEqual(spanChange(h, 8), { line: [100, 150], pct: 5 });
+  assert.deepEqual(spanChange({ history: h.history.slice(-1), intraday: [] }, 8), { line: [150], pct: null });
+  assert.deepEqual(spanChange({ history: [], intraday: [] }, 8), { line: [], pct: null });
 });
 
 test("value without cost basis counts for today and the chart", () => {

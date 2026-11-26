@@ -65,6 +65,8 @@ export interface WidgetContext {
   variants: TaskbarSettings["variants"];
   /** The battery's percentage beside the Classic battery (TaskbarSettings `batteryPercent`); absent counts as on. */
   batteryPercent?: boolean;
+  /** What the crypto widget's line and change span (TaskbarSettings `marketRange`); absent counts as today. */
+  marketRange?: TaskbarSettings["marketRange"];
   /** The Clocks tool's zones the engine knows, in its order (normalizeZones). */
   zones: readonly string[];
   /** The song the bar's window follows itself, read by the song title's versions only. */
@@ -324,6 +326,7 @@ export function WidgetItem({ id, item, paused, onClick, onContextMenu, onPointer
     timerDuration: duration,
     variants: taskbar.variants,
     batteryPercent: taskbar.batteryPercent,
+    marketRange: taskbar.marketRange,
     zones,
     track,
     own,
