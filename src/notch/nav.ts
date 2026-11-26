@@ -11,6 +11,9 @@ import { notchOpen, pinned, stayUntilVisit } from "./useNotchState";
  */
 export const nav = createStore<{ tabId: string; section: string | null }>({ tabId: "media", section: null });
 
+/** In the Settings window: text the bar's search asked it to look for (searchLink.ts); SettingsView puts it in its field and empties this. */
+export const settingsQuery = createStore<string | null>(null);
+
 export function navigate(tabId: string, section: string | null = null) {
   const route = navRoute(tabId, windowKind, isNative);
   // The settings open in their window; the notch keeps the tool it shows. Inside the window, the section reaches the page

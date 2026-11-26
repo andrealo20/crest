@@ -6,7 +6,8 @@ import { settings } from "../../../settings/store";
 import { language, startLanguage } from "../../../i18n";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
-import { nav } from "../../../notch/nav";
+import { nav, settingsQuery } from "../../../notch/nav";
+import { sectionQuery } from "../searchLink";
 import { settingsWindow } from "../../../platform/native";
 import { followStores } from "../../../lib/bridge";
 import { tauriTransport } from "../../../lib/tauriTransport";
@@ -38,10 +39,15 @@ window.addEventListener("keydown", (e) => {
 });
 
 // What only the notch knows (update, shortcuts, readings), over the bridge; then the section asked for when the window opened,
-// and the ones asked for while it stays open.
+// and the ones asked for while it stays open. A section with text from the bar's search opens the window's own search on it.
 followStores(tauriTransport, sharedStores);
-void settingsWindow.takeSection().then((section) => section && nav.set({ tabId: "settings", section }));
-settingsWindow.onSection((section) => nav.set({ tabId: "settings", section }));
+const go = (section: string) => {
+  const query = sectionQuery(section);
+  if (query !== null) settingsQuery.set(query);
+  nav.set({ tabId: "settings", section: query === null ? section : null });
+};
+void settingsWindow.takeSection().then((section) => section && go(section));
+settingsWindow.onSection(go);
 
 /** Re-renders on a language change, as the notch's root does. */
 function App() {

@@ -5,6 +5,13 @@ import { aiKey, detectAi, launcherCell, mergeApps, moveFavorite, normalizeFavori
 const start = (name: string, id = `shell:AppsFolder\\${name}`): LauncherApp => ({ id, name, source: "start" });
 const path = (name: string, id: string): LauncherApp => ({ id, name, source: "apppaths" });
 
+test("a few initials find an app after the names that contain the text", () => {
+  const apps = [start("Notepad"), start("Visio"), start("Visual Studio Code")];
+  assert.equal(searchApps(apps, "vsc")[0]?.name, "Visual Studio Code");
+  assert.deepEqual(searchApps(apps, "vis").map((a) => a.name), ["Visio", "Visual Studio Code"]);
+  assert.deepEqual(searchApps(apps, "xyz"), []);
+});
+
 test("ai detection by name", () => {
   for (const n of ["Claude", "ChatGPT", "Copilot", "Microsoft Copilot", "Cursor", "Codex", "Perplexity", "Gemini", "Windsurf", "LM Studio", "Ollama", "Jan"]) assert.ok(aiKey({ name: n }), n);
   for (const n of ["Uninstall Claude", "Cursor Help", "Notepad", "January Planner", "GitHub Copilot Chat Extension", "Visual Studio Code"]) assert.equal(aiKey({ name: n }), null, n);
