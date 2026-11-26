@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MARKS, SHAPES, brandOf, idHash, loadShape, mixPoints, niceMax, pathOf, shapePoints, systemFit, trendArea, trendLine, type ShapeName } from "./hero.ts";
+import { MARKS, SHAPES, brandOf, idHash, loadShape, mixPoints, niceMax, pathOf, shapePoints, squarePoints, styledPoints, systemFit, trendArea, trendLine, type ShapeName } from "./hero.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -119,4 +119,19 @@ test("the history line lifts its pen over a gap, and its area closes each run do
   assert.equal(trendLine([0, 50, NaN, 100], 100, 160, 22, 60), "M154.5,20.0L157.2,11.0M162.8,2.0");
   assert.equal(trendArea([0, 50, NaN, 100], 100, 160, 22, 60), "M154.5,22.0L154.5,20.0L157.2,11.0L157.2,22.0ZM162.8,22.0L162.8,2.0L162.8,22.0Z");
   assert.equal(trendArea([0, 50, NaN, 100], 100, 424, 40, 60), "M409.4,40.0L409.4,38.0L416.7,20.0L416.7,40.0ZM431.3,40.0L431.3,2.0L431.3,40.0Z");
+});
+
+test("the shapes setting draws Material's wavy shape, a circle or a rounded square, each 120 points in the same box", () => {
+  const at = (p: number[], i: number) => Math.hypot(p[2 * i] - 50, p[2 * i + 1] - 50);
+  assert.deepEqual(styledPoints("wavy", 4, 0.12), shapePoints(4, 0.12));
+  const circle = styledPoints("circle", 4, 0.12);
+  assert.equal(circle.length, 240);
+  for (let i = 0; i < 120; i++) assert.ok(Math.abs(at(circle, i) - 50) < 1e-9, `circle ${i}`);
+  const square = squarePoints();
+  assert.deepEqual(styledPoints("square", 9, 0.07), square);
+  assert.equal(square.length, 240);
+  // Its sides touch the box at the axes; its corners round off inside it.
+  assert.ok(Math.abs(at(square, 0) - 50) < 1e-9 && Math.abs(at(square, 30) - 50) < 1e-9);
+  assert.ok(at(square, 15) > 55 && at(square, 15) < 50 * Math.SQRT2);
+  for (const v of square) assert.ok(v >= -1e-9 && v <= 100 + 1e-9, String(v));
 });

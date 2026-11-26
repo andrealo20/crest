@@ -111,11 +111,11 @@ pub fn monitors(app: &AppHandle) -> Vec<isize> {
     hwnds.map(|h| unsafe { MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST) }.0 as isize).collect()
 }
 
-/// "Raise now": the shown mirrors go back on top of the topmost windows too.
-pub fn raise(app: &AppHandle) {
+/// "Raise now" and a change of Behind: the shown mirrors go back on top of the topmost windows, or under every window (display.rs `stack`).
+pub fn restack(app: &AppHandle) {
     for (label, window) in app.webview_windows() {
         if label.starts_with("mirror-") && window.is_visible().unwrap_or(false) {
-            display::raise_topmost(&window);
+            display::stack(&window);
         }
     }
 }
@@ -189,12 +189,12 @@ fn run(app: AppHandle, rx: Receiver<()>) {
                 known = Some(now);
             }
         }
-        // Another app came to the front: the mirrors go back on top, like the notch (display.rs).
+        // Another app came to the front: the mirrors go back on top, like the notch (display.rs), or stay under with Behind on.
         let front = unsafe { GetForegroundWindow() }.0 as isize;
         if front != foreground {
             foreground = front;
             for m in mirrors.iter().filter(|m| m.shown) {
-                display::raise_topmost(&m.window);
+                display::stack(&m.window);
             }
         }
         if std::mem::take(&mut dirty) {
@@ -265,7 +265,7 @@ fn sync(app: &AppHandle, mirrors: &mut Vec<Mirror>) {
             m.shown = show;
             if show {
                 let _ = m.window.show();
-                display::raise_topmost(&m.window);
+                display::stack(&m.window);
                 // Only after show(): it fails on a window that was never shown. Clicks always go through; hover is read here.
                 let _ = m.window.set_ignore_cursor_events(true);
             } else {

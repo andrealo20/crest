@@ -118,7 +118,7 @@ test("the Material hardware measures its body and lays out Stellaria's dashboard
     "minmax(104px,126fr)",
     "minmax(80px,152fr)",
     "text-on-secondary-container",
-    't("Klicken für das nächste Laufwerk")',
+    "<DriveList drives={st.drives}",
     "holdProcesses.set(true)",
     "holdProcesses.set(false)",
     ".slice(0, fit.rows)",
@@ -171,13 +171,13 @@ test("the Material hardware uses none of the CSS the style avoids", () => {
   assert.doesNotMatch(materialView, /\b(bg|text|fill|stroke|ring|border)-[\w-]+\/\d/);
 });
 
-test("the drive counter follows the drive letters, as the GPU's badge follows its name, and covers no part of the ring", () => {
+test("the Material hardware lists every drive at once, the first three, and keeps the ring for a single one", () => {
+  const list = part("DriveList");
+  assert.ok(list.includes("drives.slice(0, 3)"), list);
+  assert.ok(list.includes("{d.letters}") && list.includes("percent(Math.round(share))"), list);
+  // One drive is the ring, with nothing to click through.
   const drive = part("DriveCard");
-  assert.ok(!drive.includes("absolute"), "no absolute badge");
-  const letters = drive.indexOf("{d.letters}");
-  const badge = drive.indexOf("(index % drives.length) + 1");
-  assert.ok(letters > 0 && badge > letters, "after the letters");
-  assert.ok(drive.includes('className="tabular shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] text-label-2"'), drive);
+  assert.ok(drive.includes("<Ring ") && !drive.includes("setIndex") && !drive.includes("absolute"), drive);
 });
 
 test("the Material network graph says it is reading until it has two samples, as Stellaria's collecting text does", () => {

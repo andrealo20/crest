@@ -537,6 +537,8 @@ export const display = {
     edge?: string;
     line?: number;
     along?: number;
+    /** "Behind other windows" (display.rs `rests_below`). */
+    behind?: boolean;
   }) => {
     if (isNative) void invoke("display_apply", { config });
   },

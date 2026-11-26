@@ -92,11 +92,12 @@ function apply() {
   // the colour editor shows its own colours whatever card the pointer rests on.
   const file = draft.get()?.present ?? (style === "material" ? previewTheme.get() : null) ?? savedTheme();
   const more = moreContrast?.matches ?? false;
-  const key = JSON.stringify([style, more, file]);
+  const black = settings.get().themes.materialBlack;
+  const key = JSON.stringify([style, more, black, file]);
   if (key === lastKey) return;
   lastKey = key;
   const contrast = more ? 1 : 0;
-  const resolved = style === "material" ? resolveMaterial(file, { contrast }) : resolveTheme(file);
+  const resolved = style === "material" ? resolveMaterial(file, { contrast, black }) : resolveTheme(file);
   const root = document.documentElement;
   const write = () => {
     // A crossfade's callback waits for a frame; a newer apply() in between has already drawn what is due.
@@ -109,7 +110,7 @@ function apply() {
     // Here, not after apply(): a crossfade draws this later, and the font must follow the Style it draws.
     applyFont();
     // Before activeTheme, whose listeners (the glass) read the ink.
-    inkTheme.set(style === "material" ? materialInk(file, { contrast }) : DARK);
+    inkTheme.set(style === "material" ? materialInk(file, { contrast, black }) : DARK);
     activeTheme.set(resolved);
   };
   if (wantsViewTransition(root.dataset.design as Design | undefined, style, typeof document.startViewTransition === "function")) {

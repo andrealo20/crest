@@ -52,7 +52,7 @@ import {
 import { BackupSettings } from "./BackupSettings";
 // The suffix tells it from contours.ts on a disk that ignores case.
 import { Contours } from "./Contours.tsx";
-import { brandOf, shapePoints } from "../system/hero";
+import { brandOf, styledPoints } from "../system/hero";
 import { MorphPath } from "../system/Morph";
 import { diagnosticsText } from "./diagnostics";
 import { cascades, shellLayout, showsHeaderTitle } from "./shell";
@@ -642,7 +642,8 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
 
 /** The settings window's mark: a shape for each page that morphs into the next, under one glyph no page has, as Stellaria's brand. */
 function NavMark({ id, size }: { id: string; size: 40 | 54 }) {
-  const points = useMemo(() => shapePoints(...brandOf(id)), [id]);
+  const style = settings.use().themes.materialShape;
+  const points = useMemo(() => styledPoints(style, ...brandOf(id)), [style, id]);
   return (
     // 54 is the list's size, where the mark stands above the search pill; the rail and the row on top place it themselves.
     <span aria-hidden className={`relative flex shrink-0 items-center justify-center ${size === 54 ? "mb-2 self-start" : ""}`} style={{ width: size, height: size }}>

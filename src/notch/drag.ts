@@ -85,6 +85,7 @@ export function applyDisplay(offset = pageCss(settings.get().display.offset), y?
     edge,
     line: here.line,
     along: windowLength(dock, stale),
+    behind: b.behind,
   });
 }
 

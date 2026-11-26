@@ -857,7 +857,10 @@ pub fn run() {
             let window = portable::create_window(app)?;
             // Setup runs on the main thread, so this is in place before the first show.
             #[cfg(windows)]
-            display::keep_out_of_alt_tab(&window);
+            {
+                display::keep_out_of_alt_tab(&window);
+                display::keep_below(&window);
+            }
             display::place(&window, &app.state::<display::DisplayState>())?;
             window.show()?;
             #[cfg(target_os = "macos")]

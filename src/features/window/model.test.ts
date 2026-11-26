@@ -12,6 +12,13 @@ test("without a saved group the rules follow the old visibility setting", () => 
   assert.equal(normalizeWindow({ rules: { borderless: "line" } }, "hide-fullscreen").rules.borderless, "line");
 });
 
+test("Crest stays on top unless Behind other windows is switched on", () => {
+  assert.equal(normalizeWindow(undefined).behind, false);
+  assert.equal(normalizeWindow({}).behind, false);
+  assert.equal(normalizeWindow({ behind: true }).behind, true);
+  assert.equal(normalizeWindow({ behind: "yes" }).behind, false);
+});
+
 test("broken values fall back, valid ones stay", () => {
   const w = normalizeWindow({ rules: { maximized: "bogus", exclusive: "hide", background: "yes" }, scale: 150, closeDelay: "slow", wheelTools: false });
   assert.deepEqual(w.rules, { maximized: "normal", borderless: "normal", exclusive: "hide", background: true });

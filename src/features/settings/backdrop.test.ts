@@ -74,7 +74,7 @@ test("the navigation's mark morphs per page in the settings window's list and ra
   const at = view.indexOf("function NavMark(");
   assert.ok(at > 0, "NavMark found");
   const body = view.slice(at, view.indexOf("\nfunction ", at + 1));
-  for (const s of ["brandOf(id)", "shapePoints(", "<MorphPath", "fill-primary", "forced-colors:fill-[CanvasText]", "text-on-primary", "forced-colors:text-[Canvas]", "aria-hidden", "<Star "])
+  for (const s of ["brandOf(id)", "styledPoints(style, ", "<MorphPath", "fill-primary", "forced-colors:fill-[CanvasText]", "text-on-primary", "forced-colors:text-[Canvas]", "aria-hidden", "<Star "])
     assert.ok(body.includes(s), s);
   // A glyph no page has, so the mark never repeats the item next to it; only the shape follows the page.
   assert.ok(!body.includes("Glyph") && !body.includes("AnimatePresence"), "one fixed glyph");

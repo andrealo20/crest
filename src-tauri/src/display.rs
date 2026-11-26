@@ -13,6 +13,9 @@
 //! until the notch closes; the floating timer hides and shows with the notch, and also hides while a window on its own monitor
 //! calls for the line or hiding (until another window comes to front after it was opened).
 //!
+//! "Behind other windows" (`behind`) turns that around: the notch rests at the bottom of the z-order, on the desktop, and comes on top
+//! only while it is opened on purpose and not kept open, or an indicator shows (`rests_below`); its copies stay under every window.
+//!
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
 //! the page is zoomed and the window grown by it. Windows' Text size makes WebView2 draw the page larger again
 //! (text_scale.rs) and the window grows with it too, so CSS px times DPI times zoom times Text size are device pixels.
@@ -32,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
 #[cfg(windows)]
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 #[cfg(windows)]
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 #[cfg(windows)]
@@ -43,10 +46,11 @@ use windows::Win32::System::Threading::GetCurrentProcessId;
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SHQueryUserNotificationState, SetWindowSubclass, QUNS_RUNNING_D3D_FULL_SCREEN};
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
-    GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
-    GW_OWNER, HWND_TOPMOST, STYLESTRUCT, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WM_NCDESTROY, WM_STYLECHANGING,
-    WS_CAPTION, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_THICKFRAME,
+    EnumWindows, GetAncestor, GetClassNameW, GetCursorPos, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW,
+    GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowLongPtrW, SetWindowPos, WindowFromPoint,
+    GA_ROOT, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HWND_BOTTOM, HWND_TOPMOST, STYLESTRUCT, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_NOZORDER, WINDOWPOS, WM_NCDESTROY, WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_CAPTION, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TRANSPARENT, WS_THICKFRAME,
 };
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
@@ -135,6 +139,9 @@ pub struct Config {
     /// The window's length along that edge in CSS px, longer than `ALONG` for a wide closed notch (src/notch/collapsed.ts windowAlong); see `fit_along`.
     #[serde(default)]
     along: f64,
+    /// "Behind other windows" (the Window page): the notch rests under every window, on the desktop (`rests_below`).
+    #[serde(default)]
+    behind: bool,
 }
 
 /// `line` and `y` of Config for one monitor.
@@ -163,6 +170,7 @@ impl Default for Config {
             edge: String::new(),
             line: 0.0,
             along: 0.0,
+            behind: false,
         }
     }
 }
@@ -259,12 +267,13 @@ pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -
 #[tauri::command]
 pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_, DisplayState>, hit: State<'_, HitState>) {
     config.zoom = fit_zoom(config.zoom);
-    let (moved, zoomed, mirrored) = {
+    let (moved, zoomed, mirrored, behind) = {
         let cur = state.config.lock().unwrap();
         (
             cur.monitor != config.monitor || cur.offset != config.offset || cur.y != config.y || cur.edge != config.edge || cur.line != config.line || cur.along != config.along,
             cur.zoom != config.zoom,
             cur.mode != config.mode || cur.spots != config.spots,
+            cur.behind != config.behind,
         )
     };
     let zoom = config.zoom;
@@ -280,6 +289,9 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
     }
     if moved || zoomed || mirrored {
         crate::mirror::wake(window.app_handle());
+    }
+    if behind {
+        restack(window.app_handle());
     }
 }
 
@@ -336,16 +348,28 @@ pub fn display_fullscreen(state: State<'_, DisplayState>) -> bool {
 /// While an indicator shows everywhere (status alerts), brings out the window that a rule or the hotkey keeps hidden, and hides it again
 /// after. It neither activates the window nor takes the pointer, so the app in front, a game or a video, keeps both: `hidden` stays true
 /// meanwhile, the hit-test thread rests and the window stays click-through. `sync` takes over whenever the reason to hide changes.
+/// With Behind on, a notch in sight but under the windows comes on top for the indicator the same way, and goes back under after.
 #[tauri::command]
 pub fn display_alert(app: AppHandle, on: bool) {
     let state = app.state::<DisplayState>();
     let Some(window) = app.get_webview_window("notch") else { return };
     if on {
-        if state.hidden.load(Ordering::Relaxed) && !state.revealed.swap(true, Ordering::Relaxed) {
-            show_quietly(&window);
+        if state.revealed.load(Ordering::Relaxed) {
+            return;
         }
-    } else if state.revealed.swap(false, Ordering::Relaxed) && state.hidden.load(Ordering::Relaxed) {
-        hide_quietly(&window);
+        if state.hidden.load(Ordering::Relaxed) {
+            state.revealed.store(true, Ordering::Relaxed);
+            show_quietly(&window);
+        } else if state.config.lock().unwrap().behind {
+            state.revealed.store(true, Ordering::Relaxed);
+            restack(&app);
+        }
+    } else if state.revealed.swap(false, Ordering::Relaxed) {
+        if state.hidden.load(Ordering::Relaxed) {
+            hide_quietly(&window);
+        } else {
+            restack(&app);
+        }
     }
 }
 
@@ -379,20 +403,15 @@ fn show_quietly(window: &WebviewWindow) {
 #[cfg(not(windows))]
 fn show_quietly(_window: &WebviewWindow) {}
 
-/// "Raise now": shows Crest if the hide hotkey hid it and puts it on top of the topmost windows.
+/// "Raise now": shows Crest if the hide hotkey hid it and puts it on top of the topmost windows, or with Behind on back under every
+/// window (`restack`).
 #[tauri::command]
 pub fn display_raise(app: AppHandle) {
     bring_back(&app);
-    let Some(window) = app.get_webview_window("notch") else { return };
+    // The bar first, so the notch stays above it.
     #[cfg(windows)]
-    {
-        // The bar first, so the notch stays above it.
-        crate::taskbar::bar::raise(&app);
-        raise_topmost(&window);
-        crate::mirror::raise(&app);
-    }
-    #[cfg(target_os = "macos")]
-    crate::macos::raise(&window);
+    crate::taskbar::bar::raise(&app);
+    restack(&app);
 }
 
 /// Puts the window on top of the other topmost windows. `set_always_on_top(true)` does nothing on a window that is already topmost.
@@ -401,6 +420,113 @@ pub(crate) fn raise_topmost(window: &WebviewWindow) {
     if let Ok(hwnd) = window.hwnd() {
         let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
     }
+}
+
+/// "Behind other windows" is on (Config `behind`): the copies on the other monitors stay under every window (`stack`).
+static BEHIND: AtomicBool = AtomicBool::new(false);
+/// The notch rests under every window right now (`rests_below`): its subclass holds it at the bottom of the z-order whatever tries to
+/// raise it (`below_proc`), and the hit test lets the pointer open it only where no window covers it (`covered`).
+static BOTTOM: AtomicBool = AtomicBool::new(false);
+
+/// Whether the notch rests under every window: with Behind on, unless it was opened on purpose (the shortcut, the tray, the Launcher)
+/// and is not kept open, or an indicator brings it out for a moment (`display_alert`).
+pub(crate) fn rests_below(behind: bool, opened: bool, kept: bool, revealed: bool) -> bool {
+    behind && !revealed && !(opened && !kept)
+}
+
+/// Puts the notch where Behind wants it now (`rests_below`): at the bottom under every window, or on top of the topmost ones, and the
+/// copies with it. A hidden window is left alone: `sync` stacks it as it shows it.
+pub(crate) fn restack(app: &AppHandle) {
+    let state = app.state::<DisplayState>();
+    let behind = state.config.lock().unwrap().behind;
+    let revealed = state.revealed.load(Ordering::Relaxed);
+    let below = rests_below(behind, state.opened.load(Ordering::Relaxed), app.state::<HitState>().kept_open(), revealed);
+    BEHIND.store(behind, Ordering::Relaxed);
+    BOTTOM.store(below, Ordering::Relaxed);
+    if let Some(window) = app.get_webview_window("notch") {
+        if !state.hidden.load(Ordering::Relaxed) || revealed {
+            #[cfg(windows)]
+            if below {
+                to_bottom(&window);
+            } else {
+                raise_topmost(&window);
+            }
+            #[cfg(target_os = "macos")]
+            if below {
+                crate::macos::sink(&window);
+            } else {
+                let _ = window.set_always_on_top(true);
+                crate::macos::raise(&window);
+            }
+        }
+    }
+    #[cfg(windows)]
+    crate::mirror::restack(app);
+}
+
+/// Under every window, the topmost flag dropped with it (HWND_BOTTOM does both).
+#[cfg(windows)]
+fn to_bottom(window: &WebviewWindow) {
+    if let Ok(hwnd) = window.hwnd() {
+        let _ = unsafe { SetWindowPos(hwnd, Some(HWND_BOTTOM), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+    }
+}
+
+/// A copy on another monitor: under every window while Behind is on, else on top of the topmost ones.
+#[cfg(windows)]
+pub(crate) fn stack(window: &WebviewWindow) {
+    if BEHIND.load(Ordering::Relaxed) {
+        to_bottom(window);
+    } else {
+        raise_topmost(window);
+    }
+}
+
+/// While the notch rests below (`BOTTOM`), any move of it in the z-order goes to the bottom instead: a click activates it, which
+/// would bring it up, and so would a raise of Crest's own or of tao's.
+#[cfg(windows)]
+unsafe extern "system" fn below_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _: usize, _: usize) -> LRESULT {
+    if msg == WM_WINDOWPOSCHANGING && BOTTOM.load(Ordering::Relaxed) {
+        let pos = unsafe { &mut *(lparam.0 as *mut WINDOWPOS) };
+        if pos.flags.0 & SWP_NOZORDER.0 == 0 {
+            pos.hwndInsertAfter = HWND_BOTTOM;
+        }
+    } else if msg == WM_NCDESTROY {
+        let _ = unsafe { RemoveWindowSubclass(hwnd, Some(below_proc), BELOW_SUBCLASS) };
+    }
+    unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+}
+
+#[cfg(windows)]
+const BELOW_SUBCLASS: usize = 2;
+
+/// Gives the notch's window `below_proc`, on the window's own thread, where SetWindowSubclass has to run.
+#[cfg(windows)]
+pub(crate) fn keep_below(window: &WebviewWindow) {
+    let Ok(hwnd) = window.hwnd() else { return };
+    let hwnd = hwnd.0 as isize;
+    let _ = window.run_on_main_thread(move || {
+        if !unsafe { SetWindowSubclass(HWND(hwnd as _), Some(below_proc), BELOW_SUBCLASS, 0) }.as_bool() {
+            eprintln!("below subclass: SetWindowSubclass failed");
+        }
+    });
+}
+
+/// With the notch resting below, whether another window is over the pointer, so the pointer is no hover for the notch: what is under it
+/// is neither the notch (skipped while it lets clicks through) nor the desktop behind it.
+#[cfg(windows)]
+pub(crate) fn covered(notch: isize) -> bool {
+    let mut p = POINT::default();
+    if !BOTTOM.load(Ordering::Relaxed) || unsafe { GetCursorPos(&mut p) }.is_err() {
+        return false;
+    }
+    let root = unsafe { GetAncestor(WindowFromPoint(p), GA_ROOT) };
+    if root.is_invalid() || root.0 as isize == notch {
+        return false;
+    }
+    let mut class = [0u16; 16];
+    let n = unsafe { GetClassNameW(root, &mut class) }.max(0) as usize;
+    !matches!(String::from_utf16_lossy(&class[..n]).as_str(), "Progman" | "WorkerW")
 }
 
 /// A tool window and not an app window: out of Alt+Tab, Task View and the taskbar. Every other bit stays as tao and hit_test.rs
@@ -516,12 +642,14 @@ pub fn unhide(app: &AppHandle) {
     state.user_hidden.store(false, Ordering::Relaxed);
     state.opened.store(true, Ordering::Relaxed);
     sync(app);
+    restack(app);
 }
 
 /// The notch closed (keyboard_focus(false) in lib.rs): the rules hide it again.
 pub fn closed(app: &AppHandle) {
     if app.state::<DisplayState>().opened.swap(false, Ordering::Relaxed) {
         sync(app);
+        restack(app);
     }
 }
 
@@ -587,13 +715,7 @@ fn sync(app: &AppHandle) {
         let _ = window.hide();
     } else {
         let _ = window.show();
-        #[cfg(windows)]
-        raise_topmost(&window);
-        #[cfg(target_os = "macos")]
-        {
-            let _ = window.set_always_on_top(true);
-            crate::macos::raise(&window);
-        }
+        restack(app);
         // Let the click-through state be set again after show() (the poll caches the old one).
         app.state::<HitState>().refresh();
     }
@@ -780,7 +902,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             // the app whose tray menu a right click opened: it comes to the front to show the menu, which must stay above the bar.
             if foreground != last_foreground && !crate::taskbar::tray::menu_of(window_pid(foreground)) {
                 crate::taskbar::bar::raise(&app);
-                if !state.hidden.load(Ordering::Relaxed) {
+                // Resting under the windows with Behind on, it stays there.
+                if !state.hidden.load(Ordering::Relaxed) && !BOTTOM.load(Ordering::Relaxed) {
                     raise_topmost(&window);
                 }
             }
@@ -1037,6 +1160,20 @@ pub(crate) fn is_desktop(hwnd: HWND) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn behind_rests_under_the_windows_unless_opened_on_purpose_and_not_kept_open_or_an_indicator_shows() {
+        assert!(!rests_below(false, false, false, false));
+        assert!(rests_below(true, false, false, false));
+        // Opened with the shortcut, the tray or the Launcher: on top until it closes, or until it is kept open.
+        assert!(!rests_below(true, true, false, false));
+        assert!(rests_below(true, true, true, false));
+        // An indicator brings it out for its moment.
+        assert!(!rests_below(true, false, false, true));
+        assert!(!rests_below(true, true, true, true));
+        // Off, nothing rests below.
+        assert!(!rests_below(false, true, true, true));
+    }
 
     #[test]
     fn a_new_text_size_keeps_a_hanging_edge_on_its_line() {

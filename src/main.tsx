@@ -89,7 +89,7 @@ let lastDisplay = "";
 let lastScale = 100;
 const syncDisplay = () => {
   const { display, gaming, behavior } = settings.get();
-  const rules = JSON.stringify([behavior.rules, behavior.apps, behavior.scale]);
+  const rules = JSON.stringify([behavior.rules, behavior.apps, behavior.scale, behavior.behind]);
   const key = `${rules}|${display.monitor}|${display.monitorMode}|${display.offset}|${placementKey()}|${gaming.mode}`;
   if (key === lastDisplay) return;
   lastDisplay = key;
