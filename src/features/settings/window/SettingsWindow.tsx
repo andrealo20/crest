@@ -18,7 +18,7 @@ const drag = (e: React.MouseEvent) => {
  * which opens the last page used on that side. Under Material the settings draw that row's actions in their own page header.
  * No data-tauri-drag-region: its double click asks for a maximize the window cannot do.
  */
-export function SettingsWindow() {
+export function SettingsWindow({ onClose = close }: { onClose?: () => void }) {
   const scopes = useScopes();
   const material = design.use() === "material";
   // Only with more than the notch's scope: the Taskbar's where the bar can run, Pomelo's on Windows outside the Store.
@@ -29,7 +29,7 @@ export function SettingsWindow() {
       <div className="flex h-full flex-col bg-notch">
         <h1 className="sr-only">{t("Einstellungen")}</h1>
         <div className="min-h-0 flex-1">
-          <SettingsView chrome={{ onClose: close, onDrag: drag, center: scopeSwitch || undefined }} />
+          <SettingsView chrome={{ onClose, onDrag: drag, center: scopeSwitch || undefined }} />
         </div>
       </div>
     );
@@ -42,7 +42,7 @@ export function SettingsWindow() {
           // Centred on the window, not on the room the close button leaves.
           <div className="absolute left-1/2 -translate-x-1/2">{scopeSwitch}</div>
         )}
-        <HeaderButton label={t("Schließen")} onClick={close}>
+        <HeaderButton label={t("Schließen")} onClick={onClose}>
           <X size={14} weight="bold" />
         </HeaderButton>
       </div>

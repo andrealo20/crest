@@ -12,6 +12,11 @@ test("the demo keeps settings in the panel", () => {
   assert.equal(navRoute("settings", "notch", false), "panel");
 });
 
+test("the demo with a desktop opens the settings in a window of their own, and its tools in the panel", () => {
+  assert.equal(navRoute("settings", "notch", false, true), "settings-window");
+  assert.equal(navRoute("media", "notch", false, true), "panel");
+});
+
 test("a tool asked for from another window opens in the notch", () => {
   assert.equal(navRoute("launcher", "settings", true), "notch");
   assert.equal(navRoute("setup", "settings", true), "notch");

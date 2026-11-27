@@ -116,7 +116,6 @@ import { ClipboardSettings } from "../clipboard/ClipboardSettings";
 import { TranslateSettings } from "../translate/TranslateSettings";
 import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
 import { WidgetsPage } from "../taskbar/WidgetsPage";
-import { demoBarOffered } from "../taskbar/store";
 import { PomeloMain, PomeloSchemaPage } from "../pomelo/PomeloSettings";
 import { loadSchema, pomeloOffered, schema } from "../pomelo/store";
 import { engine, loadEngine } from "../files/store";
@@ -324,7 +323,6 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const deepLink = nav.use();
   const saved = savedPage.use();
   const taskbarShown = useTaskbarShown();
-  const demoBar = demoBarOffered.use();
   const material = design.use() === "material";
   const reduced = useReducedMotion() === true;
   const pomeloPages = usePomeloPages();
@@ -498,10 +496,6 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   );
 
   const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
-  // The site's full-screen demo shows the settings in the notch's panel (src/dev/demoBar.tsx): the Notch | Taskbar switch the app's
-  // settings window draws in its title row goes over the page there. Never in the app, whose window has its own.
-  const scopes = scopeOptions(taskbarShown, pomeloOffered, saved.scope === "pomelo");
-  const scopeSwitch = demoBar && scopes.length > 1 && <ScopeSwitch scopes={scopes} />;
   // Material's items: pills with their name in the list, round icons in the rail and the row on top.
   const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
   const materialNav = (
@@ -657,7 +651,6 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             {layout !== "top" && header}
             {/* The panel has no header: the opened field takes a row of its own above the content. */}
             {!chrome && compact && fieldShown && <div className="flex shrink-0 px-2 pb-2">{searchPill("min-w-0 flex-1")}</div>}
-            {scopeSwitch && <div className="flex shrink-0 justify-center pb-2">{scopeSwitch}</div>}
             {pageArea}
           </div>
           {hiddenIndex}
@@ -704,14 +697,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
             <span className="relative leading-tight">{t("Fehler melden")}</span>
           </button>
         </nav>
-        {scopeSwitch ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="flex shrink-0 justify-center pb-2">{scopeSwitch}</div>
-            {pageArea}
-          </div>
-        ) : (
-          pageArea
-        )}
+        {pageArea}
         {hiddenIndex}
       </div>
     </RoomyContext>

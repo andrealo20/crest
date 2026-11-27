@@ -14,8 +14,11 @@ export const nav = createStore<{ tabId: string; section: string | null }>({ tabI
 /** In the Settings window: text the bar's search asked it to look for (settings_window_open's `query`); SettingsView puts it in its field and empties this. */
 export const settingsQuery = createStore<string | null>(null);
 
+/** The browser demo draws a settings window over its desktop (src/dev/demoBar.tsx): the settings open there, not in the panel. */
+export const demoSettingsWindow = createStore(false);
+
 export function navigate(tabId: string, section: string | null = null) {
-  const route = navRoute(tabId, windowKind, isNative);
+  const route = navRoute(tabId, windowKind, isNative, demoSettingsWindow.get());
   // The settings open in their window; the notch keeps the tool it shows. Inside the window, the section reaches the page
   // through Rust (settings/window/main.tsx). Unpinned first: the notch closes when the window takes the focus, and a pinned
   // notch ignores that.

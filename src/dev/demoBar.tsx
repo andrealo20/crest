@@ -1,11 +1,12 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { MotionConfig } from "motion/react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { createStore } from "../lib/store";
-import { language } from "../i18n";
+import { language, t } from "../i18n";
 import { activeTool } from "../notch/header";
-import { nav, navigate } from "../notch/nav";
+import { demoSettingsWindow, nav } from "../notch/nav";
+import { SettingsWindow } from "../features/settings/window/SettingsWindow";
 import { notchOpen, pinned } from "../notch/useNotchState";
 import { demoOpen, settingsWindow } from "../platform/native";
 import { launcher, mockStatus, taskbar } from "../platform/services";
@@ -216,16 +217,55 @@ function answer() {
     barWindows.set(shown ? windowAction(barWindows.get(), shown.id, "activate") : launchApp(barWindows.get(), app));
     return Promise.resolve();
   };
-  // The settings open in the notch, on the bar's page the menu asks for; a tool the panel does not show opens there too.
+  // The settings open in a window over the desktop, as in the app (DemoSettings), on the page the menu or the gear asks for. The
+  // notch closes, as it does when the app's window takes the focus; a tool the panel does not show opens in the notch.
   settingsWindow.open = (section) => {
-    if (section) navigate("settings", section);
-    openNotch("settings");
+    if (section) nav.set({ ...nav.get(), section });
+    // Esc closes the notch and unpins it (useNotchState): sent before the window listens for it.
+    dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    settingsShown.set(true);
     return Promise.resolve();
   };
   settingsWindow.notchOpen = (tab) => {
     openNotch(tab);
     return Promise.resolve();
   };
+}
+
+/** The demo's settings window: shown while true, closed by its X or Esc. */
+const settingsShown = createStore(false);
+
+/** The app's settings window (SettingsWindow, with the Notch, Taskbar and Pomelo switch) on the demo's desktop, centred and kept inside it. */
+function DemoSettings() {
+  language.use();
+  const shown = settingsShown.use();
+  useEffect(() => {
+    if (!shown) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && settingsShown.set(false);
+    addEventListener("keydown", esc);
+    return () => removeEventListener("keydown", esc);
+  }, [shown]);
+  return (
+    <MotionConfig reducedMotion="user">
+      <AnimatePresence>
+        {shown && (
+          <motion.div
+            key="settings"
+            role="dialog"
+            aria-label={t("Einstellungen")}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 420, damping: 36 }}
+            className="pointer-events-auto absolute left-1/2 top-1/2 overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10"
+            style={{ width: "min(820px, calc(100vw - 32px))", height: "min(600px, calc(100vh - 140px))", x: "-50%", y: "-50%" }}
+          >
+            <SettingsWindow onClose={() => settingsShown.set(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </MotionConfig>
+  );
 }
 
 function DemoBar() {
@@ -261,6 +301,17 @@ export function mountDemoBar() {
   createRoot(host).render(
     <StrictMode>
       <DemoBar />
+    </StrictMode>,
+  );
+  // The settings window: over the desktop and the bar, under the notch (z-50), as in the app.
+  demoSettingsWindow.set(true);
+  const windowHost = document.createElement("div");
+  windowHost.id = "demo-settings";
+  windowHost.style.cssText = "position:fixed;inset:0;z-index:45;pointer-events:none";
+  document.body.append(windowHost);
+  createRoot(windowHost).render(
+    <StrictMode>
+      <DemoSettings />
     </StrictMode>,
   );
 }

@@ -12,8 +12,8 @@ import { defaultsOf, parseSchema, valuesOf, type SchemaPage, type WheelState } f
  * settings schema with its values, read only once the Pomelo scope (or the settings search) asks for them.
  */
 
-/** Windows only (the Store build too, with the package inside its own); in the browser only while developing. */
-export const pomeloOffered = !isMac && (isNative || import.meta.env.DEV);
+/** Windows only (the Store build too, with the package inside its own); in the browser while developing and in the site's demo, on src/dev/pomelo-sample.ts. */
+export const pomeloOffered = !isMac && (isNative || import.meta.env.DEV || import.meta.env.MODE === "demo");
 
 export const wheelState = createStore<WheelState>({ phase: "off", locked: false });
 
