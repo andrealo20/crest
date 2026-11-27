@@ -1,97 +1,8 @@
 /*
  * The home page: a purple first screen with the headline over the whole desktop, notch and taskbar, a band of every tool that
- * slides with the scroll, and a pinned story where the notch opens on one tool after another and the page takes its colour.
+ * slides with the scroll, then every feature as a list of names beside the one picked.
  * Transform and opacity only, except the notch's own size, which springs like the app's.
  */
-
-/* ---------- The notch ---------- */
-
-.notch-wrap {
-  position: relative;
-  display: inline-block;
-}
-.notch {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  background: #000;
-  color: #fff;
-  cursor: pointer;
-}
-div.notch {
-  cursor: default;
-}
-.ear {
-  position: absolute;
-  top: 0;
-  z-index: 1;
-}
-.ear-left {
-  left: -14px;
-}
-.ear-right {
-  right: -14px;
-}
-.notch-shot {
-  display: block;
-  max-width: none;
-  align-self: start;
-  grid-area: 1 / 1;
-}
-.notch-row {
-  grid-area: 1 / 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  width: 100%;
-}
-.notch-cover {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: var(--p);
-}
-.notch-time {
-  font-size: 14px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  margin-right: auto;
-}
-.notch-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-}
-.notch-bars i {
-  width: 3px;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--p);
-  transform-origin: bottom;
-  animation: bar 900ms ease-in-out infinite alternate;
-}
-.notch-bars i:nth-child(2) {
-  animation-duration: 640ms;
-}
-.notch-bars i:nth-child(3) {
-  animation-duration: 1100ms;
-}
-.notch-bars i:nth-child(4) {
-  animation-duration: 760ms;
-}
-@keyframes bar {
-  from {
-    transform: scaleY(0.25);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}
 
 /* ---------- First screen ---------- */
 
@@ -202,71 +113,6 @@ div.notch {
   white-space: nowrap;
 }
 
-/* ---------- The pinned story ---------- */
-
-.story {
-  position: relative;
-}
-.story-pin {
-  grid-template-columns: minmax(0, 1fr);
-  position: sticky;
-  top: 0;
-  height: 100svh;
-  overflow: hidden;
-  isolation: isolate;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-/* The notch hangs from the bottom of the black bar that stays at the top (.sticky-bar, 64 px), not from under it. */
-.story-stage {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 64px 16px 0;
-}
-.story-plain {
-  display: block;
-  height: auto;
-}
-.story-copy {
-  grid-area: 3 / 1;
-  align-self: end;
-  padding: 0 var(--m) clamp(40px, 6vh, 72px);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  max-width: 40em;
-}
-.story-copy h3 {
-  font-size: var(--step-display);
-  line-height: 0.95;
-  letter-spacing: -0.045em;
-  font-weight: 800;
-  margin-bottom: 14px;
-  max-width: 11em;
-}
-.story-icon {
-  grid-area: 2 / 1;
-  align-self: center;
-  padding-left: var(--m);
-  color: #000;
-  line-height: 0;
-}
-.story-icon svg {
-  width: clamp(96px, 28vw, 150px);
-  height: auto;
-}
-.story-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 8px;
-  background: #000;
-  transform-origin: left;
-}
-
 /* ---------- The closed row ---------- */
 
 .closed-sec {
@@ -318,31 +164,6 @@ div.notch {
     justify-content: space-between;
     gap: var(--m);
   }
-  .story-icon {
-    padding: 0;
-    position: absolute;
-    right: var(--m);
-    bottom: clamp(32px, 6vh, 64px);
-    color: #000;
-    line-height: 0;
-    z-index: -1;
-    opacity: 0.9;
-  }
-  .story-icon svg {
-    width: clamp(180px, 22vw, 330px);
-    height: auto;
-  }
-  .story-pin {
-    grid-template-rows: 100svh;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  }
-  .story-stage {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .story-copy {
-    grid-area: 1 / 1;
-  }
 }
 
 @media (max-width: 999px) {
@@ -351,12 +172,6 @@ div.notch {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .notch-bars i {
-    animation: none;
-    transform: scaleY(0.6);
-  }
-}
 
 /* ---------- Make it yours ---------- */
 
@@ -654,6 +469,131 @@ div.notch {
   max-width: 30em;
 }
 
+/* ---------- Everything it does ---------- */
+
+.catalog {
+  background: #fff;
+  color: #000;
+}
+.cat-head {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: clamp(36px, 5vw, 72px);
+}
+.cat-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--m);
+  align-items: start;
+}
+.cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.cat-group-name {
+  font-size: var(--step-small) !important;
+  font-weight: 800;
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.cat-group-name::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--hue);
+}
+.cat-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease);
+}
+.cat-name:hover {
+  background: #f0f0f0;
+}
+.cat-name[aria-pressed="true"] {
+  background: #000;
+  color: #fff;
+}
+.cat-fresh {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0a7d3b;
+}
+.cat-name[aria-pressed="true"] .cat-fresh {
+  color: #7dffb0;
+}
+.cat-inline {
+  padding: 16px 0 24px;
+}
+.cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.cat-card h3 {
+  font-size: var(--step-sub);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-top: 12px;
+}
+.cat-card p {
+  font-size: var(--step-body);
+  line-height: 1.55;
+  max-width: 36em;
+}
+.cat-notes {
+  font-weight: 650;
+}
+.cat-notes:empty {
+  display: none;
+}
+.cat-pic {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  color: #000;
+  padding: clamp(12px, 2vw, 32px);
+}
+.cat-pic img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.cat-word {
+  font-size: clamp(32px, 4vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  text-align: center;
+}
+
 /* ---------- Install: one tab per system ---------- */
 
 .os-tabs {
@@ -711,6 +651,13 @@ div.notch {
 }
 
 @media (min-width: 1000px) {
+  .cat-body {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  }
+  .cat-panel {
+    position: sticky;
+    top: 88px;
+  }
   .hero-copy .hero-side {
     align-items: flex-end;
   }
