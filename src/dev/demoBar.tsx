@@ -48,7 +48,7 @@ function applySettings() {
       // The home page's screen shows the wallpaper through the bar
       ...(framed ? { transparency: 55 } : {}),
       // The full-screen desktop, which has the fake live copy (?glassLive, src/notch/glass/live.ts), starts with Liquid Glass + on the bar, clear enough to see the wallpaper through it, Glass too
-      ...(new URLSearchParams(location.search).has("glassLive") ? { glass: true, glassLook: "plus" as const, transparency: 85 } : {}),
+      ...(new URLSearchParams(location.search).has("glassLive") ? { glass: true, glassLook: "plus" as const, transparency: 100 } : {}),
     },
     // Start opens the Launcher: the same apps as on the bar, which it starts there.
     launcher: { ...s.launcher, favorites: DEMO_APPS.map((a) => ({ id: a.id, name: a.name })) },
@@ -308,7 +308,7 @@ export function mountDemoBar() {
     </StrictMode>,
   );
   // The bar's glass draws in this page, whose live copy follows the notch's needs: the bar's switch asks for it too.
-  if (new URLSearchParams(location.search).has("glassLive")) demoClearest.set(0.2);
+  if (new URLSearchParams(location.search).has("glassLive")) demoClearest.set(0.05);
   const barGlass = () => liveForBar(settings.get().taskbar.glass);
   barGlass();
   settings.subscribe(barGlass);

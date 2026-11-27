@@ -198,7 +198,8 @@ const QUICK: Quick[] = [
     name: "Bar glass",
     choices: [["Off", "off"], ["Glass", "crest"], ["Liquid Glass +", "plus"]],
     now: (s) => (s.taskbar.glass ? s.taskbar.glassLook : "off"),
-    set: (v) => (s) => ({ taskbar: { ...s.taskbar, glass: v !== "off", glassLook: v === "off" ? s.taskbar.glassLook : (v as Settings["taskbar"]["glassLook"]) } }),
+    // Liquid Glass + as clear as it goes and Glass nearly so, to show the wallpaper; without glass the plain bar nearly opaque.
+    set: (v) => (s) => ({ taskbar: { ...s.taskbar, glass: v !== "off", transparency: v === "off" ? 20 : v === "plus" ? 100 : 85, glassLook: v === "off" ? s.taskbar.glassLook : (v as Settings["taskbar"]["glassLook"]) } }),
   },
   { name: "Pet", choices: [["None", ""], ["Cat", "cat"]], now: (s) => s.closed.pet.id ?? "", set: (v) => (s) => ({ closed: { ...s.closed, pet: { ...s.closed.pet, id: (v || null) as Settings["closed"]["pet"]["id"] } } }) },
 ];

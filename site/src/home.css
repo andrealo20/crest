@@ -129,8 +129,8 @@
 /* ---------- The closed row ---------- */
 
 .closed-sec {
-  background: var(--p);
-  color: #000;
+  background: #000;
+  color: var(--label);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -417,8 +417,8 @@
 /* ---------- The taskbar ---------- */
 
 .bar-sec {
-  background: #4fa8ff;
-  color: #000;
+  background: #000;
+  color: var(--label);
   display: flex;
   flex-direction: column;
   gap: clamp(32px, 4vw, 56px);

@@ -652,8 +652,8 @@ pre code {
 }
 
 .privacy {
-  background: var(--y);
-  color: #000;
+  background: #000;
+  color: var(--label);
 }
 .privacy-row {
   display: grid;
@@ -724,8 +724,8 @@ pre code {
 }
 
 .install {
-  background: var(--p);
-  color: #000;
+  background: #000;
+  color: var(--label);
 }
 .giant {
   font-size: var(--step-display) !important;
@@ -1065,21 +1065,10 @@ details p {
   white-space: nowrap;
 }
 
-/* Try it: a light sweeps across it and a ring pulses out of it, again and again, to invite the click. Still under reduced motion. */
+/* Try it: a light sweeps across it again and again, to invite the click. Still under reduced motion. */
 .btn-shine {
   position: relative;
   isolation: isolate;
-}
-.btn-shine::before {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  z-index: -1;
-  border-radius: inherit;
-  box-shadow: 0 0 0 2px rgb(123 97 255 / 0.9), 0 0 22px 4px rgb(123 97 255 / 0.55);
-  opacity: 0;
-  pointer-events: none;
-  animation: shine-ring 2.6s ease-out infinite;
 }
 .btn-shine::after {
   content: "";
@@ -1093,17 +1082,6 @@ details p {
 .btn-light.btn-shine::after {
   background-image: linear-gradient(110deg, transparent 35%, rgb(123 97 255 / 0.4) 50%, transparent 65%);
 }
-@keyframes shine-ring {
-  0% {
-    opacity: 0.9;
-    transform: scale(0.97);
-  }
-  70%,
-  100% {
-    opacity: 0;
-    transform: scale(1.14);
-  }
-}
 @keyframes shine-sweep {
   0%,
   35% {
@@ -1115,7 +1093,6 @@ details p {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .btn-shine::before,
   .btn-shine::after {
     animation: none;
   }
