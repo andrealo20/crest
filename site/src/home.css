@@ -1,5 +1,5 @@
 /*
- * The home page: a purple first screen with the headline over the whole desktop, notch and taskbar, a band of every tool that
+ * The home page: a black first screen, with the contour lines of the settings under Material drifting behind, and the headline over the whole desktop, notch and taskbar, a band of every tool that
  * slides with the scroll, then every feature as a list of names beside the one picked.
  * Transform and opacity only, except the notch's own size, which springs like the app's.
  */
@@ -8,12 +8,27 @@
 
 .hero {
   position: relative;
+  isolation: isolate;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  background: #7b61ff;
-  color: #000;
+  background: #000;
+  color: #fff;
   overflow: hidden;
+}
+.hero-waves {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+/* Black buttons and figures on the black ground: a faint ring keeps their edge. */
+.hero .btn:not(.btn-light):not(.btn-ghost):not(.sticky-get),
+.closing .btn:not(.btn-light):not(.btn-ghost),
+.hero .hero-live {
+  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.3);
 }
 .hero {
   padding-top: 56px;
@@ -640,8 +655,11 @@
 /* ---------- The close ---------- */
 
 .closing {
-  background: #7b61ff;
-  color: #000;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
   display: flex;
   flex-direction: column;
   gap: 36px;

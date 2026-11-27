@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { ArrowUpRight, DownloadSimple, GithubLogo } from "./icons";
+import { HeroWaves } from "./HeroWaves";
 import { News } from "./News";
 import { PixelReveal } from "./PixelReveal";
 import { Catalog } from "./Catalog";
@@ -209,6 +210,7 @@ function Hero() {
   const wide = useWide();
   return (
     <section className="hero" aria-labelledby="hero-title">
+      <HeroWaves />
       {!wide && (
         <div className="hero-notch">
           <LiveNotch />
@@ -290,6 +292,7 @@ function Bar() {
 function Closing() {
   return (
     <section className="sec closing" aria-labelledby="closing-title">
+      <HeroWaves />
       <Rise><h2 id="closing-title">Rebuild yours in a minute.</h2></Rise>
       <Rise i={1} className="actions">
         <a className="btn btn-bounce" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
