@@ -41,7 +41,7 @@ function applySettings() {
       ...s.taskbar,
       enabled: true,
       pinned: DEMO_APPS.filter((a) => a.pinned).map((a) => ({ id: a.id, name: a.name })),
-      zones: { left: ["readings", "weather", "rings", "tool:media"], center: ["start", "apps"], right: ["timer", "tool:notes", "tray", "status", "clock", "crest"] },
+      zones: { left: ["readings", "weather", "rings", "tool:media"], center: ["start", "sys:searchbox", "apps"], right: ["timer", "tool:notes", "tray", "status", "clock", "crest"] },
       trayShown: TRAY.map((t) => t.id),
       // The home page's screen shows the wallpaper through the bar
       ...(framed ? { transparency: 55 } : {}),
