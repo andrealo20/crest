@@ -96,6 +96,8 @@ export interface TaskbarSettings {
   wheelVolume: boolean;
   /** The battery's percentage after it, in Stato and the Battery widget's Classic version. */
   batteryPercent: boolean;
+  /** A faint glow of colour along the search panel's edge (window/SearchGlow.tsx). */
+  searchGlow: boolean;
   /** The other monitors get a bar too, as Windows' "Show my taskbar on all displays". */
   allScreens: boolean;
   /** Where an app's button shows with several bars: the bar of its window's monitor, that one and the main bar, or every bar. */
@@ -176,6 +178,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   windowCount: false,
   wheelVolume: false,
   batteryPercent: true,
+  searchGlow: true,
   allScreens: true,
   appsOn: "own",
   clockAll: false,
@@ -315,6 +318,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     windowCount: s.windowCount === true,
     wheelVolume: s.wheelVolume === true,
     batteryPercent: s.batteryPercent !== false,
+    searchGlow: s.searchGlow !== false,
     allScreens: s.allScreens !== false,
     appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,
     clockAll: s.clockAll === true,
@@ -697,7 +701,7 @@ export function clickAction(b: BarButton, mods: ClickMods = {}, o: { active?: nu
 
 /** A Windows key Rust sends the bar (keys.rs Key): Win+number with its modifiers, Win+T (by 1) and Win+Shift+T (by -1), Win+B. */
 export type BarKeyMods = "plain" | "shift" | "ctrl" | "ctrlShift" | "alt";
-export type BarKey = { kind: "number"; n: number; mods: BarKeyMods } | { kind: "apps"; by: 1 | -1 } | { kind: "tray" };
+export type BarKey = { kind: "number"; n: number; mods: BarKeyMods } | { kind: "apps"; by: 1 | -1 } | { kind: "tray" } | { kind: "search" };
 
 /** The button Win+n acts on, counting every button in the bar's order, those behind "…" too, as Windows counts its own; Win+0 is the tenth. */
 export const buttonAt = (buttons: BarButton[], n: number): BarButton | undefined => buttons[n - 1];

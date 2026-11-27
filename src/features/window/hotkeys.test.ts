@@ -47,22 +47,23 @@ test("recording a key press", () => {
 });
 
 test("conflicts: the later shortcut yields to the earlier one", () => {
-  assert.deepEqual(conflicts({ open: "Ctrl+Alt+Space", hide: "alt+ctrl+Space", resize: "", find: "", mic: "" }), { open: null, hide: "open", resize: null, find: null, mic: null });
+  assert.deepEqual(conflicts({ open: "Ctrl+Alt+Space", hide: "alt+ctrl+Space", resize: "", find: "", mic: "", search: "" }), { open: null, hide: "open", resize: null, find: null, mic: null, search: null });
   // One arrow of the resize shortcut taken is enough.
-  assert.deepEqual(conflicts({ open: "Ctrl+Alt+ArrowLeft", hide: "", resize: "Ctrl+Alt+Arrows", find: "", mic: "" }), { open: null, hide: null, resize: "open", find: null, mic: null });
+  assert.deepEqual(conflicts({ open: "Ctrl+Alt+ArrowLeft", hide: "", resize: "Ctrl+Alt+Arrows", find: "", mic: "", search: "" }), { open: null, hide: null, resize: "open", find: null, mic: null, search: null });
+  assert.equal(conflicts({ open: "Ctrl+Alt+Space", hide: "", resize: "", find: "", mic: "", search: "ctrl+alt+Space" }).search, "open");
   // Find on screen and the microphone mute come last.
-  assert.deepEqual(conflicts({ open: "", hide: "Ctrl+Alt+KeyF", resize: "", find: "Ctrl+Alt+KeyF", mic: "" }), { open: null, hide: null, resize: null, find: "hide", mic: null });
-  assert.deepEqual(conflicts({ open: "", hide: "", resize: "", find: "Ctrl+Alt+KeyF", mic: "Ctrl+Alt+KeyF" }), { open: null, hide: null, resize: null, find: null, mic: "find" });
+  assert.deepEqual(conflicts({ open: "", hide: "Ctrl+Alt+KeyF", resize: "", find: "Ctrl+Alt+KeyF", mic: "", search: "" }), { open: null, hide: null, resize: null, find: "hide", mic: null, search: null });
+  assert.deepEqual(conflicts({ open: "", hide: "", resize: "", find: "Ctrl+Alt+KeyF", mic: "Ctrl+Alt+KeyF", search: "" }), { open: null, hide: null, resize: null, find: null, mic: "find", search: null });
   // Invalid or unset ones collide with nothing.
-  assert.deepEqual(conflicts({ open: "", hide: "", resize: "", find: "", mic: "" }), { open: null, hide: null, resize: null, find: null, mic: null });
-  assert.deepEqual(conflicts({ open: "KeyK", hide: "KeyK", resize: "", find: "", mic: "" }), { open: null, hide: null, resize: null, find: null, mic: null });
+  assert.deepEqual(conflicts({ open: "", hide: "", resize: "", find: "", mic: "", search: "" }), { open: null, hide: null, resize: null, find: null, mic: null, search: null });
+  assert.deepEqual(conflicts({ open: "KeyK", hide: "KeyK", resize: "", find: "", mic: "", search: "" }), { open: null, hide: null, resize: null, find: null, mic: null, search: null });
   // The launcher's Alt+N keys, while on, come first.
-  assert.deepEqual(conflicts({ open: "Alt+Digit2", hide: "Alt+Digit5", resize: "", find: "", mic: "Alt+Digit1" }, launcherKeys(3)), { open: "launcher", hide: null, resize: null, find: null, mic: "launcher" });
+  assert.deepEqual(conflicts({ open: "Alt+Digit2", hide: "Alt+Digit5", resize: "", find: "", mic: "Alt+Digit1", search: "" }, launcherKeys(3)), { open: "launcher", hide: null, resize: null, find: null, mic: "launcher", search: null });
   assert.deepEqual(launcherKeys(9), ["Alt+Digit1", "Alt+Digit2", "Alt+Digit3", "Alt+Digit4", "Alt+Digit5", "Alt+Digit6"]);
 });
 
 test("tool shortcuts yield to Crest's own, the launcher's and an earlier tool's", () => {
-  const own = { open: "Ctrl+Alt+Space", hide: "", resize: "Ctrl+Alt+Arrows", find: "Ctrl+Alt+Shift+KeyF", mic: "" };
+  const own = { open: "Ctrl+Alt+Space", hide: "", resize: "Ctrl+Alt+Arrows", find: "Ctrl+Alt+Shift+KeyF", mic: "", search: "" };
   assert.deepEqual(
     toolConflicts(own, [
       ["clipboard", "Ctrl+Alt+KeyV"],
@@ -76,7 +77,7 @@ test("tool shortcuts yield to Crest's own, the launcher's and an earlier tool's"
   // A tool follows the open shortcut's rules: a letter alone is no shortcut, so it collides with nothing.
   assert.deepEqual(toolConflicts(own, [["clipboard", "KeyV"], ["shelf", "KeyV"]]), { clipboard: null, shelf: null });
   // Crest's own shortcuts never yield to a tool's.
-  assert.deepEqual(conflicts({ ...own, hide: "Ctrl+Alt+KeyV" }), { open: null, hide: null, resize: null, find: null, mic: null });
+  assert.deepEqual(conflicts({ ...own, hide: "Ctrl+Alt+KeyV" }), { open: null, hide: null, resize: null, find: null, mic: null, search: null });
   assert.deepEqual(toolConflicts({ ...own, hide: "Ctrl+Alt+KeyV" }, [["clipboard", "Ctrl+Alt+KeyV"]]), { clipboard: "hide" });
   // A tool whose shortcut yielded holds nothing, so a later tool with another clash points at the real holder.
   assert.deepEqual(toolConflicts(own, [["shelf", "Ctrl+Alt+Space"], ["notes", "Ctrl+Alt+Space"]]), { shelf: "open", notes: "open" });

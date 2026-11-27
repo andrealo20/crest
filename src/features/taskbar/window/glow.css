@@ -1,0 +1,16 @@
+/* The search panel's glow (SearchGlow.tsx): one turn of its colours every 9 s, on the compositor; still for reduced motion. */
+.search-glow-turn {
+  animation: search-glow-turn 9s linear infinite;
+}
+
+@keyframes search-glow-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-glow-turn {
+    animation: none;
+  }
+}

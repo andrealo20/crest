@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, SearchSparkle, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
+import { BellSimple, BellSimpleSlash, Broadcast, Copy, DotsNine, Eject, Files, Keyboard, MagnifyingGlass, MapPin, Microphone, Monitor, Moon, Sparkle, SquaresFour, Sun, Translate, Trash, VideoCamera, type Icon } from "../../../ui/iconset";
 import { fade, pulse, springs } from "../../../design/motion";
 import { t } from "../../../i18n";
 import { systemDark } from "../../../notch/glass/media";
@@ -18,7 +18,8 @@ import { Item, type ItemProps } from "./Item";
 
 /** Each of Windows' buttons the bar holds (model.ts SYS_IDS): its name (a key for t()) and its icon, which the settings and the drag's ghost show too. */
 export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
-  search: { label: "Suchen", icon: SearchSparkle },
+  // A plain lens: the search box carries the AI sparkles, and the two must not be taken for each other.
+  search: { label: "Suchen", icon: MagnifyingGlass },
   taskview: { label: "Aufgabenansicht", icon: Copy },
   widgets: { label: "Windows-Widgets", icon: SquaresFour },
   desktop: { label: "Desktop anzeigen", icon: Monitor },
@@ -30,7 +31,7 @@ export const SYS_INFO: Record<SysId, { label: string; icon: Icon }> = {
   notifications: { label: "Benachrichtigungscenter", icon: BellSimple },
   dnd: { label: "Nicht stören", icon: BellSimpleSlash },
   recent: { label: "Zuletzt geöffnet", icon: Files },
-  searchbox: { label: "Suchen oder öffnen", icon: MagnifyingGlass },
+  searchbox: { label: "Suchen oder öffnen", icon: Sparkle },
   deskicons: { label: "Desktopsymbole", icon: DotsNine },
   eject: { label: "USB-Laufwerk auswerfen", icon: Eject },
   hotspot: { label: "Mobiler Hotspot", icon: Broadcast },
@@ -144,11 +145,18 @@ function SearchBox({ item, dragged, onOpen }: { item: Omit<ItemProps, "onClick" 
         onOpen?.(e.currentTarget);
       }}
     >
-      <span aria-hidden className="flex h-6 w-[120px] items-center gap-1.5 rounded-full bg-fill-2 px-2.5" style={{ zoom: k }}>
-        <MagnifyingGlass size={14} weight="regular" className="shrink-0 text-label-3" />
-        <span className="truncate text-footnote text-label-3">{t("Suchen oder öffnen")}</span>
-      </span>
+      <SearchBoxFace k={k} />
     </Item>
+  );
+}
+
+/** The search box as the bar draws it, the Widgets page's preview too: a pill with the AI sparkles, `k` the widgets' scale. */
+export function SearchBoxFace({ k }: { k: number }) {
+  return (
+    <span aria-hidden className="flex h-6 w-[120px] items-center gap-1.5 rounded-full bg-fill-2 px-2.5" style={{ zoom: k }}>
+      <Sparkle size={14} weight="fill" className="shrink-0 text-accent material:text-primary" />
+      <span className="truncate text-footnote text-label-3">{t("Suchen oder öffnen")}</span>
+    </span>
   );
 }
 

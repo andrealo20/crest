@@ -7,7 +7,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { settings, type Settings } from "../../settings/store";
 import type { RowSymbol } from "../../ui/materialNames";
-import { Group, Row, Segmented, Select } from "../../ui/controls";
+import { Group, Row, Segmented, Select, Switch } from "../../ui/controls";
 import { clocks } from "../clocks/store";
 import { normalizeZones } from "../clocks/zones";
 import { liveSupport } from "../../notch/glass/live";
@@ -15,7 +15,7 @@ import { darkInk, useClosedInk } from "../themes/store";
 import { barLook } from "./look";
 import { RANGE_LABEL } from "./markets";
 import { CRYPTO_COINS, MARKET_RANGES, SYS_IDS, variantOf, type SysId, type Zone } from "./model";
-import { SYS_INFO } from "./window/SysItems";
+import { SearchBoxFace, SYS_INFO } from "./window/SysItems";
 import { SAMPLE_AT, SAMPLE_TIMER, sampleFeed } from "./sampleFeed";
 import { statusPill } from "./statusModel";
 import { setTaskbar } from "./store";
@@ -149,7 +149,7 @@ const SYS_SYMBOL: Record<SysId, RowSymbol> = {
   notifications: "notifications",
   dnd: "notifications_off",
   recent: "file_copy",
-  searchbox: "search",
+  searchbox: "auto_awesome",
   deskicons: "apps",
   eject: "eject",
   hotspot: "wifi_tethering",
@@ -163,6 +163,7 @@ export function WidgetsPage() {
   return (
     <>
       <Group id="settings-taskbar-widgets">
+        <SearchBoxRow s={s} />
         {PART_IDS.map((id) => (
           <div key={id}>
             <WidgetRow id={id} s={s} zoned={zones.length > 0} />
@@ -180,7 +181,7 @@ export function WidgetsPage() {
 function WindowsButtons({ s }: { s: Settings }) {
   return (
     <Group id="settings-taskbar-windows-buttons" title={t("Windows-Schaltflächen")}>
-      {SYS_IDS.map((id) => (
+      {SYS_IDS.filter((id) => id !== "searchbox").map((id) => (
         <SysRow key={id} id={id} s={s} />
       ))}
     </Group>
@@ -194,6 +195,27 @@ function WidgetRow({ id, s, zoned }: { id: PartId; s: Settings; zoned: boolean }
     <Row icon={SYMBOL[id]} label={t(partInfo[id].label)} hint={widgetNeeds(s, zoned)[id] || undefined}>
       <AddRemove id={id} on={on} />
     </Row>
+  );
+}
+
+/** The search box, first among the widgets: a widget on the bar, though stored as Windows' `sys:searchbox`; its face as the bar draws it. */
+function SearchBoxRow({ s }: { s: Settings }) {
+  const on = Object.values(s.taskbar.zones).some((items) => items.includes("sys:searchbox"));
+  const surface = usePreviewSurface(s);
+  return (
+    <div>
+      <Row icon={SYS_SYMBOL.searchbox} label={t(SYS_INFO.searchbox.label)} hint={t("Apps, Dateien, Rechnungen und Einstellungen, mit KI auf Wunsch")}>
+        <AddRemove id="sys:searchbox" on={on} />
+      </Row>
+      <div className="flex flex-wrap gap-3 px-3 pb-3">
+        <span aria-hidden dir="ltr" className="flex h-11 items-center rounded-[10px] px-2 material:rounded-[12px]" style={surface}>
+          <SearchBoxFace k={1} />
+        </span>
+      </div>
+      <Row icon="auto_awesome" label={t("Leuchtender Rand der Suche")}>
+        <Switch label={t("Leuchtender Rand der Suche")} checked={s.taskbar.searchGlow} onChange={(on) => setTaskbar({ searchGlow: on })} />
+      </Row>
+    </div>
   );
 }
 
@@ -336,13 +358,17 @@ function MarketOptions({ s }: { s: Settings }) {
  * the timer is SAMPLE_TIMER and the clocks show SAMPLE_AT, so the page never starts the audio capture, reads the real timer or ticks.
  * `idle` takes the downloads out of the sample, so Downloads draws its dimmed icon as the bar does with none.
  */
-function Preview({ id, choice, s, zones, idle }: { id: PartId; choice: WidgetChoice; s: Settings; zones: readonly string[]; idle?: boolean }) {
-  const { taskbar, units, music } = s;
+/** A preview's ground: the bar's colour read through the ink's own tokens, Dark's surface under Liquid Glass +, so white text stays on dark. */
+function usePreviewSurface({ taskbar }: Settings): CSSProperties {
   const closed = useClosedInk(undefined);
   const supported = liveSupport.use()?.supported === true;
-  // The colour read through the ink's own tokens, as on the bar: Dark's surface under Liquid Glass +, so white text stays on dark.
   const ink = previewInk(barLook(taskbar, supported), taskbar.surface, closed, darkInk());
-  const surface: CSSProperties = { ...ink, background: taskbar.surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" };
+  return { ...ink, background: taskbar.surface === "notch" ? "var(--notch-closed)" : "var(--color-notch)" };
+}
+
+function Preview({ id, choice, s, zones, idle }: { id: PartId; choice: WidgetChoice; s: Settings; zones: readonly string[]; idle?: boolean }) {
+  const { taskbar, units, music } = s;
+  const surface = usePreviewSurface(s);
   // The network's line draws download and upload, so its sample has them with NET off for the notch too.
   const feed = sampleFeed(choice.variant === "net" ? { ...s.closed.readings, net: true } : s.closed.readings);
   const { node, width } = widgetBody(id, {

@@ -227,7 +227,7 @@ test("the search box and the crypto widget open small panels of the bar's own, w
     assert.equal(sameContent(c, { kind: "tray" }), false, c.kind);
   }
   assert.equal(sameContent({ kind: "crypto" }, tool("trading")), false);
-  assert.deepEqual(SEARCH_SIZE, { w: 360, h: 80 });
+  assert.deepEqual(SEARCH_SIZE, { w: 400, h: 460 });
   assert.deepEqual(CRYPTO_SIZE, { w: 320, h: 196 });
 });
 

@@ -85,12 +85,22 @@ export function searchApps(apps: LauncherApp[], query: string, limit = 60): Laun
   const words = norm(query).split(/\s+/).filter(Boolean);
   const hits = apps.filter((a) => words.every((w) => norm(a.name).includes(w)));
   const rank = (a: LauncherApp) => (aiKey(a) ? 0 : 2) + (words.length && !norm(a.name).startsWith(words[0]) ? 1 : 0);
-  return hits
+  const ranked = hits
     .map((a, i) => ({ a, i }))
     .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
-    .slice(0, limit)
     .map((x) => x.a);
+  // Then by the words' first letters ("vsc" for Visual Studio Code), as a few letters typed in a hurry.
+  const typed = words.join("");
+  const byInitials = typed.length > 1 ? apps.filter((a) => !hits.includes(a) && initials(a.name).startsWith(typed)) : [];
+  return [...ranked, ...byInitials].slice(0, limit);
 }
+
+const initials = (name: string) =>
+  norm(name)
+    .split(/[\s\-_.]+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("");
 
 /** Saved favourites repaired: entries without a string id and name dropped, duplicates removed; anything else = never seeded (null). */
 export function normalizeFavorites(saved: unknown): Favorite[] | null {

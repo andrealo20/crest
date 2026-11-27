@@ -178,7 +178,7 @@ function AppRules() {
   );
 }
 
-const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen", mic: "Mikrofon stummschalten" };
+const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen", mic: "Mikrofon stummschalten", search: "Suche der Leiste öffnen" };
 const hotkeyHint: Record<HotkeyKind, string> = {
   open: "Öffnet und schließt die Notch von überall",
   hide: "Blendet Crest aus, bis du es wieder drückst",
@@ -187,6 +187,7 @@ const hotkeyHint: Record<HotkeyKind, string> = {
     : "Mit Alt, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools",
   find: "Liest den Text auf allen Bildschirmen und öffnet die Suche darin",
   mic: "Schaltet das Standard-Mikrofon stumm und wieder ein, von überall",
+  search: "Öffnet die Suche von Crests Leiste aus jeder App; ruht, solange eine App im Vollbild läuft",
 };
 const recordErrors: Record<RecordError, string> = {
   "need-modifier": isMac ? "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein" : "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
@@ -203,6 +204,7 @@ function Shortcuts() {
       <HotkeyRow kind="resize" icon="aspect_ratio" />
       {!isMac && <HotkeyRow kind="find" icon="screen_search_desktop" />}
       <HotkeyRow kind="mic" icon="mic_off" />
+      {!isMac && <HotkeyRow kind="search" icon="search" />}
       <ToolHotkeys />
     </Group>
   );

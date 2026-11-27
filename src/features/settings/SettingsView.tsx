@@ -31,7 +31,7 @@ import { design } from "../../design/design";
 import { content, fade, springs } from "../../design/motion";
 import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
 import { createStore } from "../../lib/store";
-import { nav, navigate } from "../../notch/nav";
+import { nav, navigate, settingsQuery } from "../../notch/nav";
 import { findTab, setupTab } from "../../notch/tabs";
 import { PluginSettings } from "../plugins/PluginSettings";
 import { plugins } from "../plugins/store";
@@ -135,16 +135,21 @@ const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
 type Scope = "notch" | "taskbar";
 const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : "notch");
 
-/** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
+/** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. Every page's own id opens it too, at its top. */
 const sectionPage: Record<string, PageId> = {
+  general: "general",
   weather: "general",
   updates: "general",
   display: "display",
   presentation: "display",
   window: "window",
+  timer: "timer",
   alarm: "timer",
+  ai: "ai",
   ask: "ai",
   usage: "ai",
+  accounts: "accounts",
+  tools: "tools",
   discord: "accounts",
   trading: "accounts",
   vault: "tools",
@@ -252,6 +257,14 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const hidden = useRef<HTMLDivElement>(null);
   const searching = query.trim() !== "";
   const results = searching ? searchSettings(rows, query) : [];
+  // Text the bar's search sent: into the field, once.
+  const asked = settingsQuery.use();
+  useEffect(() => {
+    if (asked === null) return;
+    setQuery(asked);
+    setSearchOpen(true);
+    settingsQuery.set(null);
+  }, [asked]);
   const layout = material ? shellLayout(width) : "list";
   const contours = settings.use().themes.contours;
   const backdrop = !!chrome && contours;

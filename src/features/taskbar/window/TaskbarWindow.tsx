@@ -26,7 +26,7 @@ import { barGap, groupBoxes, hitBoxes, itemGap, labelRise, tilePlaces, type Box 
 import { barMargin, slideBy, toEdge } from "../position";
 import { BarEdgeContext, barEdgeNow } from "./barEdge";
 import { StartMark } from "./StartMark";
-import { closePanel, closesPanel, fileDrag, itemDrag, panel, pinDrag, quickPage, togglePanel } from "../panel";
+import { closePanel, closesPanel, fileDrag, itemDrag, openPanel, panel, pinDrag, quickPage, togglePanel } from "../panel";
 import { dragThreshold, folderCols, opensInBar, sysPanel } from "../panelModel";
 import { folderKey, normalizeFolders, pinBefore } from "../folderModel";
 import { barShown, barWindows, groupIcons, setTaskbar } from "../store";
@@ -466,6 +466,12 @@ export function TaskbarWindow() {
    * without it).
    */
   const onKey = async (k: BarKey) => {
+    if (k.kind === "search") {
+      // Crest's own search key: the panel over the search box, or over the bar's middle when this bar has no box.
+      await taskbar.focus().catch(() => {});
+      const box = bar.current?.querySelector<HTMLElement>('[data-kind="sys:searchbox"]');
+      return openPanel({ kind: "search" }, box ? spanOf(box) : { x: innerWidth / 2 - 1, w: 2 });
+    }
     keyNav.current = true;
     if (k.kind === "number") {
       const b = buttonAt(laid, k.n);
@@ -1051,7 +1057,9 @@ export function TaskbarWindow() {
           ) : (
             <motion.div
               {...slide}
-              className="relative grid grid-cols-[1fr_auto_1fr] px-1 text-label"
+              // Each side at least as wide as what it holds: a full side moves the centre aside rather than covering it, and the apps
+              // go behind "…" only when the bar is full (fit.ts counts each side once).
+              className="relative grid grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] px-1 text-label"
               style={{ height, borderRadius: look.radius, background: tiles ? undefined : look.background }}
             >
               {ZONES.map(([zone, justify]) => (

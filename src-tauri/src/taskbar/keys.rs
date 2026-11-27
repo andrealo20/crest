@@ -53,6 +53,8 @@ enum Key {
     Number { n: u8, mods: Mods },
     Apps { by: i8 },
     Tray,
+    /// Crest's own search key (shell.rs), not a Windows key: the bar opens its search panel.
+    Search,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize)]
@@ -125,6 +127,7 @@ fn parse_name(name: &str) -> Option<Key> {
         ("n", Some(n), Some(m)) => Key::Number { n: n.parse().ok().filter(|n| (1..=10).contains(n))?, mods: MODS.iter().find(|(_, s)| *s == m)?.0 },
         ("apps", Some(by @ ("1" | "-1")), None) => Key::Apps { by: by.parse().ok()? },
         ("tray", None, None) => Key::Tray,
+        ("search", None, None) => Key::Search,
         _ => return None,
     };
     parts.next().is_none().then_some(key)
@@ -409,6 +412,7 @@ pub(crate) fn pressed(app: &AppHandle, name: &str) {
     let bars: Vec<(String, isize)> = all.iter().map(|(l, h)| (l.clone(), tasks::monitor_of(HWND(*h as _)))).collect();
     let Some(label) = target(tasks::monitor_of(unsafe { GetForegroundWindow() }), &bars) else { return };
     let hidden = all.iter().any(|(l, h)| *l == label && !unsafe { IsWindowVisible(HWND(*h as _)) }.as_bool());
+    // A bar hidden over a full-screen app takes no search either: the panel would open unseen, over the game.
     if hidden && !matches!(key, Key::Number { .. }) {
         return;
     }
@@ -471,6 +475,8 @@ mod tests {
         assert_eq!(parse_name("n:10:alt"), Some(Key::Number { n: 10, mods: Mods::Alt }));
         assert_eq!(parse_name("apps:-1"), Some(Key::Apps { by: -1 }));
         assert_eq!(parse_name("tray"), Some(Key::Tray));
+        assert_eq!(parse_name("search"), Some(Key::Search));
+        assert_eq!(serde_json::to_value(Key::Search).unwrap(), serde_json::json!({ "kind": "search" }));
         assert!(parse_name("x").is_none() && parse_name("n:11:plain").is_none() && parse_name("apps:2").is_none() && parse_name("tray:1").is_none());
         assert_eq!(serde_json::to_value(Key::Number { n: 3, mods: Mods::CtrlShift }).unwrap(), serde_json::json!({ "kind": "number", "n": 3, "mods": "ctrlShift" }));
         assert_eq!(serde_json::to_value(Key::Apps { by: 1 }).unwrap(), serde_json::json!({ "kind": "apps", "by": 1 }));

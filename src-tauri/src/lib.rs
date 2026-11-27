@@ -8,6 +8,7 @@ mod backup;
 mod banners;
 #[cfg(windows)]
 mod brightness;
+mod browser_search;
 mod calendar;
 #[cfg(windows)]
 mod camera;
@@ -30,6 +31,8 @@ mod display;
 mod downloads;
 #[cfg(windows)]
 mod drop;
+#[cfg(windows)]
+mod file_search;
 #[cfg(windows)]
 mod fps;
 mod github;
@@ -194,11 +197,12 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "notices_open_app", "notices_copy_code", "notices_icon",
     "power_plans", "power_plan_set", "system_icon", "system_ipconfig", "system_battery_report", "reveal_file", "ports_list", "ports_open", "ports_end",
     "convert_probe", "file_preview", "open_path", "copy_files", "shelf_drag_out", "clipboard_paste_files", "shelf_clipboard_text",
+    "search_files", "search_file_thumb",
     "phone_share_start", "phone_share_stop", "portfolio_prices",
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
     "lyrics_romanize", "translate_file",
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
-    "quick_dark", "mic_mute", "quick_power", "web_search",
+    "quick_dark", "mic_mute", "quick_power", "web_search", "web_search_browser",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
     "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
@@ -417,6 +421,10 @@ pub fn run() {
             convert::open_path,
             convert::copy_files,
             convert::file_preview,
+            #[cfg(windows)]
+            file_search::search_files,
+            #[cfg(windows)]
+            file_search::search_file_thumb,
             downloads::downloads_configure,
             display::display_monitors,
             display::display_apply,
@@ -518,6 +526,7 @@ pub fn run() {
             open_sponsors,
             open_store_review,
             web_search,
+            browser_search::web_search_browser,
             open_bug_report,
             #[cfg(windows)]
             brightness::brightness_get,
@@ -559,6 +568,7 @@ pub fn run() {
             timer_window::timer_window_close,
             settings_window::settings_window_open,
             settings_window::settings_window_section,
+            settings_window::settings_window_query,
             settings_window::settings_window_background,
             shell::notch_open,
             #[cfg(windows)]

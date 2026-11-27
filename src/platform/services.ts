@@ -333,12 +333,17 @@ export function openSponsors() {
   else window.open("https://github.com/sponsors/andrealo20", "_blank", "noopener");
 }
 
-/** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
 /** Overview's search line: the results in the default browser (lib.rs `web_search`, which builds the address). Not in the browser demo. */
 export function webSearch(engine: string, query: string): Promise<void> {
   return isNative ? invoke("web_search", { engine, query }) : Promise.resolve();
 }
 
+/** The bar's search: the default browser searches with its own engine, `fallback`'s address where it cannot (browser_search.rs). */
+export function webSearchBrowser(query: string, fallback: string): Promise<void> {
+  return isNative ? invoke("web_search_browser", { query, fallback }) : Promise.resolve();
+}
+
+/** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
 export function openBugReport() {
   if (isNative) void invoke("open_bug_report");
   else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank", "noopener");
@@ -1415,6 +1420,29 @@ export const launcher = {
   },
 };
 
+/** A file or folder Windows' index found for the bar's search (src-tauri/src/file_search.rs). */
+export interface FoundFile {
+  path: string;
+  name: string;
+  folder: boolean;
+}
+
+const mockFileNames = ["Holiday 2025.mp4", "Holiday in Lisbon.jpg", "holiday-photos", "Holiday budget.xlsx", "Notes.txt", "Report.pdf"];
+
+/** Files by name from Windows' index and their pictures, for the bar's search. None on the Mac; a few made-up ones in the browser. */
+export const fileSearch = {
+  find: (query: string, limit = 12): Promise<FoundFile[]> =>
+    isNative
+      ? invoke<FoundFile[]>("search_files", { query, limit }).catch(() => [])
+      : Promise.resolve(
+          query.trim()
+            ? mockFileNames.filter((n) => n.toLowerCase().includes(query.trim().toLowerCase())).map((name) => ({ path: `C:\\Users\\demo\\Documents\\${name}`, name, folder: !name.includes(".") }))
+            : [],
+        ),
+  /** A photo's or a video's thumbnail, else the item's icon, `size` px square at most, as a PNG data URL. */
+  thumb: (path: string, size: number): Promise<string | null> => (isNative ? invoke<string | null>("search_file_thumb", { path, size }).catch(() => null) : Promise.resolve(null)),
+};
+
 // ---------- Taskbar ----------
 
 /** Windows' pins as `taskbar.windowsPins` reads them (src-tauri/src/taskbar/pins.rs `WindowsPins`). */
@@ -2009,13 +2037,15 @@ export interface RunningApp {
 /** in-use: another program holds the combination. */
 export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
 /** `tools`: each tool shortcut sent, by tool id (an older backend leaves it out). */
-export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState; tools?: Record<string, HotkeyState> };
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState; search?: HotkeyState; tools?: Record<string, HotkeyState> };
 export interface HotkeyConfig {
   open: string;
   hide: string;
   resize: string;
   find: string;
   mic: string;
+  /** The bar's search: only while the bar is on and no full-screen app is in front. */
+  search: string;
   /** The tools' own shortcuts: each opens the notch on its tool (shell.rs). */
   tools: { id: string; keys: string }[];
   openLabel: string;

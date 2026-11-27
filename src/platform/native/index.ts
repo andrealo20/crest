@@ -9,8 +9,16 @@ export const isNative = "__TAURI_INTERNALS__" in window;
 
 /** The settings window (settings_window.rs). In the browser every member does nothing: the demo keeps the settings in the panel. */
 export const settingsWindow = {
-  /** Opens it, or brings it forward, on `section` (an id of SettingsView's sections). */
-  open: (section: string | null): Promise<void> => (isNative ? invoke("settings_window_open", { section }) : Promise.resolve()),
+  /** Opens it, or brings it forward, on `section` (an id of SettingsView's sections), or searching for `query` (the bar's search). */
+  open: (section: string | null, query?: string): Promise<void> => (isNative ? invoke("settings_window_open", { section, query: query ?? null }) : Promise.resolve()),
+  /** The text to search for that the window was opened with; the page asks once, when it loads. */
+  takeQuery: (): Promise<string | null> => (isNative ? invoke<string | null>("settings_window_query") : Promise.resolve(null)),
+  /** A search asked for while the window stays open. On this window only. */
+  onQuery(handler: (query: string) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<string>("settings://query", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** The section asked for when the window opened; the page asks once, when it loads. */
   takeSection: (): Promise<string | null> => (isNative ? invoke<string | null>("settings_window_section") : Promise.resolve(null)),
   /** A section asked for while the window stays open. On this window only: another window's events do not reach it. */
