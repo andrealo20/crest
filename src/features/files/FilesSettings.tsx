@@ -12,7 +12,7 @@ type Activation = { ok: boolean; state?: string; error?: string; message?: strin
 function licenseText(l: License | null): string {
   if (!l) return t("Wird geladen …");
   if (l.state === "unlocked") return l.email ? t("Freigeschaltet für {email}", { email: l.email }) : t("Freigeschaltet");
-  if (l.state === "not-configured") return t("Schlüssel gibt es noch nicht zu kaufen");
+  // Without a shop yet the free files still work.
   return t("Gratis: noch {n} Dateien", { n: l.left ?? 0 });
 }
 
@@ -68,13 +68,27 @@ export function FilesSettings() {
       <Row icon="key" label={t("Lizenz")} hint={installed ? (note ?? licenseText(license)) : t("Nach dem Download des Programms")}>
         {status?.buy && !unlocked && <Button onClick={() => void filesEngine.buy()}>{t("Kaufen")}</Button>}
         {installed && unlocked && (
-          <Button disabled={busy} onClick={() => act(filesEngine.license("deactivate").catch((e) => setNote(activationError(String(e)))))}>
+          <Button
+            disabled={busy}
+            onClick={() =>
+              act(
+                filesEngine
+                  .license<Activation | null>("deactivate")
+                  .then((a) => a && !a.ok && setNote(activationError(a)))
+                  .catch((e) => setNote(activationError(String(e)))),
+              )
+            }
+          >
             {t("Deaktivieren")}
           </Button>
         )}
       </Row>
       {installed && !unlocked && (
-        <Row icon="password" label={t("Schlüssel")} hint={t("Einmalig 4,99 USD, gilt in jeder Version von Crest")}>
+        <Row
+          icon="password"
+          label={t("Schlüssel")}
+          hint={license?.state === "not-configured" ? t("Schlüssel gibt es noch nicht zu kaufen") : t("Einmalig 4,99 USD, gilt in jeder Version von Crest")}
+        >
           <TextField value={key} onChange={setKey} placeholder="XXXXXXXX-XXXX-…" onSubmit={activate} width="w-48" />
           <Button primary disabled={busy || key.trim().length < 8} onClick={activate}>
             {t("Aktivieren")}

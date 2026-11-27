@@ -102,7 +102,7 @@ export async function license(action: "status" | "activate" | "deactivate", key?
   }
   if (action === "deactivate") {
     unlocked = false;
-    return null;
+    return { ok: true, state: "free" };
   }
   return unlocked ? { state: "unlocked", email: "d***@example.com" } : { state: "free", left, daily: 2, email: null };
 }

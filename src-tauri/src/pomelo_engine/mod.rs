@@ -403,6 +403,11 @@ fn exit_error(code: i32) -> Option<&'static str> {
     }
 }
 
+/// A language code ("it", "pt-BR", "zh-Hans").
+fn lang_ok(lang: &str) -> bool {
+    (2..=16).contains(&lang.len()) && lang.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') && !lang.starts_with('-')
+}
+
 fn parse_catalog(value: Value) -> Result<Vec<Op>, String> {
     #[derive(Deserialize)]
     struct Catalog {
@@ -420,7 +425,7 @@ fn parse_catalog(value: Value) -> Result<Vec<Op>, String> {
 pub fn files_catalog(app: AppHandle, lang: Option<String>) -> Result<Vec<Op>, String> {
     let exe = installed(&app)?;
     let mut args: Vec<OsString> = vec!["catalog".into(), "--data".into(), data_dir(&app)?.into()];
-    if let Some(lang) = lang.filter(|l| l.len() <= 16 && l.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')) {
+    if let Some(lang) = lang.filter(|l| lang_ok(l)) {
         args.extend(["--lang".into(), lang.into()]);
     }
     let (value, code) = once(command(&exe, &args), Duration::from_secs(30))?;
@@ -448,7 +453,7 @@ fn value_ok(opt: &Opt, v: &str) -> bool {
 
 /// The arguments of `run`, after checking every input against the operation: files that exist and that it takes (one unless
 /// `multi`), an output folder that exists or "same" (beside the originals), and options it has with values of their type.
-fn run_args(data: &Path, op: &Op, out: Option<&str>, options: &[(String, String)], files: &[String]) -> Result<Vec<OsString>, String> {
+fn run_args(data: &Path, lang: Option<&str>, op: &Op, out: Option<&str>, options: &[(String, String)], files: &[String]) -> Result<Vec<OsString>, String> {
     if files.is_empty() || (files.len() > 1 && !op.multi) {
         return Err("files".into());
     }
@@ -465,6 +470,10 @@ fn run_args(data: &Path, op: &Op, out: Option<&str>, options: &[(String, String)
         Some(_) => return Err("out".into()),
     };
     let mut args: Vec<OsString> = vec!["run".into(), "--data".into(), data.into(), "--op".into(), op.id.clone().into(), "--out".into(), out];
+    // The language of the engine's error texts.
+    if let Some(lang) = lang.filter(|l| lang_ok(l)) {
+        args.extend(["--lang".into(), lang.into()]);
+    }
     for (i, (key, value)) in options.iter().enumerate() {
         let known = op.options.iter().find(|o| &o.id == key).ok_or("option")?;
         if !value_ok(known, value) || options[..i].iter().any(|(k, _)| k == key) {
@@ -546,6 +555,7 @@ pub fn files_run(
     out: Option<String>,
     options: Vec<(String, String)>,
     secret: Option<String>,
+    lang: Option<String>,
     on_event: Channel<Value>,
 ) -> Result<(), String> {
     let exe = installed(&app)?;
@@ -555,7 +565,7 @@ pub fn files_run(
         (false, _) => None,
         _ => return Err("password".into()),
     };
-    let args = run_args(&data_dir(&app)?, &op, out.as_deref(), &options, &files)?;
+    let args = run_args(&data_dir(&app)?, lang.as_deref(), &op, out.as_deref(), &options, &files)?;
     let code = run_process(command(&exe, &args), secret.as_deref(), |v| {
         let _ = on_event.send(v);
     })?;
@@ -684,16 +694,16 @@ mod tests {
         let data = Path::new(r"C:\data\pomelo");
         let png = png();
         let opts = |list: &[(&str, &str)]| list.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
-        let args = run_args(data, &png, None, &opts(&[("quality", "90"), ("strip", "false"), ("size", "s")]), &files).unwrap();
-        let mut want: Vec<OsString> = ["run", "--data", r"C:\data\pomelo", "--op", "image.convert.png", "--out", "same", "--opt", "quality=90", "--opt", "strip=false", "--opt", "size=s", "--"]
+        let args = run_args(data, Some("it"), &png, None, &opts(&[("quality", "90"), ("strip", "false"), ("size", "s")]), &files).unwrap();
+        let mut want: Vec<OsString> = ["run", "--data", r"C:\data\pomelo", "--op", "image.convert.png", "--out", "same", "--lang", "it", "--opt", "quality=90", "--opt", "strip=false", "--opt", "size=s", "--"]
             .map(OsString::from)
             .to_vec();
         want.extend(files.iter().map(OsString::from));
         assert_eq!(args, want);
         let out = dir.to_string_lossy().into_owned();
-        assert_eq!(run_args(data, &png, Some(&out), &[], &files[..1]).unwrap()[6], OsString::from(&out));
+        assert_eq!(run_args(data, None, &png, Some(&out), &[], &files[..1]).unwrap()[6], OsString::from(&out));
 
-        let bad = |out: Option<&str>, o: &[(&str, &str)], f: &[String]| run_args(data, &png, out, &opts(o), f).unwrap_err();
+        let bad = |out: Option<&str>, o: &[(&str, &str)], f: &[String]| run_args(data, None, &png, out, &opts(o), f).unwrap_err();
         assert_eq!(bad(None, &[("quality", "0")], &files), "option");
         assert_eq!(bad(None, &[("quality", "x")], &files), "option");
         assert_eq!(bad(None, &[("strip", "yes")], &files), "option");
@@ -709,11 +719,11 @@ mod tests {
         std::fs::write(&txt, b"x").unwrap();
         assert_eq!(bad(None, &[], &[txt.to_string_lossy().into_owned()]), "files");
         let single = Op { multi: false, ..png.clone() };
-        assert_eq!(run_args(data, &single, None, &[], &files).unwrap_err(), "files");
+        assert_eq!(run_args(data, None, &single, None, &[], &files).unwrap_err(), "files");
 
         let text = op(serde_json::json!({ "id": "t", "tab": "tools", "name": "T", "options": [{ "id": "name", "type": "text" }] }));
-        assert!(run_args(data, &text, None, &opts(&[("name", "a b = c")]), &files[..1]).is_ok());
-        assert_eq!(run_args(data, &text, None, &opts(&[("name", "a\nb")]), &files[..1]).unwrap_err(), "option");
+        assert!(run_args(data, None, &text, None, &opts(&[("name", "a b = c")]), &files[..1]).is_ok());
+        assert_eq!(run_args(data, None, &text, None, &opts(&[("name", "a\nb")]), &files[..1]).unwrap_err(), "option");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -738,7 +748,7 @@ mod tests {
     fn runs_the_fake_engine() {
         let _one = lock(&FAKE);
         let (dir, files) = files();
-        let args = run_args(&dir, &png(), None, &[], &files).unwrap();
+        let args = run_args(&dir, None, &png(), None, &[], &files).unwrap();
         let mut lines = Vec::new();
         assert_eq!(run_process(command(&fake(), &args), None, |v| lines.push(v)), Ok(0));
         let types: Vec<&str> = lines.iter().map(|v| v["type"].as_str().unwrap()).collect();
@@ -748,14 +758,14 @@ mod tests {
         // The password reaches its stdin as one line.
         let mut secret = Op { id: "test.secret".into(), ..png() };
         secret.secret = true;
-        let args = run_args(&dir, &secret, None, &[], &files[..1]).unwrap();
+        let args = run_args(&dir, None, &secret, None, &[], &files[..1]).unwrap();
         let mut lines = Vec::new();
         assert_eq!(run_process(command(&fake(), &args), Some("hunter2"), |v| lines.push(v)), Ok(0));
         assert_eq!(lines[0]["type"], "done");
 
         let locked = Op { id: "test.locked".into(), ..png() };
         let mut lines = Vec::new();
-        let code = run_process(command(&fake(), &run_args(&dir, &locked, None, &[], &files).unwrap()), None, |v| lines.push(v)).unwrap();
+        let code = run_process(command(&fake(), &run_args(&dir, None, &locked, None, &[], &files).unwrap()), None, |v| lines.push(v)).unwrap();
         assert_eq!((exit_error(code), lines[0]["type"].as_str()), (Some("locked"), Some("locked")));
 
         let (answer, code) = once(command(&fake(), &["license".into(), "status".into(), "--data".into(), dir.clone().into()]), Duration::from_secs(20)).unwrap();
@@ -770,7 +780,7 @@ mod tests {
         let _one = lock(&FAKE);
         let (dir, files) = files();
         let slow = Op { id: "test.slow".into(), ..png() };
-        let args = run_args(&dir, &slow, None, &[], &files).unwrap();
+        let args = run_args(&dir, None, &slow, None, &[], &files).unwrap();
         let start = Instant::now();
         let runner = std::thread::spawn(move || run_process(command(&fake(), &args), None, |_| {}));
         // Cancelled once it runs; the batch file ignores its stdin and waits 30 s in a child of its own.

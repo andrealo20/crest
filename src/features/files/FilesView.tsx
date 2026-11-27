@@ -171,13 +171,17 @@ function Workbench() {
     let state = startRun(paths);
     setRun(state);
     filesEngine
-      .run({ op: op.id, files: paths, out: outDir || null, options: op.options.map((o) => [o.id, values[o.id] ?? ""]), secret: op.secret ? secret : null }, (line) => {
-        state = step(state, line);
-        setRun(state);
-      })
+      .run(
+        { op: op.id, files: paths, out: outDir || null, options: op.options.map((o) => [o.id, values[o.id] ?? ""]), secret: op.secret ? secret : null, lang: engineLang(lang) },
+        (line) => {
+          state = step(state, line);
+          setRun(state);
+        },
+      )
       .catch((e) => {
         if (String(e) === "locked") setRun({ ...state, locked: true });
-        else setFailed(runError(String(e)));
+        // The engine's own words, when it said why, are already on screen.
+        else if (!state.problem) setFailed(runError(String(e)));
       })
       .finally(() => setRunning(false));
   };
@@ -297,7 +301,11 @@ function Results({ run, running, failed, onDone }: { run: RunState; running: boo
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-center">
         <Key size={22} weight="duotone" className="text-label-3" />
-        <span className="max-w-96 text-body text-label-2">{t("Die gratis Dateien sind aufgebraucht. Mit einem Schlüssel geht es weiter, einmalig 4,99 USD.")}</span>
+        <span className="max-w-96 text-body text-label-2">
+          {run.left
+            ? t("Für so viele Dateien reichen die gratis Dateien nicht (noch {n}). Mit einem Schlüssel geht es weiter, einmalig 4,99 USD.", { n: run.left })
+            : t("Die gratis Dateien sind aufgebraucht. Mit einem Schlüssel geht es weiter, einmalig 4,99 USD.")}
+        </span>
         <Button primary icon={Key} onClick={() => navigate("settings", "files")}>
           {t("Schlüssel eingeben")}
         </Button>
@@ -317,8 +325,9 @@ function Results({ run, running, failed, onDone }: { run: RunState; running: boo
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-footnote text-label">{nameOf(f.path)}</span>
               {f.error && <span className="text-caption text-orange">{f.error.message || runError(f.error.code)}</span>}
+              {f.text && <span className="line-clamp-3 text-caption break-all text-label-2 select-text">{f.text}</span>}
             </div>
-            {f.status === "running" || f.status === "waiting" ? (
+            {running && (f.status === "running" || f.status === "waiting") ? (
               <div className="w-28 shrink-0">
                 {f.fraction === null ? <span className="text-caption text-label-3">{t("Läuft …")}</span> : <Meter percent={f.fraction * 100} color="var(--color-primary)" />}
               </div>
@@ -331,7 +340,7 @@ function Results({ run, running, failed, onDone }: { run: RunState; running: boo
             )}
           </div>
         ))}
-        {failed && <span className="text-caption text-orange">{failed}</span>}
+        {(run.problem ?? failed) && <span className="text-caption text-orange">{run.problem ?? failed}</span>}
       </div>
       <div className="flex items-center justify-end gap-2">
         <span className="min-w-0 flex-1 truncate text-caption text-label-3">{run.left !== null && t("Noch {n} gratis Dateien", { n: run.left })}</span>

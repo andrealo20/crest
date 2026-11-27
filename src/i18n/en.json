@@ -2282,5 +2282,6 @@
  "Starten": "Start",
  "Umwandeln": "Convert",
  "Vorgänge": "Operations",
- "Werkzeuge": "Tools"
+ "Werkzeuge": "Tools",
+ "Für so viele Dateien reichen die gratis Dateien nicht (noch {n}). Mit einem Schlüssel geht es weiter, einmalig 4,99 USD.": "Not enough free files for this many ({n} left). A key unlocks the rest, US$4.99 once."
 }

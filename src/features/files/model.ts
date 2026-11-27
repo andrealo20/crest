@@ -34,10 +34,11 @@ export type RunLine =
   | { type: "start"; index: number; file: string }
   | { type: "progress"; index: number; fraction: number }
   | { type: "busy"; index: number; seconds: number }
-  | { type: "done"; index: number; outputs: string[] }
+  | { type: "done"; index: number; outputs: string[]; text?: string }
+  /** Index -1: the operation does not fit these files, said before any file starts. */
   | { type: "error"; index: number; code: string; message: string }
   | { type: "allowance"; left: number }
-  | { type: "end"; ok: number; failed: number }
+  | { type: "end"; ok: number; failed: number; cancelled?: boolean }
   | { type: "locked"; left: number };
 
 export interface License {
@@ -84,6 +85,8 @@ export interface FileRun {
   /** 0 to 1, null while the engine cannot tell. */
   fraction: number | null;
   outputs: string[];
+  /** What an operation that writes no file gives back (a checksum, copied text). */
+  text: string | null;
   error: { code: string; message: string } | null;
 }
 
@@ -91,13 +94,15 @@ export interface RunState {
   files: FileRun[];
   /** Free files left without a licence, null with one (or before the engine says). */
   left: number | null;
-  /** No licence and no free file left: nothing ran. */
+  /** No licence and fewer free files left than asked for: nothing ran. */
   locked: boolean;
+  /** The engine's own words when the operation does not fit the files at all. */
+  problem: string | null;
   ended: boolean;
 }
 
 export function startRun(paths: string[]): RunState {
-  return { files: paths.map((path) => ({ path, status: "waiting", fraction: 0, outputs: [], error: null })), left: null, locked: false, ended: false };
+  return { files: paths.map((path) => ({ path, status: "waiting", fraction: 0, outputs: [], text: null, error: null })), left: null, locked: false, problem: null, ended: false };
 }
 
 /** The run after one of the engine's lines. */
@@ -112,8 +117,9 @@ export function step(state: RunState, line: RunLine): RunState {
     case "busy":
       return file(line.index, { status: "running", fraction: null });
     case "done":
-      return file(line.index, { status: "done", fraction: 1, outputs: line.outputs });
+      return file(line.index, { status: "done", fraction: 1, outputs: line.outputs ?? [], text: line.text ?? null });
     case "error":
+      if (line.index < 0) return { ...state, problem: line.message || line.code, ended: true };
       return file(line.index, { status: "error", error: { code: line.code, message: line.message } });
     case "allowance":
       return { ...state, left: line.left };

@@ -53,6 +53,11 @@ test("a run follows the engine's lines file by file", () => {
   assert.deepEqual([last.left, last.ended, last.locked], [16, true, false]);
   assert.deepEqual(outputsOf(last), ["a.png"]);
   assert.deepEqual(step(startRun(["a"]), { type: "locked", left: 0 }).locked, true);
+  // An operation that does not fit the files says so before any file; one that writes no file gives text.
+  const unfit = step(startRun(["a"]), { type: "error", index: -1, code: "unsupported", message: "Only MKV files" });
+  assert.deepEqual([unfit.problem, unfit.ended, unfit.files[0].status], ["Only MKV files", true, "waiting"]);
+  const sum = step(startRun(["a"]), { type: "done", index: 0, outputs: [], text: "sha256 abc" });
+  assert.deepEqual([sum.files[0].text, outputsOf(sum)], ["sha256 abc", []]);
   assert.equal(engineLang("zh-CN"), "zh-Hans");
   assert.equal(engineLang("pt-BR"), "pt-BR");
 });

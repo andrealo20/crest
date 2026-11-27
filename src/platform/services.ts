@@ -2467,7 +2467,7 @@ export const filesEngine = {
   remove: (): Promise<void> => (isNative ? invoke("files_engine_remove") : filesSample().then((m) => m.remove())),
   catalog: (lang: string): Promise<Op[]> => (isNative ? invoke<Op[]>("files_catalog", { lang }) : filesSample().then((m) => m.catalog())),
   /** `options` as (id, value) pairs; resolves when the engine is done, rejects with its reason ("locked", "cancelled", ...). */
-  run: (req: { op: string; files: string[]; out: string | null; options: [string, string][]; secret: string | null }, onLine: (line: RunLine) => void): Promise<void> => {
+  run: (req: { op: string; files: string[]; out: string | null; options: [string, string][]; secret: string | null; lang: string }, onLine: (line: RunLine) => void): Promise<void> => {
     if (!isNative) return filesSample().then((m) => m.run(req, onLine));
     const channel = new Channel<RunLine>();
     channel.onmessage = onLine;
