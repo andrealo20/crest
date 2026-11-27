@@ -68,8 +68,8 @@ export function fitBar(m: FitMeasure, was: Fit | null): Fit {
     };
     if (m.row) return m.inner - span([...keep("left"), ...keep("center"), ...keep("right")], true);
     const [l, c, r] = [span(keep("left"), m.apps === "left"), span(keep("center"), m.apps === "center"), span(keep("right"), m.apps === "right")];
-    // Apps in the centre keep it centred: the wider side counts on both sides.
-    return m.apps === "left" || m.apps === "right" ? m.inner - l - c - r : m.inner - 2 * Math.max(l, r) - c;
+    // Each side counts once: the centre stays centred while it can and moves aside (TaskbarWindow's grid) before its apps go behind "…".
+    return m.inner - l - c - r;
   };
   const P = m.full + m.gap;
   const p = m.compact + m.gap;

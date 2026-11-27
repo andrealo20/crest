@@ -1057,7 +1057,9 @@ export function TaskbarWindow() {
           ) : (
             <motion.div
               {...slide}
-              className="relative grid grid-cols-[1fr_auto_1fr] px-1 text-label"
+              // Each side at least as wide as what it holds: a full side moves the centre aside rather than covering it, and the apps
+              // go behind "…" only when the bar is full (fit.ts counts each side once).
+              className="relative grid grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] px-1 text-label"
               style={{ height, borderRadius: look.radius, background: tiles ? undefined : look.background }}
             >
               {ZONES.map(([zone, justify]) => (
