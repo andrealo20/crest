@@ -11,12 +11,12 @@ export const RELEASE = "1.4";
  */
 export const FILM = {
   /** The version it shows: on the home page and at the top of What's new only while that is the latest release, else under its version. */
-  version: "1.3.0",
-  src: "/media/crest-1.3.mp4",
-  poster: "/media/crest-1.3.jpg",
-  width: 1920,
-  height: 1080,
-  caption: "Crest 1.3: Liquid Glass + on the bar, live window previews, the Crest menu, widgets dragged along the bar and the Material style. A bar with Liquid Glass + stays out of every screen recording, so here Crest's own code draws it over a recording of the desktop.",
+  version: "1.4.0",
+  src: "/media/crest-1.4.mp4",
+  poster: "/media/crest-1.4.jpg",
+  width: 1280,
+  height: 720,
+  caption: "Crest 1.4 in a minute: the notch, the taskbar with its window previews and Liquid Glass +, the Pomelo wheel on files dragged in File Explorer and the Files tool. A bar with Liquid Glass + stays out of every screen recording, so here Crest's own code draws its glass over a recording of the desktop.",
 };
 /** The film belongs to the latest release. */
 export const FILM_IS_NEW = FILM.version.startsWith(`${RELEASE}.`);
