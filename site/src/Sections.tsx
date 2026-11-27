@@ -1,3 +1,4 @@
+import { DEMO_FULL } from "./demo";
 import { useEffect, useState } from "react";
 import { useRise } from "./rise";
 import { ArrowUpRight, GithubLogo } from "./icons";
@@ -56,7 +57,7 @@ export function Nav() {
         <a className="nav-link nav-plugins" href="/#features">Features</a>
         <a className="nav-link nav-stats" href="/stats/">Stats</a>
         <a className="nav-link nav-privacy" href="/privacy/">Privacy</a>
-        <a className="btn btn-small btn-light nav-try" href="/try/">Try it</a>
+        <a className="btn btn-small btn-light nav-try" href={DEMO_FULL}>Try it</a>
         <a className="btn btn-small" href="/#install">Get Crest</a>
       </nav>
     </header>

@@ -1,3 +1,4 @@
+import { DEMO_FULL } from "./demo";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { CATALOG, type Entry } from "./features";
@@ -29,7 +30,7 @@ function Card({ e, hue }: { e: Entry; hue: string }) {
       </p>
       <p>{e.text}</p>
       {e.demo && (
-        <a className="textlink" href={`/try/#${e.demo}`}>
+        <a className="textlink" href={DEMO_FULL}>
           Try it in the browser <ArrowUpRight size={18} weight="bold" aria-hidden="true" />
         </a>
       )}

@@ -682,9 +682,14 @@
   }
 }
 
-/* Today's count under the words of the first screen */
-.hero-live {
+/* The downloads and today's count under the words of the first screen */
+.hero-figs {
   align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hero-live {
   display: inline-flex;
   align-items: center;
   gap: 8px;

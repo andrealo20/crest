@@ -2,7 +2,7 @@
  * Everything Crest does, in the groups of the README's Features, for the home page's catalogue: pick a name, see it and read it.
  * A picture is either one of the demo's own captures in ./shots (`shot`) or a file in public/img (`img`), with its size in CSS px.
  * `win`: Windows only. `noStore`: not in the Microsoft Store version for now. `fresh`: the release it came in, while it is recent.
- * `demo`: the chapter of /try/ that shows it; left out when the browser demo cannot.
+ * `demo`: the demo can show it (the link opens the full-screen desktop); left out when it cannot.
  */
 export interface Entry {
   name: string;

@@ -1,3 +1,4 @@
+import { DEMO_FULL } from "./demo";
 import { useInView, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { ArrowUpRight } from "./icons";
@@ -30,7 +31,7 @@ export function Film() {
 }
 
 /** The latest release, one row per highlight: the title in its colour, what it does, and where the demo shows it. */
-export function Highlights({ base = "/try/" }: { base?: string }) {
+export function Highlights() {
   return (
     <ul className="highlights">
       {HIGHLIGHTS.map((h, i) => (
@@ -44,7 +45,7 @@ export function Highlights({ base = "/try/" }: { base?: string }) {
                   {h.link.label} <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
                 </a>
               ) : h.demo !== false && (
-                <a className="textlink" href={`${base}#${h.chapter}`}>
+                <a className="textlink" href={DEMO_FULL}>
                   Try it in the demo <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
                 </a>
               )}

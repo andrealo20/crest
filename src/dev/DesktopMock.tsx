@@ -85,7 +85,7 @@ export function DesktopMock() {
       </div>}
 
       {/* The demo on its own page: the notch opens on hover, and this is the way in without a mouse. */}
-      {demo && !framed && (
+      {demo && !framed && !crestBar && (
         <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-3 text-center text-sm text-white">
           <p className="opacity-80">{crestBar ? "Point at the notch to open it, and try Crest's taskbar at the bottom." : "Point at the notch to open it."}</p>
           <DevButton onClick={() => demoOpen(null)}>Open the notch</DevButton>
@@ -94,6 +94,9 @@ export function DesktopMock() {
 
       {/* With Crest's bar on the desktop, the way back takes the top left corner, clear of the bar and the notch. */}
       {demo && !framed && barOffered && <a href="../" className={`absolute top-3 left-4 text-sm ${BACK}`}>Back to the site</a>}
+
+      {/* The full-screen desktop: what to try, under the way back. */}
+      {demo && !framed && crestBar && <Tips />}
 
       {/* Fake taskbar */}
       {!crestBar && (
@@ -110,6 +113,66 @@ export function DesktopMock() {
     {/* Outside the desktop's stacking context so it can sit above the notch. */}
     {showcase && <ShowcaseCursor />}
     </>
+  );
+}
+
+/** What to try on the full-screen desktop, and how. */
+const TIPS: [string, string][] = [
+  ["The notch", "Point at the top of the screen. The row at its bottom switches tools; scroll over the panel for the next one."],
+  ["Now Playing", "Press play: the lyrics follow the song, line by line."],
+  ["Search", "Click the box beside Start and type \"volume 30\", \"time in tokyo\" or \"20 usd in eur\"."],
+  ["Live previews", "Rest the pointer on an app on the bar. A right click opens its menu."],
+  ["Start", "Opens the Launcher with the bar's apps."],
+  ["The clock", "Opens the notices and the calendar."],
+  ["Settings", "The gear in the notch opens them: try Themes, the Material style or the bar's Shape."],
+  ["Widgets", "Drag one along the bar to move it."],
+];
+
+/** Whether the visitor folded the tips away, kept in this browser only. */
+const TIPS_KEY = "crest-demo-tips";
+const tipsHidden = () => {
+  try {
+    return localStorage.getItem(TIPS_KEY) === "hidden";
+  } catch {
+    return false;
+  }
+};
+
+/** A card of things to try on the full-screen desktop, folded to a small button on request. */
+function Tips() {
+  const [hidden, setHidden] = useState(tipsHidden);
+  const fold = (on: boolean) => {
+    setHidden(on);
+    try {
+      localStorage.setItem(TIPS_KEY, on ? "hidden" : "shown");
+    } catch {
+      // Private window or blocked storage: the choice lasts for this page only.
+    }
+  };
+  if (hidden)
+    return (
+      <button onClick={() => fold(false)} className="absolute top-10 left-4 rounded-full bg-black/55 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/10 backdrop-blur-xl hover:bg-black/70">
+        Things to try
+      </button>
+    );
+  return (
+    <section aria-labelledby="tips-title" className="absolute top-10 left-4 w-[320px] rounded-2xl bg-black/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 id="tips-title" className="text-[15px] font-semibold">Things to try</h2>
+        <button onClick={() => fold(true)} className="rounded-md px-2 py-0.5 text-xs text-white/70 hover:bg-white/10 hover:text-white">Hide</button>
+      </div>
+      <ol className="space-y-2.5 text-[13px] leading-snug">
+        {TIPS.map(([what, how], i) => (
+          <li key={what} className="flex gap-2.5">
+            <span className="mt-px size-5 shrink-0 rounded-full bg-white/15 text-center text-[11px] leading-5 font-semibold tabular-nums">{i + 1}</span>
+            <span>
+              <strong className="font-semibold">{what}.</strong> <span className="text-white/75">{how}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <button onClick={() => demoOpen(null)} className="mt-4 w-full rounded-lg bg-white/15 py-2 text-sm font-medium hover:bg-white/25">Open the notch</button>
+    </section>
   );
 }
 

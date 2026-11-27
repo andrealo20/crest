@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
-import { ArrowUpRight } from "./icons";
+import { ArrowUpRight, GithubLogo } from "./icons";
 import { News } from "./News";
 import { PixelReveal } from "./PixelReveal";
 import { Catalog } from "./Catalog";
@@ -9,7 +9,7 @@ import { DEMO_FULL, DEMO_ORIGIN } from "./demo";
 import { num, useStats } from "./live";
 import { useWide } from "./wide";
 import { RELEASE } from "./release";
-import { Faq, Footer, Install, Make, Mark, Nav, Privacy, Rise } from "./Sections";
+import { Faq, Footer, Install, Make, Mark, Nav, Privacy, REPO, Rise } from "./Sections";
 import { springs } from "../../src/design/motion";
 
 // The demo's own panels, captured at 2x from the build (the closed row at 3x), so they stay sharp at any size the page shows them.
@@ -54,7 +54,7 @@ function LiveNotch() {
     return () => window.removeEventListener("pointerdown", down);
   }, [open, host]);
 
-  // A phone is narrower than most panels: the frame keeps the room a panel needs and is drawn smaller, the way /try/ fits its stage.
+  // A phone is narrower than most panels: the frame keeps the room a panel needs and is drawn smaller, as the full-screen demo fits a phone.
   const narrow = vw < 760;
   const scale = !narrow ? 1 : big ? Math.min(1, (vw - 12) / ((size?.w ?? 520) + 28)) : 0.85;
   const style: React.CSSProperties | undefined = narrow
@@ -91,7 +91,7 @@ function StickyBar() {
         <span>Crest</span>
       </a>
       <div className="sticky-actions">
-        <a className="btn btn-small btn-light" href="/try/">Try it</a>
+        <a className="btn btn-small btn-light" href={DEMO_FULL}>Try it</a>
         <a className="btn btn-small sticky-get" href="#install">Get Crest</a>
       </div>
     </motion.div>
@@ -167,11 +167,25 @@ function Desk({ live }: { live: boolean }) {
       </div>
       <figcaption>
         {live ? "The real app, running in this page: point at the notch, open Start, try the widgets." : "Crest's notch and taskbar on Windows. On a computer this screen is the real app."}{" "}
-        <a className="textlink" href={live ? DEMO_FULL : "/try/"}>
+        <a className="textlink" href={DEMO_FULL}>
           {live ? "Open it full screen" : "Try the notch in your browser"} <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
         </a>
       </figcaption>
     </figure>
+  );
+}
+
+/** The download total of the GitHub releases, read when the site is built (downloads.ts), linked to them; nothing without it. */
+function Downloads() {
+  const d = __SITE_DOWNLOADS__;
+  if (!d?.total) return null;
+  return (
+    <a className="hero-live" href={`${REPO}/releases`}>
+      <GithubLogo size={16} weight="fill" aria-hidden="true" />
+      <span>
+        <strong>{num(d.total)}</strong> downloads
+      </span>
+    </a>
   );
 }
 
@@ -214,10 +228,13 @@ function Hero() {
               Windows 11 and 10, macOS 12 or later as a preview.{" "}
               <a href="/whats-new/">New in {RELEASE}: Search or open, Pomelo's Files tool, Translate</a>
             </p>
-            <Live />
+            <div className="hero-figs">
+              <Downloads />
+              <Live />
+            </div>
           </div>
           <div className="actions">
-            <a className="btn" href="/try/">Try it in your browser</a>
+            <a className="btn" href={DEMO_FULL}>Try it in your browser</a>
             <a className="btn btn-ghost" href="#install">Get Crest {RELEASE}</a>
           </div>
         </motion.div>
@@ -276,7 +293,7 @@ function Closing() {
       <Rise><h2 id="closing-title">Rebuild yours in a minute.</h2></Rise>
       <Rise i={1} className="actions">
         <a className="btn" href="#install">Get Crest {RELEASE}</a>
-        <a className="btn btn-ghost" href="/try/">Try it first</a>
+        <a className="btn btn-ghost" href={DEMO_FULL}>Try it first</a>
       </Rise>
     </section>
   );
@@ -406,7 +423,7 @@ function Custom() {
       </ul>
       </Rise>
       <Rise>
-        <a className="textlink" href="/try/#themes">Change the theme, the look and the language in the demo <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
+        <a className="textlink" href={DEMO_FULL}>Change the theme, the look and the language in the demo <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
       </Rise>
     </section>
   );
@@ -425,7 +442,7 @@ function Closed() {
         <img src={img} width={732} height={42} alt="The closed notch with the cover, a running timer, AI quota rings, CPU, memory and GPU, the equalizer, the clock and the weather" />
       </Rise>
       <Rise i={3}>
-        <a className="textlink" href="/try/#closed">Change its look and edge in the demo <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
+        <a className="textlink" href={DEMO_FULL}>Change its look and edge in the demo <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
       </Rise>
     </section>
   );
