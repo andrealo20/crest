@@ -97,6 +97,8 @@ export interface TaskbarSettings {
   wheelVolume: boolean;
   /** The battery's percentage after it, in Stato and the Battery widget's Classic version. */
   batteryPercent: boolean;
+  /** A shape other than Docked keeps its room in the work area all the same, its gaps included (bar.rs `strip`, #108). */
+  keepClear: boolean;
   /** A faint glow of colour along the search panel's edge (window/SearchGlow.tsx). */
   searchGlow: boolean;
   /** The other monitors get a bar too, as Windows' "Show my taskbar on all displays". */
@@ -179,6 +181,7 @@ export const TASKBAR_DEFAULTS: TaskbarSettings = {
   windowCount: false,
   wheelVolume: false,
   batteryPercent: true,
+  keepClear: false,
   searchGlow: true,
   allScreens: true,
   appsOn: "own",
@@ -319,6 +322,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
     windowCount: s.windowCount === true,
     wheelVolume: s.wheelVolume === true,
     batteryPercent: s.batteryPercent !== false,
+    keepClear: s.keepClear === true,
     searchGlow: s.searchGlow !== false,
     allScreens: s.allScreens !== false,
     appsOn: APPS_ONS.includes(s.appsOn as AppsOn) ? (s.appsOn as AppsOn) : d.appsOn,

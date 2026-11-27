@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "टास्कबार के पीछे जो है उसे लाइव दिखाता है, एक सेकंड में {n} बार तक। जब तक यह चालू है, टास्कबार स्क्रीनशॉट, रिकॉर्डिंग और स्क्रीन शेयर में नहीं दिखता।",
  "Form": "आकार",
  "Angedockt": "जुड़ी हुई",
+  "Platz für die Leiste freihalten": "बार के लिए जगह छोड़ें",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "बड़ी की गई विंडो बार और उसके अंतराल के ऊपर खत्म होती हैं, जैसे जुड़ी हुई में। स्वचालित रूप से छिपाएँ के साथ नहीं",
  "Schwebend": "तैरती हुई",
  "Kacheln": "टाइलें",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "कैप्सूल में टास्कबार तीनों हिस्सों को बीच में एक कतार में रखता है: बाएँ, बीच, दाएँ। यहाँ के हिस्से जैसे हैं वैसे ही रहते हैं",

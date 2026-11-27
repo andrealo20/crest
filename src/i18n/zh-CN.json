@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "实时显示任务栏后面的内容，每秒最多 {n} 次。开启期间，任务栏不会出现在截图、录制和屏幕共享中。",
  "Form": "形状",
  "Angedockt": "停靠",
+  "Platz für die Leiste freihalten": "为任务栏留出空间",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "最大化的窗口停在任务栏及其间距上方，与停靠相同。自动隐藏时不生效",
  "Schwebend": "悬浮",
  "Kacheln": "磁贴",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "胶囊形状下，任务栏会把三个区域在中间排成一行：左、中、右。这里的区域保持不变",

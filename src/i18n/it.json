@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Mostra dal vivo ciò che sta dietro la barra delle applicazioni, fino a {n} volte al secondo. Finché è attivo, la barra non compare in screenshot, registrazioni e condivisioni dello schermo.",
  "Form": "Forma",
  "Angedockt": "Attaccata",
+  "Platz für die Leiste freihalten": "Lascia spazio alla barra",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "Le finestre ingrandite finiscono sopra la barra e il suo margine, come con Attaccata. Non con Nascondi automaticamente",
  "Schwebend": "Sospesa",
  "Kacheln": "Piastrelle",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "Come capsula, la barra mette in fila al centro le tre zone: sinistra, centro, destra. Le zone qui restano come sono",

@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "يعرض مباشرةً ما يوجد خلف شريط المهام، بمعدل تحديث يصل إلى {n} في الثانية. ما دام مفعّلًا، لا يظهر شريط المهام في لقطات الشاشة والتسجيلات ومشاركة الشاشة.",
  "Form": "الشكل",
  "Angedockt": "ملتصق",
+  "Platz für die Leiste freihalten": "ترك مساحة للشريط",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "تنتهي النوافذ المكبّرة فوق الشريط وهامشه، كما في ملتصق. لا يعمل مع إخفاء تلقائي",
  "Schwebend": "عائم",
  "Kacheln": "مربعات",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "في شكل الكبسولة يصف شريط المهام المناطق الثلاث في الوسط: يسار، الوسط، يمين. تبقى المناطق هنا كما هي",

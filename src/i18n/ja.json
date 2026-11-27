@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "タスクバーの後ろにあるものを、毎秒最大{n}回、リアルタイムで表示します。オンの間、タスクバーはスクリーンショット、録画、画面共有に映りません。",
  "Form": "形",
  "Angedockt": "ドッキング",
+  "Platz für die Leiste freihalten": "バーの場所を空ける",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "最大化したウィンドウはバーと余白の上で止まります（ドッキングと同じ）。自動的に隠す とは併用できません",
  "Schwebend": "フローティング",
  "Kacheln": "タイル",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "カプセルでは、タスクバーが3つの領域を中央に左、中央、右の順で並べます。ここの領域はそのままです",
