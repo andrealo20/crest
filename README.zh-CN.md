@@ -41,13 +41,13 @@
   <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
 </p>
 
-https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
+https://github.com/user-attachments/assets/173a5d5a-a930-4bba-ab91-0a4b0269fbba
 
 ## 这是什么
 
 Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。在 Windows 上，Crest 还可以代替任务栏，把同样的工具作为小组件放在你的应用旁边。免费、开源，无需账号，也不用付费。
 
-上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
+上面的视频用一分钟展示了刘海、任务栏和 Pomelo，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
 
 <p align="center"><img src="docs/media/features/desktop.png" alt="Windows 桌面上的 Crest：刘海展开在硬件页面，显示 CPU、GPU、内存、磁盘、网络、功耗、电池、延迟和占用最多的进程，采用 Material 样式和 Liquid Glass；屏幕底部是 Crest 的任务栏，带有小组件，中间是开始按钮和应用，右边是通知区域和时钟" width="960" /></p>
 
@@ -61,6 +61,8 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 </p>
 
 ## 1.4.0 新功能
+
+<p align="center"><img src="docs/media/features/crest-1.4.gif" alt="Crest 1.4：一个文件资源管理器窗口滑到任务栏的 Liquid Glass + 下方；在文件资源管理器里拖动一张照片时 Pomelo 轮盘打开，照片被放到 WEBP 上；刘海里的“文件”工具把四张照片转换为 WebP" width="760" /></p>
 
 - **搜索或打开**：任务栏的搜索框可以找到应用、设置、小组件、文件和快速答案；配合 **Ask**，还能按一句话执行操作（"把音量调到 30"）。
 - **Pomelo 来到 Crest**：**文件**工具可以转换和编辑图片、PDF、音频和视频，**Pomelo 轮盘**可以处理在文件资源管理器中拖动的文件。两者都由 Pomelo 的引擎完成，这是一个独立的程序，只有在你要求时 Crest 才会下载。仅限 Windows。

@@ -41,13 +41,13 @@
   <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
 </p>
 
-https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
+https://github.com/user-attachments/assets/173a5d5a-a930-4bba-ab91-0a4b0269fbba
 
 ## What it is
 
 A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. On Windows, Crest can also take the place of the taskbar, with the same tools as widgets beside your apps. Free and open source, no account, nothing to pay.
 
-The video above shows them in under two minutes, and [the demo on the project page](https://crestisland.app/) lets you try every tool in your browser before you install anything.
+The video above shows the notch, the taskbar and Pomelo in a minute, and [the demo on the project page](https://crestisland.app/) lets you try every tool in your browser before you install anything.
 
 <p align="center"><img src="docs/media/features/desktop.png" alt="Crest on a Windows desktop: the notch open on Hardware, with CPU, GPU, RAM, the drive, network, power, battery, ping and the busiest processes, in the Material style with Liquid Glass, and Crest's taskbar along the bottom with its widgets, Start and the apps in the middle, the tray and the clock" width="960" /></p>
 
@@ -61,6 +61,8 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
 </p>
 
 ## What's new in 1.4.0
+
+<p align="center"><img src="docs/media/features/crest-1.4.gif" alt="Crest 1.4: a File Explorer window slides under the taskbar's Liquid Glass +, the Pomelo wheel opens over a photo dragged in File Explorer and the photo is dropped on WEBP, and the Files tool in the notch converts four photos to WebP" width="760" /></p>
 
 - **Search or open** on the taskbar finds apps, settings, widgets, files and quick answers, and with Ask it does what a sentence says ("set the volume to 30").
 - **Pomelo comes to Crest**: the **Files** tool converts and edits images, PDFs, audio and video, and the **Pomelo wheel** works on files dragged in File Explorer. Both run on Pomelo's engine, a separate program Crest downloads only when you ask. Windows only.
