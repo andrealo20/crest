@@ -208,7 +208,7 @@ function Hero() {
         <motion.div className="hero-side" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}>
           <div className="hero-words">
             <p className="lead">
-              Crest puts a notch at the edge of your screen with thirty tools, from your music to your PC's hardware, and on Windows a taskbar of its own, with widgets, live previews and Liquid Glass. Free and open source, for Windows and macOS.
+              Crest puts a notch at the edge of your screen with 36 tools, from your music to your PC's hardware, and on Windows a taskbar of its own, with widgets, live previews and Liquid Glass. Free and open source, for Windows and macOS.
             </p>
             <p className="hero-meta">
               Windows 11 and 10, macOS 12 or later as a preview.{" "}
@@ -289,7 +289,7 @@ function ToolBand() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const a = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["4%", "-38%"]);
   const b = useTransform(scrollYProgress, [0, 1], reduce ? ["-20%", "-20%"] : ["-40%", "2%"]);
-  const ids = [...TOOL_BAR, "calc", "clocks", "colour", "habits", "teleprompter", "agents"];
+  const ids = [...TOOL_BAR, "calc", "clocks", "colour", "habits", "teleprompter", "agents", "leetcode", "screentime", "wallpapers", "translate", "files"];
   const half = Math.ceil(ids.length / 2);
   const row = (list: string[]) =>
     [...list, ...list].map((id, i) => {
@@ -305,7 +305,7 @@ function ToolBand() {
   return (
     <section ref={ref} className="band" aria-labelledby="band-title">
       <Rise className="band-head">
-        <h2 id="band-title">Thirty tools. One notch.</h2>
+        <h2 id="band-title">{ids.length} tools. One notch.</h2>
       </Rise>
       <motion.ul className="band-row" style={{ x: a }}>{row(ids.slice(0, half))}</motion.ul>
       <motion.ul className="band-row" style={{ x: b }}>{row(ids.slice(half))}</motion.ul>
@@ -325,7 +325,7 @@ const COUNTS: { n: string; what: string; hue: string }[] = [
   { n: "3", what: "closed looks, the notch, the capsule and the line, on any of 4 screen edges", hue: HUE.lime },
   { n: "8", what: "panel scales, from 80 to 200 percent", hue: HUE.sky },
   { n: "12", what: "parts and 7 readings to choose for the closed row, in the order you like", hue: HUE.teal },
-  { n: "30+", what: "tools to turn on, turn off and reorder, each with a shortcut of its own", hue: HUE.yellow },
+  { n: "36", what: "tools to turn on, turn off and reorder, each with a shortcut of its own", hue: HUE.yellow },
   { n: "11", what: "languages, Arabic read right to left", hue: HUE.pink },
   { n: "8", what: "cartoon pets for a nest beside the notch", hue: HUE.rose },
 ];

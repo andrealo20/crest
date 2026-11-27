@@ -16,6 +16,11 @@ import {
   DiscordLogo,
   Drop,
   Eyedropper,
+  Files,
+  Hourglass,
+  ImageSquare,
+  LeetcodeLogo,
+  Translate,
   Gauge,
   GithubLogo,
   GlobeHemisphereWest,
@@ -102,6 +107,11 @@ export const TOOLS: Record<string, Tool> = {
   teleprompter: { id: "teleprompter", label: "Prompter", icon: Scroll, hue: "amber" },
   agents: { id: "agents", label: "Agents", icon: Robot, hue: "indigo" },
   pet: { id: "pet", label: "Pets", icon: Cat, hue: "lime" },
+  leetcode: { id: "leetcode", label: "LeetCode", icon: LeetcodeLogo, hue: "amber" },
+  screentime: { id: "screentime", label: "Screen Time", icon: Hourglass, hue: "purple" },
+  wallpapers: { id: "wallpapers", label: "Wallpapers", icon: ImageSquare, hue: "sky" },
+  translate: { id: "translate", label: "Translate", icon: Translate, hue: "cyan" },
+  files: { id: "files", label: "Files", icon: Files, hue: "lime" },
 };
 
 /** The order of the real tool bar. */
