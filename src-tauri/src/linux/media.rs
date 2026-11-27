@@ -321,13 +321,85 @@ struct Cover {
     failed: Option<Instant>,
 }
 
-fn mime_of(path: &str) -> &'static str {
-    match path.rsplit('.').next().map(str::to_ascii_lowercase).as_deref() {
-        Some("png") => "image/png",
-        Some("webp") => "image/webp",
-        Some("gif") => "image/gif",
-        _ => "image/jpeg",
+/// The most a cover may be, read or downloaded. Real ones are a few hundred KB; this is generous.
+const COVER_MAX: usize = 8 * 1024 * 1024;
+
+/// The picture type from the first bytes, None for anything else: what a player names as its cover is not to be trusted.
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("image/png")
+    } else if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
+        Some("image/jpeg")
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        Some("image/gif")
+    } else if bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
     }
+}
+
+fn data_url(bytes: &[u8]) -> Option<String> {
+    Some(format!("data:{};base64,{}", image_mime(bytes)?, base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// `%20`, `%C3%A9` and the rest of a file link's path as the bytes they stand for. None for a malformed escape or a NUL.
+fn percent_decode(path: &str) -> Option<String> {
+    let raw = path.as_bytes();
+    let mut out = Vec::with_capacity(raw.len());
+    let mut i = 0;
+    while i < raw.len() {
+        if raw[i] == b'%' {
+            let hex = std::str::from_utf8(raw.get(i + 1..i + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(raw[i]);
+            i += 1;
+        }
+    }
+    (!out.contains(&0)).then(|| String::from_utf8(out).ok()).flatten()
+}
+
+/// The bytes of a cover file: a regular file only (a player can name `/dev/zero`, a named pipe or a folder), opened without
+/// waiting, no longer than COVER_MAX, and a picture.
+fn read_cover(path: &str) -> Option<Vec<u8>> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NONBLOCK).open(path).ok()?;
+    let meta = file.metadata().ok()?;
+    if !meta.is_file() || meta.len() > COVER_MAX as u64 {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    // The size can lie (a file under /proc says 0), so the read is capped too.
+    file.take(COVER_MAX as u64 + 1).read_to_end(&mut bytes).ok()?;
+    (bytes.len() <= COVER_MAX && image_mime(&bytes).is_some()).then_some(bytes)
+}
+
+/// A file link's path: local only, `file:///path` or `file://localhost/path`.
+fn local_path(url: &str) -> Option<String> {
+    let rest = url.strip_prefix("file://")?;
+    let path = rest.strip_prefix("localhost").unwrap_or(rest);
+    path.starts_with('/').then(|| percent_decode(path)).flatten()
+}
+
+/// The download, stopped as soon as it passes COVER_MAX (the length it announces can lie), and only a picture. Redirects stay on https.
+async fn download_cover(url: &str) -> Option<Vec<u8>> {
+    let redirects = reqwest::redirect::Policy::custom(|attempt| if attempt.url().scheme() == "https" { attempt.follow() } else { attempt.stop() });
+    let client = reqwest::Client::builder().timeout(COVER_TIMEOUT).redirect(redirects).build().ok()?;
+    let mut response = client.get(url).send().await.ok()?.error_for_status().ok()?;
+    if response.content_length().is_some_and(|n| n > COVER_MAX as u64) {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.ok()? {
+        bytes.extend_from_slice(&chunk);
+        if bytes.len() > COVER_MAX {
+            return None;
+        }
+    }
+    image_mime(&bytes).map(|_| bytes)
 }
 
 /// The cover as a data URL, which is all the page may show: players give a file (Firefox, Chrome, VLC) or an https link
@@ -340,16 +412,10 @@ fn artwork(url: &str, cover: &mut Cover) -> Option<String> {
     if cover.url == url && (cover.data.is_some() || cover.failed.is_some_and(|at| at.elapsed() < COVER_RETRY)) {
         return cover.data.clone();
     }
-    let fetched = if let Some(path) = url.strip_prefix("file://") {
-        // Paths come percent-encoded; the few that matter in file names are decoded.
-        let path = path.replace("%20", " ");
-        std::fs::read(&path).ok().map(|bytes| format!("data:{};base64,{}", mime_of(&path), base64::engine::general_purpose::STANDARD.encode(bytes)))
+    let fetched = if url.starts_with("file://") {
+        local_path(url).and_then(|path| read_cover(&path)).and_then(|bytes| data_url(&bytes))
     } else {
-        tauri::async_runtime::block_on(async {
-            let client = reqwest::Client::builder().timeout(COVER_TIMEOUT).build().ok()?;
-            let bytes = client.get(url).send().await.ok()?.error_for_status().ok()?.bytes().await.ok()?;
-            Some(format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
-        })
+        tauri::async_runtime::block_on(download_cover(url)).and_then(|bytes| data_url(&bytes))
     };
     // One cover is enough to keep: a new track replaces it.
     *cover = Cover { url: url.to_string(), failed: fetched.is_none().then(Instant::now), data: fetched };
@@ -447,6 +513,58 @@ mod tests {
         Track { bus: format!("{PREFIX}{app}"), app: app.into(), playing, title: String::new(), artist: String::new(), position: 0.0, duration: 0.0, can_seek: false, artwork_url: String::new(), shuffle: false, repeat: "none" }
     }
 
+    const PNG: &[u8] = b"\x89PNG\r\n\x1a\n and some more bytes";
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("crest-cover-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join(name)
+    }
+
+    #[test]
+    fn a_file_link_is_decoded_and_only_local_ones_are_read() {
+        assert_eq!(local_path("file:///home/a%20b/%C3%A9.png").as_deref(), Some("/home/a b/\u{e9}.png"));
+        assert_eq!(local_path("file://localhost/tmp/x.png").as_deref(), Some("/tmp/x.png"));
+        assert_eq!(local_path("file://otherhost/tmp/x.png"), None, "another machine's path is not ours");
+        assert_eq!(local_path("file:///tmp/x%00.png"), None, "a NUL ends a path early");
+        assert_eq!(local_path("file:///tmp/x%zz.png"), None, "a malformed escape");
+        assert_eq!(local_path("file:///tmp/x%2"), None, "an escape cut short");
+    }
+
+    #[test]
+    fn a_cover_is_a_small_regular_picture_file() {
+        let ok = scratch("ok.png");
+        std::fs::write(&ok, PNG).unwrap();
+        assert_eq!(read_cover(ok.to_str().unwrap()).as_deref(), Some(PNG));
+        // Not a picture, whatever its name says.
+        let text = scratch("text.png");
+        std::fs::write(&text, b"just text").unwrap();
+        assert_eq!(read_cover(text.to_str().unwrap()), None);
+        // Too big: a sparse file costs nothing to make, and must not be read.
+        let big = scratch("big.png");
+        let f = std::fs::File::create(&big).unwrap();
+        f.set_len(COVER_MAX as u64 + 1).unwrap();
+        assert_eq!(read_cover(big.to_str().unwrap()), None);
+        // The files a player could name to hurt Crest: an endless one, a folder, and a named pipe nobody writes to (opening it must not wait).
+        assert_eq!(read_cover("/dev/zero"), None);
+        assert_eq!(read_cover(scratch("").to_str().unwrap()), None);
+        let pipe = scratch("pipe.png");
+        let _ = std::fs::remove_file(&pipe);
+        assert!(std::process::Command::new("mkfifo").arg(&pipe).status().unwrap().success());
+        assert_eq!(read_cover(pipe.to_str().unwrap()), None);
+        assert_eq!(read_cover("/no/such/file.png"), None);
+    }
+
+    #[test]
+    fn a_picture_is_known_by_its_first_bytes() {
+        assert_eq!(image_mime(PNG), Some("image/png"));
+        assert_eq!(image_mime(&[0xff, 0xd8, 0xff, 0xe0, 0]), Some("image/jpeg"));
+        assert_eq!(image_mime(b"GIF89a.."), Some("image/gif"));
+        assert_eq!(image_mime(b"RIFF\0\0\0\0WEBPVP8 "), Some("image/webp"));
+        assert_eq!(image_mime(b"<svg onload=alert(1)>"), None);
+        assert_eq!(image_mime(b""), None);
+    }
+
     #[test]
     fn a_pinned_player_wins_then_a_playing_one() {
         let tracks = [track("Spotify", false), track("Firefox", true)];
@@ -473,6 +591,6 @@ mod tests {
         let mut cover = Cover::default();
         assert!(artwork("http://x/y.jpg", &mut cover).is_none());
         assert!(artwork("", &mut cover).is_none());
-        assert_eq!(mime_of("/a/b.PNG"), "image/png");
+        assert!(artwork("file:///dev/zero", &mut cover).is_none(), "an endless file is not a cover");
     }
 }

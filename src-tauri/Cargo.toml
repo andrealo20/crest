@@ -64,6 +64,8 @@ gtk = "0.18"
 # Music (src/linux/media.rs, MPRIS), the saved keys (secrets.rs, Secret Service) and the file pickers (picker.rs, the XDG portal):
 # all talk to the desktop over D-Bus. zbus is already in the tree through tauri.
 zbus = "5"
+# O_NONBLOCK for opening a cover file (media.rs): a named pipe must not block the player poll. Already in the tree.
+libc = "0.2"
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
 
