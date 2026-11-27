@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Показывает в реальном времени то, что находится за панелью задач, до {n} раз в секунду. Пока это включено, панель задач не попадает в снимки экрана, записи и демонстрацию экрана.",
  "Form": "Форма",
  "Angedockt": "Прикреплённая",
+  "Platz für die Leiste freihalten": "Оставлять место для панели",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "Развёрнутые окна заканчиваются над панелью и её отступом, как с Прикреплённая. Не с Автоматически скрывать",
  "Schwebend": "Плавающая",
  "Kacheln": "Плитки",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "В виде капсулы панель задач выстраивает три зоны в ряд по центру: слева, по центру, справа. Зоны здесь остаются как есть",

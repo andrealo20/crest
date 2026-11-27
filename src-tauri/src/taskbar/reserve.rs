@@ -1,6 +1,7 @@
 //! When a docked bar reserves its strip at the bottom (or top) of its monitor, as Windows' taskbar does, and how big that strip is.
 //!
-//! A bar reserves only when its shape is docked, "hide automatically" is off, and its appbar calls reach Explorer: Explorer or
+//! A bar reserves only when its shape is docked (or another shape with Keep room for the bar on, its gaps included: bar.rs `strip`),
+//! "hide automatically" is off, and its appbar calls reach Explorer: Explorer or
 //! Crest's own tray spy is first. With another program's `Shell_TrayWnd` first (lumabar, say) the calls would reach that
 //! program, so nothing is registered and nothing is removed. Each reserving bar asks Windows for its strip in physical px
 //! (`strip_for`) and stands where Windows answers (`settle`); the notch then reads Windows' work area as it is.
@@ -94,7 +95,8 @@ fn publish(label: &str, strip: Option<RECT>) {
     strips.extend(strip.map(|s| (label.to_owned(), s)));
 }
 
-/// The notch applied the bar (bar.rs `taskbar_apply`): docked or not, its height in CSS px, and its edge. The appbars follow.
+/// The notch applied the bar (bar.rs `taskbar_apply`): whether it keeps a strip (`docked`: docked, or Keep room for the bar on), the
+/// strip's height in CSS px, and its edge. The appbars follow.
 pub(crate) fn wish(docked: bool, band_css: f64, top: bool) {
     *WISH.lock().unwrap_or_else(|e| e.into_inner()) = (docked, band_css, top);
     refresh();

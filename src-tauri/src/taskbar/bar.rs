@@ -115,13 +115,20 @@ fn band_for(height: f64, docked: bool) -> f64 {
     if docked { height } else { height + 2.0 * GAP }
 }
 
+/// Whether the bar reserves a strip of the work area, and how tall in CSS px: docked, its own height; the other shapes only with
+/// Keep room for the bar (#108), and then their whole band, the gaps included, so maximized windows end just above the bar.
+fn strip(height: f64, docked: bool, keep_clear: bool) -> (bool, f64) {
+    (docked || keep_clear, band_for(height, docked))
+}
+
 /// Turns the bar on or off and sets its height, and whether it is docked to the screen's edge (`None`, from an older
-/// caller: not docked), which takes the gaps out of its band, and its edge (`"top"`; anything else, or none, the bottom). The
-/// notch only, from the Taskbar settings; the Height slider
+/// caller: not docked), which takes the gaps out of its band, its edge (`"top"`; anything else, or none, the bottom), and whether a
+/// bar that is not docked keeps its room in the work area all the same (`keep_clear`, `strip`). The notch only, from the Taskbar
+/// settings; the Height slider
 /// calls it on every step. One call at a time (`APPLYING`), and the notch sends the next only once this one has returned
 /// (store.ts), so they run in their order.
 #[tauri::command]
-pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, edge: Option<String>, app: AppHandle) -> Result<(), String> {
+pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, edge: Option<String>, keep_clear: Option<bool>, app: AppHandle) -> Result<(), String> {
     // To the end of the call, which never awaits.
     let _applying = APPLYING.lock().unwrap_or_else(|e| e.into_inner());
     if !enabled {
@@ -146,7 +153,8 @@ pub async fn taskbar_apply(enabled: bool, height: f64, docked: Option<bool>, edg
     let top = edge.as_deref() == Some("top");
     let moved = TOP.swap(top, Ordering::SeqCst) != top;
     set_band(&app, band_for(height, docked.unwrap_or(false)));
-    super::reserve::wish(docked.unwrap_or(false), band_for(height, true), top);
+    let (reserves, band) = strip(height, docked.unwrap_or(false), keep_clear.unwrap_or(false));
+    super::reserve::wish(reserves, band, top);
     // The band went to the other edge, maybe at the same size: the notch reads the work area again.
     if moved {
         let _ = app.emit("notch://monitors", ());
@@ -506,6 +514,16 @@ fn set_band(app: &AppHandle, band: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_floating_bar_reserves_its_band_only_when_asked() {
+        // Docked: its own height, as Windows' taskbar. The other shapes float over the windows unless Keep room for the bar is on
+        // (#108), and then keep their whole band, the gaps under and over the bar included, so windows end just above it.
+        assert_eq!(strip(48.0, true, false), (true, 48.0));
+        assert_eq!(strip(48.0, true, true), (true, 48.0));
+        assert!(!strip(48.0, false, false).0);
+        assert_eq!(strip(48.0, false, true), (true, 48.0 + 2.0 * GAP));
+    }
 
     #[test]
     fn the_notch_hears_the_primary_bars_slide_apart_from_its_window() {

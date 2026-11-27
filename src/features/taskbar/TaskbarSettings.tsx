@@ -391,7 +391,9 @@ export function TaskbarApps() {
  * Colours, theme and the glass's sliders are the ones of Notch → Themes.
  */
 export function TaskbarLook() {
-  const { shape, height, iconSize, widgetSize, surface, transparency, glass, glassLook, autoHide, position, marks, startIcon } = settings.use().taskbar;
+  const { shape, height, iconSize, widgetSize, surface, transparency, glass, glassLook, autoHide, position, marks, startIcon, keepClear } = settings.use().taskbar;
+  // The bar keeps a strip of the work area: docked, or another shape with Keep room for the bar (#108).
+  const reserving = shape === "docked" || keepClear;
   // Brand names stay as they are, as the Style row's button writes them.
   const startLabel: Record<StartIcon, string> = { windows: "Windows", crest: "Crest", dots: t("Punkte"), rocket: t("Rakete"), sparkle: t("Funkeln"), star: t("Stern") };
   const fps = settings.use().themes.glassFps;
@@ -438,6 +440,11 @@ export function TaskbarLook() {
           options={(Object.keys(SHAPE_LABEL) as BarShape[]).map((s) => ({ value: s, label: t(SHAPE_LABEL[s]) }))}
         />
       </Row>
+      {shape !== "docked" && (
+        <Row icon="dock_to_bottom" label={t("Platz für die Leiste freihalten")} hint={t("Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden")}>
+          <Switch label={t("Platz für die Leiste freihalten")} checked={keepClear} onChange={(on) => setTaskbar({ keepClear: on })} />
+        </Row>
+      )}
       <Row icon="fiber_manual_record" label={t("Markierung offener Apps")}>
         <Segmented<MarkStyle>
           id="taskbar-marks"
@@ -464,7 +471,7 @@ export function TaskbarLook() {
         </div>
       </div>
       {/* A reserving bar's height moves its strip and resizes maximized windows: written once, on release. */}
-      <PxRow icon="height" label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(shape === "docked" && !autoHide)} onChange={(height) => setTaskbar({ height })} />
+      <PxRow icon="height" label={t("Höhe")} value={height} min={HEIGHT[0]} max={HEIGHT[1]} live={!(reserving && !autoHide)} onChange={(height) => setTaskbar({ height })} />
       {/* The size the bar draws: a lower bar keeps the saved one and a taller bar gives it back (fitIcon). */}
       <PxRow icon="aspect_ratio" label={t("Symbolgröße")} value={fitIcon(height, iconSize)} min={ICON[0]} max={fitIcon(height, ICON[1])} onChange={(iconSize) => setTaskbar({ iconSize })} />
       {/* Against the icons' size: at 100 % the widgets follow the icons as before (widgets.ts widgetScale). */}

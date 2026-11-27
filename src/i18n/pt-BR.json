@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Mostra ao vivo o que está atrás da barra de tarefas, até {n} vezes por segundo. Enquanto estiver ativado, a barra de tarefas fica de fora de capturas de tela, gravações e compartilhamentos de tela.",
  "Form": "Formato",
  "Angedockt": "Encaixada",
+  "Platz für die Leiste freihalten": "Reservar espaço para a barra",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "Janelas maximizadas terminam acima da barra e da sua margem, como com Encaixada. Não com Ocultar automaticamente",
  "Schwebend": "Flutuante",
  "Kacheln": "Blocos",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "Como cápsula, a barra de tarefas enfileira as três áreas no centro: esquerda, centro, direita. As áreas aqui continuam como estão",

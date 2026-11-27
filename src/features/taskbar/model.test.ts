@@ -83,6 +83,10 @@ test("any saved value becomes valid bar settings", () => {
   // The search panel's glow too: settings saved before its switch keep it.
   assert.equal(normalizeTaskbar({}).searchGlow, true);
   assert.equal(normalizeTaskbar({ searchGlow: false }).searchGlow, false);
+  // Keep room for the bar starts off: the floating shapes float over the windows, as before it existed (#108).
+  assert.equal(normalizeTaskbar({}).keepClear, false);
+  assert.equal(normalizeTaskbar({ keepClear: true }).keepClear, true);
+  assert.equal(normalizeTaskbar({ keepClear: "yes" }).keepClear, false);
   assert.equal(normalizeTaskbar({ endTask: true }).endTask, true);
   assert.equal(normalizeTaskbar({ endTask: "yes" }).endTask, false);
   assert.equal(normalizeTaskbar({ height: 100 }).height, 64);

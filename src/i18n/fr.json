@@ -1954,6 +1954,8 @@
  "Zeigt live, was hinter der Taskleiste liegt, bis zu {n}-mal pro Sekunde. Solange das an ist, fehlt die Taskleiste in Screenshots, Aufnahmen und Bildschirmfreigaben.": "Montre en direct ce qui se trouve derrière la barre des tâches, jusqu'à {n} fois par seconde. Tant que c'est activé, la barre des tâches n'apparaît ni dans les captures d'écran, ni dans les enregistrements, ni dans les partages d'écran.",
  "Form": "Forme",
  "Angedockt": "Ancrée",
+  "Platz für die Leiste freihalten": "Réserver la place de la barre",
+  "Maximierte Fenster enden über der Leiste und ihrem Abstand, wie bei Angedockt. Nicht mit automatischem Ausblenden": "Les fenêtres agrandies s'arrêtent au-dessus de la barre et de sa marge, comme avec Ancrée. Pas avec Masquer automatiquement",
  "Schwebend": "Flottante",
  "Kacheln": "Vignettes",
  "Als Kapsel reiht die Taskleiste die drei Bereiche in der Mitte aneinander: links, Mitte, rechts. Die Bereiche hier bleiben, wie sie sind": "En capsule, la barre des tâches aligne les trois zones au centre : gauche, centre, droite. Les zones ici restent telles quelles",
