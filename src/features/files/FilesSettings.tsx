@@ -5,7 +5,7 @@ import { engine, loadEngine } from "./store";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row } from "../../ui/controls";
 import { t } from "../../i18n";
-import { LicenseRows } from "./LicenseRows";
+import { LicenseRows, PomeloSite } from "./LicenseRows";
 import { forgetSchema, pomeloOffered } from "../pomelo/store";
 
 /** Settings > Tools > Files, while the tool is on: the licence, the output folder and the engine's version, with Remove. */
@@ -38,7 +38,7 @@ function FilesGroup() {
 
   return (
     <Group title={t("Dateien")} id="settings-files">
-      <LicenseRows installed={installed} buy={!!status?.buy} />
+      <LicenseRows installed={installed} />
       <Row icon="folder" label={t("Ausgabeordner")} hint={outDir || t("Neben den Originalen")}>
         {outDir && <Button onClick={() => setOut("")}>{t("Zurücksetzen")}</Button>}
         <Button onClick={() => void filesEngine.pickFolder().then((dir) => dir && setOut(dir))}>{t("Ändern")}</Button>
@@ -53,7 +53,8 @@ function FilesGroup() {
         </Row>
       )}
       <Row icon="download_done" label={t("Programm")} hint={note ?? (installed ? t("Version {v}", { v: status.version ?? "" }) : t("Nicht heruntergeladen"))}>
-        {installed ? (
+        <PomeloSite />
+        {status?.bundled ? null : installed ? (
           <Button disabled={busy} onClick={remove}>
             {t("Entfernen")}
           </Button>

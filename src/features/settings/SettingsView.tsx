@@ -252,6 +252,8 @@ const sectionPage: Record<string, PageId> = {
   "taskbar-apps": "taskbar-apps",
   "taskbar-look": "taskbar-look",
   pomelo: "pomelo",
+  // A crest://license link (src-tauri/src/pomelo_engine/link.rs), before the schema's `pomelo-<id>` pages below.
+  "pomelo-license": "pomelo",
 };
 
 /** The page of a section: one of the list, or a page of Pomelo's schema (`pomelo-<id>`, which Pomelo asks for itself). */

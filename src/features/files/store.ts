@@ -16,7 +16,7 @@ export function loadEngine(): Promise<void> {
   return filesEngine
     .status()
     .then((s) => engine.set(s))
-    .catch(() => engine.set({ version: null, wheel: false, outdated: false, available: false, size: 0, buy: false }));
+    .catch(() => engine.set({ version: null, wheel: false, outdated: false, available: false, size: 0, bundled: false }));
 }
 
 /** The running download's bytes, null while none runs; its last error. */

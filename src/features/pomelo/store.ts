@@ -1,7 +1,6 @@
 import { createStore } from "../../lib/store";
 import { isMac, isNative } from "../../platform/native";
 import { pomeloWheel } from "../../platform/services";
-import { storeBuild } from "../../platform/storeBuild";
 import { settings } from "../../settings/store";
 import { language, t } from "../../i18n";
 import { engineLang } from "../files/model";
@@ -13,8 +12,8 @@ import { defaultsOf, parseSchema, valuesOf, type SchemaPage, type WheelState } f
  * settings schema with its values, read only once the Pomelo scope (or the settings search) asks for them.
  */
 
-/** Windows only, never the Store build (policy 10.2.2); in the browser only while developing. */
-export const pomeloOffered = !isMac && !storeBuild && (isNative || import.meta.env.DEV);
+/** Windows only (the Store build too, with the package inside its own); in the browser only while developing. */
+export const pomeloOffered = !isMac && (isNative || import.meta.env.DEV);
 
 export const wheelState = createStore<WheelState>({ phase: "off", locked: false });
 

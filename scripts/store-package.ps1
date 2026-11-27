@@ -7,6 +7,12 @@
 #   powershell -File scripts/store-package.ps1 -TestSign      # also a self-signed copy to install on this PC
 # Run it from PowerShell: in Git Bash /usr/bin/link shadows the MSVC linker.
 #
+# The Files tool's engine and the Pomelo wheel go inside the package (the Store's policy 10.2.2 allows no code downloaded
+# after install): -EngineArchive, or the CREST_POMELO_ENGINE_ZIP variable, names pomelo-engine-<VERSION>.zip on this PC. It
+# is checked against VERSION, ARCHIVE_SHA256 and ARCHIVE_SIZE in src-tauri/src/pomelo_engine/mod.rs and unpacked beside
+# crest.exe in pomelo-engine\<VERSION>\, only in the staging folder under src-tauri\target-store (ignored by git): neither the
+# archive nor the engine ever goes into this repository. Without it the build stops.
+#
 # Partner Center, adding arm64: open the app's new submission, Packages, and upload Crest-<version>-x64.msix and
 # Crest-<version>-arm64.msix together (or the one .msixbundle from -Bundle instead of both). Both carry the same version;
 # the Store hands each PC the package of its architecture. Check that the Packages table lists x64 and arm64, then
@@ -14,11 +20,25 @@
 param(
     [ValidateSet('x64', 'arm64')][string]$Arch = 'x64',
     [switch]$Bundle,
-    [switch]$TestSign
+    [switch]$TestSign,
+    [string]$EngineArchive = $env:CREST_POMELO_ENGINE_ZIP
 )
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+
+# The engine's archive, checked before anything is built: the one version, hash and size Crest's code names.
+$engineSource = Get-Content -Raw (Join-Path $root 'src-tauri\src\pomelo_engine\mod.rs')
+$engineVersion = [regex]::Match($engineSource, 'const VERSION: &str = "([^"]+)";').Groups[1].Value
+$engineSha = [regex]::Match($engineSource, 'const ARCHIVE_SHA256: &str = "([0-9a-f]{64})";').Groups[1].Value
+$engineSize = [regex]::Match($engineSource, 'const ARCHIVE_SIZE: u64 = ([\d_]+);').Groups[1].Value -replace '_', ''
+if (-not $engineVersion -or -not $engineSha -or -not $engineSize) { throw 'VERSION, ARCHIVE_SHA256 or ARCHIVE_SIZE not found in src-tauri\src\pomelo_engine\mod.rs' }
+if (-not $EngineArchive) { throw "No engine archive: pass -EngineArchive or set CREST_POMELO_ENGINE_ZIP to pomelo-engine-$engineVersion.zip" }
+if (-not (Test-Path -LiteralPath $EngineArchive -PathType Leaf)) { throw "Engine archive not found: $EngineArchive" }
+$EngineArchive = (Resolve-Path -LiteralPath $EngineArchive).Path
+if ((Get-Item -LiteralPath $EngineArchive).Length -ne [int64]$engineSize) { throw "Engine archive is not the $engineSize bytes of pomelo-engine $engineVersion" }
+if ((Get-FileHash -LiteralPath $EngineArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $engineSha) { throw "Engine archive does not match ARCHIVE_SHA256 of pomelo-engine $engineVersion" }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $publisher = 'CN=6324E174-874E-4AF4-BEFF-97AD455C0AFD'
 $rustTargets = @{ x64 = 'x86_64-pc-windows-msvc'; arm64 = 'aarch64-pc-windows-msvc' }
 
@@ -92,6 +112,10 @@ function New-StorePackage([string]$PackageArch) {
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse }
     New-Item -ItemType Directory -Path $stage | Out-Null
     foreach ($exe in 'crest.exe', 'crest-notify.exe') { Copy-Item -LiteralPath (Join-Path $target "$rustTarget\release\$exe") -Destination $stage }
+    # Where the Store build looks for it (resource_dir, the folder of crest.exe). ExtractToDirectory refuses entries outside it.
+    $engineDir = Join-Path $stage "pomelo-engine\$engineVersion"
+    [IO.Compression.ZipFile]::ExtractToDirectory($EngineArchive, $engineDir)
+    if (-not (Test-Path -LiteralPath (Join-Path $engineDir 'pomelo-engine.exe'))) { throw "pomelo-engine.exe missing from $EngineArchive" }
     foreach ($logo in 'Square44x44Logo', 'Square71x71Logo', 'Square150x150Logo', 'StoreLogo') {
         Copy-Item -LiteralPath (Join-Path $root "src-tauri\icons\$logo.png") -Destination $stage
     }

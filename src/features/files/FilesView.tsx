@@ -11,6 +11,7 @@ import { settings } from "../../settings/store";
 import { Button, Meter, Segmented, Select, Switch, TextField } from "../../ui/controls";
 import { language, t } from "../../i18n";
 import { addToShelf, shelfFiles } from "../shelf/ShelfView";
+import { PomeloSite } from "./LicenseRows";
 import { compatible, defaultValues, engineLang, outputsOf, tabsOf, type FileTab, type Op, type OpOption, type RunState } from "./model";
 import { addPaths, cancelDownload, cancelJob, clearJob, closeRun, download, downloadFailed, downloading, engine, job, loadEngine, runError, runJob } from "./store";
 
@@ -86,6 +87,7 @@ function Intro({ status }: { status: EngineStatus }) {
             <Button primary icon={DownloadSimple} disabled={!status.available} onClick={download}>
               {t("Programm herunterladen")}
             </Button>
+            <PomeloSite />
             {(error || !status.available) && <span className="truncate text-caption text-orange">{error ?? t("Das Programm ist noch nicht verfügbar")}</span>}
           </>
         )}

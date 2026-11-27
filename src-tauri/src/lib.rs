@@ -318,14 +318,22 @@ pub fn restore_banners() {
 
 pub fn run() {
     let builder = tauri::Builder::default()
-        // A second launch doesn't open a second notch; it opens the settings of this one.
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| shell::second_launch(app)));
+        // A second launch doesn't open a second notch; it opens the settings of this one, or hands over its crest:// link.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _| {
+            #[cfg(windows)]
+            if pomelo_engine::link::handle(app, _args) {
+                return;
+            }
+            shell::second_launch(app)
+        }));
     // The Store build starts with Windows through its package (startup.rs) and only the Store may update it.
     #[cfg(not(feature = "store"))]
     let builder = builder
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         // Updates: signed installers from GitHub, only on click in the settings.
         .plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(all(windows, not(feature = "store")))]
+    let builder = builder.plugin(tauri_plugin_deep_link::init());
     #[cfg(windows)]
     let builder = builder
         .manage(mixer::MixerState::default())
@@ -584,15 +592,19 @@ pub fn run() {
             pomelo_engine::files_buy,
             #[cfg(windows)]
             pomelo_engine::files_engine_download_cancel,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
+            pomelo_engine::files_page,
+            #[cfg(windows)]
+            pomelo_engine::link::files_link_key,
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_wheel_set,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_wheel_state,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_wheel_open,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_store_installed,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_settings,
             phone_share::phone_share_start,
             phone_share::phone_share_stop,
@@ -916,6 +928,9 @@ pub fn run() {
             #[cfg(windows)]
             camera::install(&window);
             hit_test::spawn(app.handle().clone(), window.clone());
+            // Started by a crest:// link.
+            #[cfg(windows)]
+            pomelo_engine::link::handle(app.handle(), std::env::args().skip(1));
             #[cfg(windows)]
             display::spawn(app.handle().clone(), window);
             mirror::spawn(app.handle().clone());

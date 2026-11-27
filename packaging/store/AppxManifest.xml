@@ -55,6 +55,13 @@
         <desktop:Extension Category="windows.startupTask" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="CrestStartup" Enabled="false" DisplayName="Crest" />
         </desktop:Extension>
+        <!-- crest://license?key=..., the link of the thanks page after buying a Pomelo key: Windows starts crest.exe with the link
+             as its argument, and a running Crest takes it (src-tauri/src/pomelo_engine/link.rs). -->
+        <uap:Extension Category="windows.protocol" Executable="crest.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap:Protocol Name="crest">
+            <uap:DisplayName>Crest</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
         <!-- crest-notify (docs/notices.md) runs by name from any terminal. An extension of this app, not an app of its own:
              the Store refuses a second app without a Start menu entry. -->
         <uap5:Extension Category="windows.appExecutionAlias" Executable="crest-notify.exe" EntryPoint="Windows.FullTrustApplication">

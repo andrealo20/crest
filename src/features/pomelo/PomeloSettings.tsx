@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { formatBytes } from "../../lib/format";
 import { isNative } from "../../platform/native";
+import { windowKind } from "../../lib/windowKind";
 import { filesEngine, pomeloWheel } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Select, Slider, Switch, TextField } from "../../ui/controls";
 import { language, t } from "../../i18n";
 import { engineLang } from "../files/model";
-import { LicenseRows } from "../files/LicenseRows";
+import { LicenseRows, PomeloSite } from "../files/LicenseRows";
 import { cancelDownload, download, downloadFailed, downloading, engine, loadEngine } from "../files/store";
 import { groupTitle, keyOf, listText, packageNeed, parseList, parseWhole, RETRY_PHASES, rowSymbol, selectWidth, shortPath, shownRows, valueOf, type Control, type SchemaRow, type WheelState } from "./model";
 import { followWheel, forgetSchema, pomeloValues, reloadPomeloValues, schema, setPomeloValue, wheelState } from "./store";
@@ -98,6 +99,9 @@ export function PomeloMain() {
         >
           {(need === "ready" || on) && <Switch label={t("Pomelo-Rad")} checked={on} onChange={setOn} />}
         </Row>
+        <Row icon="public" label={t("Was ist Pomelo?")} hint={t("Seine Website zeigt, was es kann, bevor du etwas herunterlädst")}>
+          <PomeloSite />
+        </Row>
         <Row icon="info" label={t("Status")} hint={stateText(wheel, on, need)}>
           {retry && <Button onClick={() => void pomeloWheel.set(true, engineLang(lang))}>{t("Erneut versuchen")}</Button>}
         </Row>
@@ -114,10 +118,15 @@ export function PomeloMain() {
         <Row
           icon="download_done"
           label={t("Pomelo")}
-          hint={t("Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.")}
+          hint={
+            status?.bundled
+              ? t("Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.")
+              : t("Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.")
+          }
         />
+        {/* The Store's package carries it: nothing to download, update or remove. */}
         <Row icon="download" label={t("Programm")} hint={packageHint}>
-          {progress ? (
+          {status?.bundled ? null : progress ? (
             <Button onClick={cancelDownload}>{t("Abbrechen")}</Button>
           ) : (
             <>
@@ -136,7 +145,7 @@ export function PomeloMain() {
         </Row>
       </Group>
       <Group title={t("Lizenz")} id="settings-pomelo-license">
-        <LicenseRows installed={!!status?.version} buy={!!status?.buy} refresh={wheel.locked ? 1 : 0} />
+        <LicenseRows installed={!!status?.version} refresh={wheel.locked ? 1 : 0} takesLink={windowKind === "settings"} />
         <Row icon="receipt_long" label={t("Gratis-Dateien")} hint={t("Die ersten 20 Dateien sind gratis, danach 2 pro Tag. Das Rad und das Tool Dateien zählen zusammen.")} />
       </Group>
     </>

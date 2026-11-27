@@ -1,12 +1,16 @@
 //! The Files tool (src/features/files): conversions and file tools run by a separate program, `pomelo-engine.exe`, made from
 //! Pomelo (a closed Windows app by Crest's author). It is not part of Crest and not under its licence: Crest holds only this bridge.
 //!
-//! - The program is downloaded only when the user asks for it: a manifest, then the archive's parts, each checked against the
+//! - The Microsoft Store build carries the package inside its MSIX, beside crest.exe in `pomelo-engine\<version>\`
+//!   (scripts/store-package.ps1 checks the archive against `ARCHIVE_SHA256` before it unpacks it there), and never downloads,
+//!   updates or removes it: the Store's policy 10.2.2 allows no code fetched after install.
+//! - Elsewhere the program is downloaded only when the user asks for it: a manifest, then the archive's parts, each checked against the
 //!   manifest and the whole archive against `VERSION` and `ARCHIVE_SHA256` here, which a manifest cannot change. It is unpacked
 //!   into a temporary folder and renamed to `<local data>\pomelo-engine\<version>\`, so a broken download never looks installed.
 //! - It runs without a window and answers on stdout in JSON lines (`catalog`, `run`, `license`), keeping its licence, free
-//!   allowance and temporary files in `<local data>\pomelo`. Crest's only network use here is the download; a licence key is
-//!   activated by the program itself.
+//!   allowance and temporary files in `<local data>\pomelo`. Crest's only network use here is the download. The licence (paid
+//!   with Stripe, keys made by Pomelo's service on pomeloapp.net) is checked and activated by the program itself; Crest only
+//!   opens the payment page and passes a key the user typed or brought by a `crest://license` link (link.rs).
 //! - Everything the page sends is checked before it reaches the program: files that exist, an operation of the catalog, and
 //!   options the operation has, with values of their type.
 
@@ -26,18 +30,20 @@ use tauri::{AppHandle, WebviewWindow};
 
 use crate::agents::job::Job;
 
-/// The wheel, `Pomelo.exe --hosted`: never in the Store build, which cannot run downloaded code (policy 10.2.2).
-#[cfg(not(feature = "store"))]
+/// The wheel, `Pomelo.exe --hosted`.
 pub mod wheel;
+
+/// `crest://license?key=`: a bought key into the licence field.
+pub mod link;
 
 /// The package Crest runs (the engine, and from 1.1.0 the wheel's `Pomelo.exe` beside it), numbered as the Pomelo it is made
 /// from, and the protocol of its lines.
 const VERSION: &str = "1.7.0";
 const PROTOCOL: u64 = 1;
-/// SHA-256 and size in bytes of the whole archive of `VERSION`. Placeholders that match no archive: set both (and `VERSION`)
-/// from the real archive with each new engine. While the hash is all zeros the download answers "unavailable" and sends nothing.
-const ARCHIVE_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-const ARCHIVE_SIZE: u64 = 0;
+/// SHA-256 and size in bytes of the whole archive of `VERSION`, set from the real archive with each new engine. The download
+/// checks against them, and so does scripts/store-package.ps1, which reads them from here. All zeros would mean none.
+const ARCHIVE_SHA256: &str = "aac069018272621be1d47cada3334584de67f4b75b443f0f3aa0f497c2a78e10";
+const ARCHIVE_SIZE: u64 = 107_446_305;
 /// The manifest of `VERSION`, published beside the archive's parts, which must come from the same host. One folder per
 /// version, so an older Crest keeps downloading the engine it knows.
 fn manifest_url() -> String {
@@ -52,8 +58,10 @@ fn wheel_path(engine: &Path) -> Option<PathBuf> {
     let dir = engine.parent()?;
     [dir.join(WHEEL_EXE), dir.join("wheel").join(WHEEL_EXE)].into_iter().find(|p| p.is_file())
 }
-/// The licence's checkout page, opened in the browser by Buy; empty hides the button until the shop exists.
-const CHECKOUT_URL: &str = "";
+/// Where a key bought before is sent again, by the email of the purchase.
+const RECOVER_URL: &str = "https://pomeloapp.net/crest/recover";
+/// Pomelo's site, for whoever wants to see what it is before downloading the package.
+const SITE_URL: &str = "https://pomeloapp.net";
 /// No engine is near this; a larger manifest is refused.
 const MAX_ARCHIVE: u64 = 400 * 1024 * 1024;
 /// A one-line answer (catalog, licence) larger than this is no answer.
@@ -72,7 +80,14 @@ fn base(app: &AppHandle) -> Result<PathBuf, String> {
     crate::portable::local_data_dir(app)
 }
 
+/// The package's versions: downloaded into the local data folder, or in the Store build inside the MSIX, beside crest.exe.
 fn engine_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(feature = "store")]
+    {
+        use tauri::Manager;
+        app.path().resource_dir().map(|dir| dir.join("pomelo-engine")).map_err(|_| "app-data".into())
+    }
+    #[cfg(not(feature = "store"))]
     Ok(base(app)?.join("pomelo-engine"))
 }
 
@@ -100,25 +115,26 @@ pub struct Status {
     wheel: bool,
     /// Only an older package is installed (one without the wheel): a download updates it.
     outdated: bool,
-    /// Whether a download is possible (this build knows an archive).
+    /// Whether a download is possible (this build knows an archive, and is not the Store's).
     available: bool,
+    /// The package comes inside Crest's own (the Store build): no download, update or removal.
+    bundled: bool,
     /// The download's size in bytes, 0 when unknown.
     size: u64,
-    /// Whether Buy has a checkout page to open.
-    buy: bool,
 }
 
 #[tauri::command(async)]
 pub fn files_engine_status(app: AppHandle) -> Status {
     let exe = installed(&app).ok();
-    let outdated = exe.is_none() && engine_dir(&app).is_ok_and(|dir| older_package(&dir));
+    let bundled = cfg!(feature = "store");
+    let outdated = !bundled && exe.is_none() && engine_dir(&app).is_ok_and(|dir| older_package(&dir));
     Status {
         version: exe.as_ref().map(|_| VERSION),
         wheel: exe.as_deref().and_then(wheel_path).is_some(),
         outdated,
-        available: available(ARCHIVE_SHA256),
+        available: !bundled && available(ARCHIVE_SHA256),
         size: ARCHIVE_SIZE,
-        buy: !CHECKOUT_URL.is_empty(),
+        bundled,
     }
 }
 
@@ -127,13 +143,37 @@ fn older_package(dir: &Path) -> bool {
     std::fs::read_dir(dir).into_iter().flatten().flatten().any(|e| e.file_name() != VERSION && !e.file_name().to_string_lossy().starts_with('.') && e.path().join(EXE).is_file())
 }
 
-/// Opens the checkout page in the default browser.
-#[tauri::command]
-pub fn files_buy() -> Result<(), String> {
-    if CHECKOUT_URL.is_empty() {
-        return Err("unavailable".into());
+/// The payment page of `license status`'s `buy`, https on Stripe or pomeloapp.net only, with the engine's random instance id
+/// as `client_reference_id` when it gives one (the service ties the purchase to it). Nothing of the user's goes in it.
+fn buy_url(status: &Value) -> Option<String> {
+    let mut url = tauri::Url::parse(status["buy"].as_str()?).ok()?;
+    let host = url.host_str()?;
+    if url.scheme() != "https" || !(host == "buy.stripe.com" || host == "pomeloapp.net" || host.ends_with(".pomeloapp.net")) {
+        return None;
     }
-    crate::open_url(CHECKOUT_URL)
+    // Stripe takes up to 200 letters, digits, dashes and underscores here.
+    let id = status["instance_id"].as_str().filter(|id| (1..=200).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
+    if let Some(id) = id {
+        url.query_pairs_mut().append_pair("client_reference_id", id);
+    }
+    Some(url.into())
+}
+
+/// Buy: the payment page the engine names, in the default browser.
+#[tauri::command(async)]
+pub fn files_buy(app: AppHandle) -> Result<(), String> {
+    let status = files_license(app, "status".into(), None)?;
+    crate::open_url(&buy_url(&status).ok_or("unavailable")?)
+}
+
+/// One of pomeloapp.net's pages, by name: `site` (Discover Pomelo) or `recover` (Already bought?). Nothing else opens from here.
+#[tauri::command]
+pub fn files_page(page: String) -> Result<(), String> {
+    crate::open_url(match page.as_str() {
+        "site" => SITE_URL,
+        "recover" => RECOVER_URL,
+        _ => return Err("page".into()),
+    })
 }
 
 // ---------- Download ----------
@@ -223,12 +263,8 @@ fn install_unused(app: &AppHandle, dir: &Path, archive: &Path) -> Result<(), Str
     if lock(&RUN).is_some() {
         return Err("busy".into());
     }
-    #[cfg(not(feature = "store"))]
     let (paused, unused) = wheel::pause_for_update(app);
-    #[cfg(feature = "store")]
-    let (unused, _) = (true, app);
     let result = if unused { install(dir, archive) } else { Err("busy".into()) };
-    #[cfg(not(feature = "store"))]
     wheel::resume_after_update(app, paused);
     result
 }
@@ -353,11 +389,14 @@ fn extract(archive: &Path, to: &Path) -> Result<(), String> {
 
 #[tauri::command(async)]
 pub fn files_engine_remove(app: AppHandle) -> Result<(), String> {
+    // The Store's package keeps its engine: Windows removes it with Crest.
+    if cfg!(feature = "store") {
+        return Err("bundled".into());
+    }
     if lock(&RUN).is_some() || DOWNLOADING.load(Ordering::SeqCst) {
         return Err("busy".into());
     }
     // The running wheel holds its files open.
-    #[cfg(not(feature = "store"))]
     if wheel::running() {
         return Err("wheel".into());
     }
@@ -666,7 +705,7 @@ pub fn files_cancel() {
     cancel();
 }
 
-/// A licence key as the shop gives them: letters, digits and dashes.
+/// A licence key as typed: letters, digits and dashes (the engine knows the exact form and normalises it).
 fn key_ok(key: &str) -> bool {
     (8..=128).contains(&key.len()) && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
@@ -679,12 +718,12 @@ pub fn files_license(app: AppHandle, action: String, key: Option<String>) -> Res
     match action.as_str() {
         "status" | "deactivate" => {}
         "activate" => {
-            let key = key.map(|k| k.trim().to_string()).filter(|k| key_ok(k)).ok_or("key")?;
+            let key = key.map(|k| k.split_whitespace().collect::<String>()).filter(|k| key_ok(k)).ok_or("key")?;
             args.extend(["--key".into(), key.into()]);
         }
         _ => return Err("action".into()),
     }
-    // Activating goes to the shop over the network, from the engine.
+    // Activating goes to Pomelo's licence service over the network, from the engine.
     let timeout = Duration::from_secs(if action == "activate" { 60 } else { 45 });
     match once(command(&exe, &args), timeout)? {
         (Some(v), _) => Ok(v),
@@ -756,8 +795,9 @@ mod tests {
         assert!(!matches(hashed(b"abd"), 3, 3, abc));
         assert!(!matches(hashed(b"abc"), 3, 4, abc));
 
-        // The placeholder names no archive, so even a manifest that repeats it is refused.
-        assert!(!available(ARCHIVE_SHA256) && !available("") && !available(&"g".repeat(64)) && available(abc));
+        // All zeros names no archive, so even a manifest that repeats it is refused.
+        let zeros = "0".repeat(64);
+        assert!(available(ARCHIVE_SHA256) && !available(&zeros) && !available("") && !available(&"g".repeat(64)) && available(abc));
         let manifest = |sha: &str, url: &str, size: u64| Manifest {
             version: "1.0.0".into(),
             protocol: 1,
@@ -767,8 +807,8 @@ mod tests {
         let good = manifest(abc, "https://pomeloapp.net/engine/a", 10);
         assert_eq!(check_manifest(&good, "1.0.0", abc, 15), Ok(15));
         assert_eq!(check_manifest(&good, "1.0.0", abc, 0), Ok(15));
-        assert!(check_manifest(&good, "1.0.0", ARCHIVE_SHA256, 0).is_err());
-        assert!(check_manifest(&manifest(ARCHIVE_SHA256, "https://pomeloapp.net/a", 10), "1.0.0", ARCHIVE_SHA256, 0).is_err());
+        assert!(check_manifest(&good, "1.0.0", &zeros, 0).is_err());
+        assert!(check_manifest(&manifest(&zeros, "https://pomeloapp.net/a", 10), "1.0.0", &zeros, 0).is_err());
         assert!(check_manifest(&good, "1.0.1", abc, 0).is_err());
         assert!(check_manifest(&good, "1.0.0", abc, 16).is_err());
         assert!(check_manifest(&manifest(&abc.replace('b', "c"), "https://pomeloapp.net/a", 10), "1.0.0", abc, 0).is_err());
@@ -859,7 +899,9 @@ mod tests {
         assert_eq!((exit_error(code), lines[0]["type"].as_str()), (Some("locked"), Some("locked")));
 
         let (answer, code) = once(command(&fake(), &["license".into(), "status".into(), "--data".into(), dir.clone().into()]), Duration::from_secs(20)).unwrap();
-        assert_eq!((answer.unwrap()["state"].as_str(), code), (Some("free"), 0));
+        let answer = answer.unwrap();
+        assert_eq!((answer["state"].as_str(), code), (Some("free"), 0));
+        assert_eq!(buy_url(&answer).as_deref(), Some("https://buy.stripe.com/test_fake?client_reference_id=fake-instance"));
         let (answer, _) = once(command(&fake(), &["catalog".into(), "--data".into(), dir.clone().into()]), Duration::from_secs(20)).unwrap();
         assert_eq!(parse_catalog(answer.unwrap()).unwrap()[0].id, "image.convert.png");
         let _ = std::fs::remove_dir_all(dir);
@@ -938,5 +980,29 @@ mod tests {
         assert!(!dir.join("evil.exe").exists());
         assert_eq!(extract(&write("noexe.zip", &["readme.txt"]), &dir.join("y")), Err("zip".to_string()));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn buy_opens_the_engines_payment_page_with_its_instance_only() {
+        let page = "https://buy.stripe.com/test_abc";
+        assert_eq!(buy_url(&serde_json::json!({ "buy": page })).as_deref(), Some(page));
+        assert_eq!(
+            buy_url(&serde_json::json!({ "buy": page, "instance_id": "0f8c2a3e-5b7d-4c1a-9e2f-6a4b8d0c1e3f" })).as_deref(),
+            Some("https://buy.stripe.com/test_abc?client_reference_id=0f8c2a3e-5b7d-4c1a-9e2f-6a4b8d0c1e3f")
+        );
+        // A link with its own query keeps it.
+        assert_eq!(
+            buy_url(&serde_json::json!({ "buy": "https://pay.pomeloapp.net/x?locale=it", "instance_id": "abc_1" })).as_deref(),
+            Some("https://pay.pomeloapp.net/x?locale=it&client_reference_id=abc_1")
+        );
+        // An instance id that is not one is left out, not escaped in.
+        for id in [serde_json::json!("a&b=c"), serde_json::json!(""), serde_json::json!("x".repeat(201)), serde_json::json!("ü"), serde_json::json!(7)] {
+            assert_eq!(buy_url(&serde_json::json!({ "buy": page, "instance_id": id })).as_deref(), Some(page), "{id}");
+        }
+        for bad in ["", "http://buy.stripe.com/x", "https://evil.example/x", "https://buy.stripe.com.evil.example/x", "https://notpomeloapp.net/x", "file:///C:/Windows/notepad.exe", r"C:\x.exe", "javascript:alert(1)"] {
+            assert_eq!(buy_url(&serde_json::json!({ "buy": bad })), None, "{bad}");
+        }
+        assert_eq!(buy_url(&serde_json::json!({ "state": "free" })), None);
+        assert_eq!(buy_url(&serde_json::json!({ "buy": true })), None);
     }
 }
