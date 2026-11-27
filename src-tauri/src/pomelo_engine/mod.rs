@@ -59,6 +59,8 @@ fn wheel_path(engine: &Path) -> Option<PathBuf> {
 }
 /// Where a key bought before is sent again, by the email of the purchase.
 const RECOVER_URL: &str = "https://pomeloapp.net/crest/recover";
+/// Pomelo's site, for whoever wants to see what it is before downloading the package.
+const SITE_URL: &str = "https://pomeloapp.net";
 /// No engine is near this; a larger manifest is refused.
 const MAX_ARCHIVE: u64 = 400 * 1024 * 1024;
 /// A one-line answer (catalog, licence) larger than this is no answer.
@@ -152,10 +154,14 @@ pub fn files_buy(app: AppHandle) -> Result<(), String> {
     crate::open_url(&buy_url(&status).ok_or("unavailable")?)
 }
 
-/// "Already bought?": the page that sends the keys of an email again.
+/// One of pomeloapp.net's pages, by name: `site` (Discover Pomelo) or `recover` (Already bought?). Nothing else opens from here.
 #[tauri::command]
-pub fn files_recover() -> Result<(), String> {
-    crate::open_url(RECOVER_URL)
+pub fn files_page(page: String) -> Result<(), String> {
+    crate::open_url(match page.as_str() {
+        "site" => SITE_URL,
+        "recover" => RECOVER_URL,
+        _ => return Err("page".into()),
+    })
 }
 
 // ---------- Download ----------

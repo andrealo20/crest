@@ -593,7 +593,7 @@ pub fn run() {
             #[cfg(windows)]
             pomelo_engine::files_engine_download_cancel,
             #[cfg(windows)]
-            pomelo_engine::files_recover,
+            pomelo_engine::files_page,
             #[cfg(all(windows, not(feature = "store")))]
             pomelo_engine::link::files_link_key,
             #[cfg(all(windows, not(feature = "store")))]

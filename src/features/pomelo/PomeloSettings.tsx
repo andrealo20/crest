@@ -7,7 +7,7 @@ import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Select, Slider, Switch, TextField } from "../../ui/controls";
 import { language, t } from "../../i18n";
 import { engineLang } from "../files/model";
-import { LicenseRows } from "../files/LicenseRows";
+import { LicenseRows, PomeloSite } from "../files/LicenseRows";
 import { cancelDownload, download, downloadFailed, downloading, engine, loadEngine } from "../files/store";
 import { groupTitle, keyOf, listText, packageNeed, parseList, parseWhole, RETRY_PHASES, rowSymbol, selectWidth, shortPath, shownRows, valueOf, type Control, type SchemaRow, type WheelState } from "./model";
 import { followWheel, forgetSchema, pomeloValues, reloadPomeloValues, schema, setPomeloValue, wheelState } from "./store";
@@ -98,6 +98,9 @@ export function PomeloMain() {
           hint={t("Zieh Dateien im Explorer und halte Umschalt, Strg oder Alt: Ein Rad mit den Umwandlungen und Werkzeugen von Pomelo erscheint.")}
         >
           {(need === "ready" || on) && <Switch label={t("Pomelo-Rad")} checked={on} onChange={setOn} />}
+        </Row>
+        <Row icon="public" label={t("Was ist Pomelo?")} hint={t("Seine Website zeigt, was es kann, bevor du etwas herunterlädst")}>
+          <PomeloSite />
         </Row>
         <Row icon="info" label={t("Status")} hint={stateText(wheel, on, need)}>
           {retry && <Button onClick={() => void pomeloWheel.set(true, engineLang(lang))}>{t("Erneut versuchen")}</Button>}

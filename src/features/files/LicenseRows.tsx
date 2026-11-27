@@ -1,12 +1,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { filesEngine } from "../../platform/services";
 import { Button, Row, TextField } from "../../ui/controls";
+import { ArrowSquareOut } from "../../ui/iconset";
 import { locale, t } from "../../i18n";
 import { priceShown, type License, type Price } from "./model";
 
 type Activation = { ok: boolean; state?: string; error?: string; message?: string };
 
 const usd = (amount: string) => `US$${amount}`;
+
+/** Discover Pomelo: its site in the browser, for whoever wants to see it before the download (Files tool, Pomelo scope). */
+export function PomeloSite() {
+  return (
+    <Button icon={ArrowSquareOut} onClick={() => void filesEngine.page("site").catch(() => {})}>
+      {t("Pomelo entdecken")}
+    </Button>
+  );
+}
 
 /** The price, with the usual one struck through during an offer; a screen reader hears "regular price …, now …". */
 function PriceTag({ price }: { price: Price }) {
@@ -128,7 +138,7 @@ export function LicenseRows({ installed, refresh = 0, takesLink = false }: { ins
             )}
           </Button>
         )}
-        {installed && license && !unlocked && <Button onClick={() => void filesEngine.recover().catch(() => setNote(t("Fehlgeschlagen")))}>{t("Schon gekauft?")}</Button>}
+        {installed && license && !unlocked && <Button onClick={() => void filesEngine.page("recover").catch(() => setNote(t("Fehlgeschlagen")))}>{t("Schon gekauft?")}</Button>}
         {installed && unlocked && (
           <Button
             disabled={busy}

@@ -2484,8 +2484,8 @@ export const filesEngine = {
   pickFolder: (): Promise<string | null> => (isNative ? invoke<string | null>("files_pick_folder") : Promise.resolve("C:\\Users\\demo\\Desktop")),
   /** Opens the payment page `license status` names, in the browser. */
   buy: (): Promise<void> => (isNative ? invoke("files_buy") : Promise.resolve()),
-  /** Opens pomeloapp.net's page that sends a bought key again. */
-  recover: (): Promise<void> => (isNative ? invoke("files_recover") : Promise.resolve()),
+  /** Opens a page of pomeloapp.net: Pomelo's site, or the one that sends a bought key again. */
+  page: (page: "site" | "recover"): Promise<void> => (isNative ? invoke("files_page", { page }) : Promise.resolve()),
   /**
    * The key of a `crest://license` link, once, when `take` (only the settings window's Pomelo licence panel takes it); null
    * without one, and always in the Store build and on a Mac, which have no links. Any licence panel asks, so a copy can register
