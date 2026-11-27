@@ -20,7 +20,8 @@
 .has-waves {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  /* clip, not hidden: hidden makes a scroll container, and the catalogue's sticky panel would stop following the page. */
+  overflow: clip;
 }
 .waves,
 .waves-canvas {
