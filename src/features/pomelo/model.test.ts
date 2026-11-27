@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { controlOf, defaultsOf, keyOf, listText, packageNeed, parseList, parseSchema, parseWhole, shownRows, valueOf, valuesOf, visible, type SchemaRow } from "./model.ts";
+import { controlOf, defaultsOf, groupTitle, keyOf, listText, rowSymbol, selectWidth, shortPath, packageNeed, parseList, parseSchema, parseWhole, shownRows, valueOf, valuesOf, visible, type SchemaRow } from "./model.ts";
 
 const row = (patch: Partial<SchemaRow> & Pick<SchemaRow, "key" | "type">): SchemaRow => ({ label: patch.key, ...patch });
 
@@ -111,4 +111,29 @@ test("the package needs an update without the wheel, a download without anything
   assert.equal(packageNeed({ version: "1.1.0", wheel: false, outdated: false }), "update");
   assert.equal(packageNeed({ version: null, wheel: false, outdated: true }), "update");
   assert.equal(packageNeed({ version: null, wheel: false, outdated: false }), "download");
+});
+
+test("rows draw the schema's icon, else one from their key, else one for their type", () => {
+  assert.equal(rowSymbol(row({ key: "a", type: "bool", icon: "volume_up" })), "volume_up");
+  assert.equal(rowSymbol(row({ key: "a", type: "bool", icon: "sound" })), "volume_up");
+  assert.equal(rowSymbol(row({ key: "a", type: "bool", icon: "no-such-icon" })), "check_circle");
+  assert.equal(rowSymbol(row({ key: "ui.sounds", type: "bool" })), "volume_up");
+  assert.equal(rowSymbol(row({ key: "convert.jpegQuality", type: "int" })), "image");
+  assert.equal(rowSymbol(row({ key: "watch.folders", type: "custom" })), "folder");
+  assert.equal(rowSymbol(row({ key: "x", type: "custom" })), "web_asset");
+});
+
+test("folders, group titles, short paths and select widths", () => {
+  assert.equal(controlOf(row({ key: "output.fallbackFolder", type: "text" })), "folder");
+  assert.equal(controlOf(row({ key: "out", type: "folder" })), "folder");
+  assert.equal(groupTitle({ title: "Keys", rows: [row({ key: "keys", type: "keys", label: "Keys" }), row({ key: "b", type: "bool" })] }), undefined);
+  assert.equal(groupTitle({ title: "Output", rows: [row({ key: "b", type: "bool", label: "Leave out" })] }), "Output");
+  assert.equal(groupTitle({ rows: [] }), undefined);
+  assert.equal(shortPath("C:\\Users\\andre\\Downloads\\Pomelo"), "C:\\Users\\andre\\Downloads\\Pomelo");
+  const long = "C:\\Users\\someone with a long name\\OneDrive\\Documents\\Exports\\Pomelo copies";
+  assert.equal(shortPath(long), "…\\Documents\\Exports\\Pomelo copies");
+  assert.ok(shortPath(long).length <= 36);
+  assert.equal(selectWidth(["Shift", "Ctrl"]), "w-28");
+  assert.equal(selectWidth(["Use system setting"]), "w-44");
+  assert.equal(selectWidth(["Windows language (English)"]), "w-56");
 });

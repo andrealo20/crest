@@ -3,14 +3,18 @@
  * wheel.rs), checked and drawn with Crest's own controls, which rows show (`visibleIf`), and the wheel's states.
  */
 
-export type RowType = "bool" | "int" | "choice" | "text" | "keys" | "list" | "custom";
-const ROW_TYPES: readonly string[] = ["bool", "int", "choice", "text", "keys", "list", "custom"];
+import { ROW_SYMBOLS, type RowSymbol } from "../../ui/materialNames.ts";
+
+export type RowType = "bool" | "int" | "choice" | "text" | "keys" | "list" | "folder" | "custom";
+const ROW_TYPES: readonly string[] = ["bool", "int", "choice", "text", "keys", "list", "folder", "custom"];
 
 export interface SchemaRow {
   key: string;
   type: RowType;
   label: string;
   hint?: string;
+  /** A generic icon name the schema gives (a Material Symbol's, or one of ICON_ALIASES). */
+  icon?: string;
   default?: unknown;
   min?: number;
   max?: number;
@@ -55,7 +59,7 @@ function parseRow(v: unknown): SchemaRow | null {
   const visibleIf = isObject(v.visibleIf) && typeof v.visibleIf.key === "string" ? { key: v.visibleIf.key, equals: v.visibleIf.equals } : undefined;
   // Only a page Pomelo's window has, with an id that makes a command line argument and nothing more.
   const page = v.action === "open-settings" && typeof v.page === "string" && pageIdOk(v.page) ? v.page : undefined;
-  return { key, type: type as RowType, label, hint: str(v.hint), default: v.default, min: num(v.min), max: num(v.max), step: num(v.step), choices, parts, visibleIf, page };
+  return { key, type: type as RowType, label, hint: str(v.hint), icon: str(v.icon), default: v.default, min: num(v.min), max: num(v.max), step: num(v.step), choices, parts, visibleIf, page };
 }
 
 /** The pages of the engine's answer that Crest can draw; a row it cannot read is left out, the rest stays. */
@@ -95,7 +99,7 @@ export function defaultsOf(pages: SchemaPage[]): Record<string, unknown> {
   return Object.fromEntries(pages.flatMap((p) => p.groups.flatMap((g) => g.rows.map((r) => [r.key, r.default]))));
 }
 
-export type Control = "switch" | "slider" | "number" | "segmented" | "select" | "text" | "list" | "keys" | "button";
+export type Control = "switch" | "slider" | "number" | "segmented" | "select" | "text" | "list" | "keys" | "folder" | "button";
 
 /** The Crest control a row is drawn with. */
 export function controlOf(row: SchemaRow): Control {
@@ -113,11 +117,97 @@ export function controlOf(row: SchemaRow): Control {
       return "list";
     case "keys":
       return "keys";
+    case "folder":
+      return "folder";
     case "custom":
       return "button";
     default:
-      return "text";
+      // A folder before the schema had its own type: its key says so.
+      return /folder$/i.test(row.key) ? "folder" : "text";
   }
+}
+
+/** Generic names a schema may use for an icon, as Crest's Material Symbols; any name of ROW_SYMBOLS goes as it is. */
+const ICON_ALIASES: Record<string, RowSymbol> = {
+  settings: "tune",
+  sliders: "tune",
+  palette: "palette",
+  wheel: "blur_circular",
+  window: "web_asset",
+  folder: "folder",
+  keys: "keyboard",
+  sound: "volume_up",
+  image: "image",
+  video: "screen_record",
+  audio: "headphones",
+  pdf: "receipt_long",
+  email: "file_export",
+  text: "format_size",
+  font: "font_download",
+  theme: "dark_mode",
+  glass: "blur_on",
+  animation: "speed",
+  recycle: "delete",
+  info: "info",
+};
+
+/** Without an icon from the schema: one from the setting's key, so rows of one type do not all look alike. */
+const KEY_ICONS: [RegExp, RowSymbol][] = [
+  [/folder/i, "folder"],
+  [/key/i, "keyboard"],
+  [/language/i, "language"],
+  [/theme/i, "dark_mode"],
+  [/font/i, "font_download"],
+  [/glass/i, "blur_on"],
+  [/accent/i, "palette"],
+  [/opacity/i, "opacity"],
+  [/size/i, "aspect_ratio"],
+  [/animation/i, "speed"],
+  [/sound/i, "volume_up"],
+  [/again|repeat/i, "repeat"],
+  [/recycle/i, "delete"],
+  [/suffix/i, "label"],
+  [/email/i, "file_export"],
+  [/pdf|page|margin|dpi/i, "receipt_long"],
+  [/video/i, "screen_record"],
+  [/audio|mp3|m4a|wma/i, "headphones"],
+  [/jpeg|jpg|webp|avif|heic|image/i, "image"],
+  [/layout|wedge/i, "grid_view"],
+  [/recipe/i, "auto_awesome"],
+];
+
+const TYPE_ICONS: Record<RowType, RowSymbol> = {
+  bool: "check_circle",
+  int: "tune",
+  choice: "category",
+  text: "edit_note",
+  keys: "keyboard",
+  list: "label",
+  folder: "folder",
+  custom: "web_asset",
+};
+
+/** The Material Symbol a row draws: the schema's, else one from its key, else one for its type. */
+export function rowSymbol(row: SchemaRow): RowSymbol {
+  const named = row.icon && ((ROW_SYMBOLS as readonly string[]).includes(row.icon) ? (row.icon as RowSymbol) : ICON_ALIASES[row.icon]);
+  return named || KEY_ICONS.find(([re]) => re.test(row.key))?.[1] || TYPE_ICONS[row.type];
+}
+
+/** A group's title, left out when its first row says the same (a group made for one setting). */
+export const groupTitle = (group: SchemaGroup): string | undefined => (group.title && group.title !== group.rows[0]?.label ? group.title : undefined);
+
+/** A path cut at its start, where a long one differs least: "…\Downloads\Pomelo". */
+export function shortPath(path: string, max = 36): string {
+  if (path.length <= max) return path;
+  const tail = path.slice(-(max - 1));
+  const cut = tail.search(/[\\/]/);
+  return `…${cut > 0 ? tail.slice(cut) : tail}`;
+}
+
+/** A Select's width for its longest choice, as Crest's own selects are sized (w-28 up to w-56). */
+export function selectWidth(labels: string[]): "w-28" | "w-36" | "w-44" | "w-56" {
+  const n = Math.max(0, ...labels.map((l) => l.length));
+  return n <= 10 ? "w-28" : n <= 15 ? "w-36" : n <= 21 ? "w-44" : "w-56";
 }
 
 /** A typed number, as the row takes it: a whole number inside its range, else undefined. */

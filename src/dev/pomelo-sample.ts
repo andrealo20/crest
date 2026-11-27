@@ -33,12 +33,13 @@ const SCHEMA = {
     {
       id: "wheel",
       title: "Wheel",
-      icon: "wheel",
+      icon: "palette",
       groups: [
         {
           title: "Wheel",
           rows: [
             { key: "wheel.size", type: "int", label: "Size", hint: "Of the wheel around the pointer", default: 240, min: 160, max: 400, step: 10 },
+            { key: "ui.language", type: "choice", label: "Language", icon: "language", default: "auto", choices: [{ id: "auto", label: "Windows language (English)" }, { id: "it", label: "Italiano" }, { id: "de", label: "Deutsch" }, { id: "fr", label: "Français" }] },
             { key: "wheel.modifier", type: "choice", label: "Opens with", default: "shift", choices: [{ id: "shift", label: "Shift" }, { id: "ctrl", label: "Ctrl" }, { id: "alt", label: "Alt" }] },
             { key: "wheel.glass", type: "bool", label: "Glass", hint: "The wheel shows what is behind it", default: true },
             { key: "wheel.glassTint", type: "choice", label: "Tint", default: "auto", visibleIf: { key: "wheel.modifier", equals: ["shift", "ctrl"] }, choices: [{ id: "auto", label: "Automatic" }, { id: "light", label: "Light" }, { id: "dark", label: "Dark" }, { id: "accent", label: "Accent colour" }] },
@@ -59,12 +60,17 @@ const SCHEMA = {
     {
       id: "files",
       title: "Files",
-      icon: "files",
+      icon: "settings",
       groups: [
+        {
+          title: "Watch folders",
+          rows: [{ key: "watch.folders", type: "custom", label: "Watch folders", hint: "Folders whose new files Pomelo converts by itself", action: "open-settings", page: "general" }],
+        },
         {
           title: "Copies",
           rows: [
             { key: "files.suffix", type: "text", label: "Name of the copies", hint: "Added after the original name", default: " (Pomelo)" },
+            { key: "output.fallbackFolder", type: "folder", label: "Fallback folder", hint: "Used when Pomelo can't write next to the original.", default: "C:\\Users\\demo\\OneDrive\\Documents\\Downloads\\Pomelo" },
             { key: "files.limit", type: "int", label: "Largest file, MB", default: 4096, min: 1, max: 65536 },
             { key: "files.skip", type: "list", label: "Never touch", hint: "Extensions, separated by commas", default: [".tmp", ".part"] },
             { key: "files.shortcut", type: "keys", label: "Repeat the last job", default: "Ctrl+Shift+R" },

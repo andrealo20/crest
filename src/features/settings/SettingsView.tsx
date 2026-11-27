@@ -168,23 +168,29 @@ type Scope = "notch" | "taskbar" | "pomelo";
 const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : page.startsWith("pomelo") ? "pomelo" : "notch");
 
 const POMELO_MAIN: NavPage = { id: "pomelo", label: "Pomelo", icon: Leaf, hue: "lime" };
-/** The schema's icons, generic names, as Crest's; any other is a gear. */
-const POMELO_ICONS: Record<string, Icon> = {
-  general: SlidersHorizontal,
-  wheel: CircleNotch,
-  appearance: PaintBrush,
-  files: Files,
-  folders: Folder,
-  recipes: Sparkle,
-  keyboard: Keyboard,
-  notifications: BellSimple,
+/** The schema's page icons, generic names, as Crest's icon and a hue of its own, as Crest's pages have; any other is a gear. */
+const POMELO_ICONS: Record<string, [Icon, Hue]> = {
+  settings: [GearSix, "slate"],
+  general: [GearSix, "slate"],
+  palette: [Palette, "pink"],
+  appearance: [PaintBrush, "pink"],
+  wheel: [CircleNotch, "orange"],
+  sliders: [SlidersHorizontal, "blue"],
+  files: [Files, "teal"],
+  folders: [Folder, "teal"],
+  recipes: [Sparkle, "violet"],
+  keyboard: [Keyboard, "indigo"],
+  notifications: [BellSimple, "red"],
 };
 
 /** Pomelo's pages where the scope is offered: its first page, then the schema's once loaded. */
 function usePomeloPages(): NavPage[] {
   const loaded = schema.use();
   if (!pomeloOffered) return [];
-  const own = (loaded?.pages ?? []).map((p): NavPage => ({ id: `pomelo-${p.id}`, label: p.title, icon: POMELO_ICONS[p.icon ?? ""] ?? GearSix, hue: "lime", raw: true }));
+  const own = (loaded?.pages ?? []).map((p): NavPage => {
+    const [icon, hue] = POMELO_ICONS[p.icon ?? ""] ?? POMELO_ICONS[p.id] ?? [GearSix, "slate"];
+    return { id: `pomelo-${p.id}`, label: p.title, icon, hue, raw: true };
+  });
   return [POMELO_MAIN, ...own];
 }
 

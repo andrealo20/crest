@@ -4,12 +4,11 @@ import { isNative } from "../../platform/native";
 import { filesEngine, pomeloWheel } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Select, Slider, Switch, TextField } from "../../ui/controls";
-import type { RowSymbol } from "../../ui/materialNames";
 import { language, t } from "../../i18n";
 import { engineLang } from "../files/model";
 import { LicenseRows } from "../files/LicenseRows";
 import { cancelDownload, download, downloadFailed, downloading, engine, loadEngine } from "../files/store";
-import { keyOf, listText, packageNeed, parseList, parseWhole, RETRY_PHASES, shownRows, valueOf, type Control, type RowType, type SchemaRow, type WheelState } from "./model";
+import { groupTitle, keyOf, listText, packageNeed, parseList, parseWhole, RETRY_PHASES, rowSymbol, selectWidth, shortPath, shownRows, valueOf, type Control, type SchemaRow, type WheelState } from "./model";
 import { followWheel, forgetSchema, pomeloValues, reloadPomeloValues, schema, setPomeloValue, wheelState } from "./store";
 
 /*
@@ -80,7 +79,7 @@ export function PomeloMain() {
     : (note ??
       failed ??
       (need === "ready"
-        ? t("Version {v}", { v: status?.version ?? "" })
+        ? t("Pomelo {v}", { v: status?.version ?? "" })
         : !status?.available
           ? t("Das Programm ist noch nicht verfügbar")
           : need === "update"
@@ -102,7 +101,14 @@ export function PomeloMain() {
         <Row icon="info" label={t("Status")} hint={stateText(wheel, on, need)}>
           {retry && <Button onClick={() => void pomeloWheel.set(true, engineLang(lang))}>{t("Erneut versuchen")}</Button>}
         </Row>
-        {store && <Row icon="warning" label={t("Pomelo aus dem Microsoft Store")} hint={t("Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.")} />}
+        {/* A quiet note while it is only installed; a warning once it keeps the wheel here from starting. */}
+        {store && (
+          <Row
+            icon={wheel.phase === "conflict" && wheel.with === "store" ? "warning" : "info"}
+            label={t("Pomelo aus dem Microsoft Store")}
+            hint={t("Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.")}
+          />
+        )}
       </Group>
       <Group title={t("Programm")} id="settings-pomelo-package">
         <Row
@@ -137,16 +143,6 @@ export function PomeloMain() {
   );
 }
 
-const ROW_ICON: Record<RowType, RowSymbol> = {
-  bool: "check_circle",
-  int: "tune",
-  choice: "category",
-  text: "edit_note",
-  keys: "keyboard",
-  list: "label",
-  custom: "open_in_full",
-};
-
 /** One page of Pomelo's settings, as the schema gives it. */
 export function PomeloSchemaPage({ id }: { id: string }) {
   const loaded = schema.use();
@@ -164,7 +160,7 @@ export function PomeloSchemaPage({ id }: { id: string }) {
   return (
     <>
       {page.groups.map((group, i) => (
-        <Group key={i} title={group.title} id={i === 0 ? `settings-pomelo-${id}` : undefined}>
+        <Group key={i} title={groupTitle(group)} id={i === 0 ? `settings-pomelo-${id}` : undefined}>
           {shownRows(group, values, loaded.defaults).map(({ row, control }) => (
             <SchemaRowView key={row.key} row={row} control={control} value={valueOf(row, values)} ready={ready} />
           ))}
@@ -194,14 +190,15 @@ function SchemaRowView({ row, control, value, ready }: { row: SchemaRow; control
     else save(v);
   };
   const choices = (row.choices ?? []).map((c) => ({ value: c.id, label: c.label }));
+  const width = selectWidth(choices.map((c) => c.label));
   const number = typeof value === "number" ? value : (row.min ?? 0);
 
   let field: React.ReactNode;
   if (control === "switch") field = <Switch label={row.label} checked={value === true} onChange={save} />;
   else if (control === "slider")
     field = (
-      <>
-        <span className="tabular w-10 shrink-0 text-end text-caption text-label-3">{live ?? number}</span>
+      // As Crest's own sliders (ThemeSettings): a track of fixed width, then the value.
+      <div className="flex w-52 shrink-0 items-center gap-2">
         <Slider
           label={row.label}
           value={live ?? number}
@@ -214,22 +211,24 @@ function SchemaRowView({ row, control, value, ready }: { row: SchemaRow; control
             setLive(null);
           }}
         />
-      </>
+        <span className="tabular w-10 shrink-0 text-end text-caption text-label-2">{live ?? number}</span>
+      </div>
     );
   else if (control === "segmented") field = <Segmented id={`pomelo-${row.key}`} label={row.label} value={String(value)} options={choices} onChange={save} />;
-  else if (control === "select") field = <Select value={String(value)} options={choices} onChange={save} />;
-  else if (control === "keys")
+  else if (control === "select") field = <Select value={String(value)} options={choices} onChange={save} width={width} />;
+  else if (control === "folder") {
+    const path = typeof value === "string" ? value : "";
     field = (
-      <span className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
-        {(row.parts ?? []).map((part) => (
-          <span key={part.id} className="flex items-center gap-1.5 text-caption text-label-3">
-            {part.label}
-            <Select value={keyOf(value, part.id)} options={choices} onChange={(key) => save({ [part.id]: key })} width="w-24" />
+      <>
+        {path && (
+          <span className="max-w-60 truncate text-caption text-label-2" title={path}>
+            {shortPath(path)}
           </span>
-        ))}
-      </span>
+        )}
+        <Button onClick={() => void filesEngine.pickFolder().then((dir) => dir && save(dir))}>{t("Ändern")}</Button>
+      </>
     );
-  else if (control === "button")
+  } else if (control === "button")
     field = row.page && (
       <Button disabled={!ready} onClick={() => void pomeloWheel.open(row.page!, engineLang(lang)).catch(() => setError(t("Fehlgeschlagen")))}>
         {t("Öffnen")}
@@ -238,8 +237,23 @@ function SchemaRowView({ row, control, value, ready }: { row: SchemaRow; control
   else field = <TextField value={draft ?? shown} onChange={setDraft} onSubmit={commit} onBlur={commit} invalid={!!error} width="w-40" />;
 
   const hint = error ? <span className="text-red">{error}</span> : control === "button" && !ready ? t("Wenn das Pomelo-Rad läuft") : row.hint;
+  if (control === "keys")
+    // Three choices beside the text would squeeze it to a word a line: they go under it, across the row.
+    return (
+      <div>
+        <Row icon={rowSymbol(row)} label={row.label} hint={hint} />
+        <div className="flex flex-wrap gap-x-4 gap-y-2 px-3 pb-2 roomy:ps-[60px] roomy:pe-[14px]">
+          {(row.parts ?? []).map((part) => (
+            <span key={part.id} className="flex items-center gap-2 text-caption text-label-2">
+              {part.label}
+              <Select value={keyOf(value, part.id)} options={choices} onChange={(key) => save({ [part.id]: key })} width={width} />
+            </span>
+          ))}
+        </div>
+      </div>
+    );
   return (
-    <Row icon={ROW_ICON[row.type]} label={row.label} hint={hint}>
+    <Row icon={rowSymbol(row)} label={row.label} hint={hint}>
       {field}
     </Row>
   );

@@ -82,7 +82,7 @@ export function LicenseRows({ installed, buy, refresh = 0 }: { installed: boolea
           label={t("Schlüssel")}
           hint={license?.state === "not-configured" ? t("Schlüssel gibt es noch nicht zu kaufen") : t("Einmalig 4,99 USD, gilt in jeder Version von Crest")}
         >
-          <TextField value={key} onChange={setKey} placeholder="XXXXXXXX-XXXX-…" onSubmit={activate} width="w-48" />
+          <TextField value={key} onChange={setKey} placeholder="XXXX-XXXX-…" onSubmit={activate} width="w-48" />
           <Button primary disabled={!canActivate} onClick={activate}>
             {t("Aktivieren")}
           </Button>

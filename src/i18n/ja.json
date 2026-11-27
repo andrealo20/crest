@@ -2327,5 +2327,6 @@
  "Eine andere Crest-Kopie hat das Pomelo-Rad schon. Schließe sie und versuche es noch einmal.": "別の Crest のコピーがすでに Pomelo ホイールを使っています。閉じてからもう一度お試しください。",
  "Eine andere Kopie von Pomelo läuft schon. Schließe sie und versuche es noch einmal.": "別の Pomelo のコピーがすでに実行中です。閉じてからもう一度お試しください。",
  "Pomelo hat sich beendet": "Pomelo が終了しました",
- "Pomelo ist nicht gestartet": "Pomelo を起動できませんでした"
+ "Pomelo ist nicht gestartet": "Pomelo を起動できませんでした",
+ "Pomelo {v}": "Pomelo {v}"
 }
