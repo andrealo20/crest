@@ -234,8 +234,8 @@ function Hero() {
             </div>
           </div>
           <div className="actions">
-            <a className="btn btn-shine" href={DEMO_FULL}>Try it in your browser</a>
-            <a className="btn btn-ghost btn-bounce" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
+            <a className="btn btn-light btn-shine" href={DEMO_FULL}>Try it in your browser</a>
+            <a className="btn btn-bounce" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
           </div>
         </motion.div>
       </div>
