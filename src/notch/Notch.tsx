@@ -21,7 +21,7 @@ import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle, startTool } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, NAME, nameWidth, openGeometry, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, NAME, nameLabelLeft, nameWidth, openGeometry, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, lineCapsuleY, panelTop, surfaceOf, windowYFor } from "./capsule";
@@ -880,6 +880,9 @@ function Dock({ tabs, activeId, liquid, fades, top, plus, name }: { tabs: NotchT
   // After useBarDrop's effects, which measure the buttons where they land.
   useNameSlide(capsule, strip, `${activeId} ${toolIds}`, name > 0 && !reduced);
   const grow = toolNames && !reduced;
+  // No room beside the icon (too many tools): the name shows over it, or under it with the bar on top, for a moment (DockName).
+  const over = toolNames && name === 0;
+  const current = tabs.find((tab) => tab.id === activeId) ?? (inSettings ? settingsTab : null);
   return (
     <div ref={root} className="relative flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div
@@ -920,6 +923,7 @@ function Dock({ tabs, activeId, liquid, fades, top, plus, name }: { tabs: NotchT
               lens={pointed === tab.id ? mag : 1}
               grow={grow}
               name={tab.id === activeId ? name : 0}
+              untitled={over && tab.id === activeId}
               onPointerDown={tabs.length > 1 ? dragFrom(tab.id) : undefined}
               dimmed={dragged === tab.id}
               onClick={() => navigate(tab.id)}
@@ -937,11 +941,13 @@ function Dock({ tabs, activeId, liquid, fades, top, plus, name }: { tabs: NotchT
           lens={pointed === settingsTab.id ? mag : 1}
           grow={grow}
           name={inSettings ? name : 0}
+          untitled={over && inSettings}
           badge={badge}
           onClick={() => navigate(settingsTab.id, badge ? "updates" : null)}
         />
       </div>
       <DockDrop root={root} tabs={tabs} top={top} />
+      {over && current && <DockName root={root} id={current.id} label={t(current.label)} top={top} hovered={pointed === current.id} />}
     </div>
   );
 }
@@ -1011,6 +1017,58 @@ function DockDrop({ root, tabs, top }: { root: RefObject<HTMLDivElement | null>;
   );
 }
 
+/** The tool DockName showed last, kept across openings: a panel opening on the same tool shows no name, one on another does. */
+let lastNamed: string | null = null;
+
+/** How long DockName stays after the tool changes. */
+const NAME_HOLD_MS = 1500;
+
+/**
+ * The selected tool's name where the bar has no room for it beside the icon: a small label over the icon (under it with the bar on top),
+ * for NAME_HOLD_MS after each change of tool and while the icon is pointed. Out of the strip, which cuts upwards too; it never takes the
+ * pointer, never widens the bar and stays inside the panel (geometry.ts nameLabelLeft).
+ */
+function DockName({ root, id, label, top, hovered }: { root: RefObject<HTMLDivElement | null>; id: string; label: string; top: boolean; hovered: boolean }) {
+  const reduced = useReducedMotion() === true;
+  const [recent, setRecent] = useState(false);
+  useEffect(() => {
+    if (id === lastNamed) return;
+    lastNamed = id;
+    setRecent(true);
+    const timer = window.setTimeout(() => setRecent(false), NAME_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [id]);
+  const box = useRef<HTMLSpanElement>(null);
+  // Every render: the icon can move (a scroll, a tool switched on) while the label shows.
+  useLayoutEffect(() => {
+    const el = box.current, bar = root.current, icon = bar?.querySelector(`[data-tool="${CSS.escape(id)}"]`);
+    if (!el || !bar || !icon) return;
+    const z = viewZoom(), b = bar.getBoundingClientRect(), r = icon.getBoundingClientRect();
+    el.style.left = `${nameLabelLeft((r.left + r.width / 2 - b.left) / z, el.offsetWidth, b.width / z)}px`;
+  });
+  const shown = recent || hovered;
+  return (
+    <AnimatePresence>
+      {shown && (
+        <motion.span
+          key={id}
+          ref={box}
+          aria-hidden
+          className={`pointer-events-none absolute left-0 z-30 max-w-[calc(100%-16px)] truncate rounded-full bg-notch px-2 py-0.5 text-caption font-semibold text-label shadow-level2 ring-1 ring-separator ${
+            top ? "top-full mt-1 origin-top" : "bottom-full mb-1 origin-bottom"
+          }`}
+          initial={{ opacity: 0, transform: reduced ? "scale(1)" : "scale(0.9)" }}
+          animate={{ opacity: 1, transform: "scale(1)" }}
+          exit={{ opacity: 0 }}
+          transition={reduced ? { duration: 0 } : springs.peek}
+        >
+          {label}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
 /** Whether a horizontal strip has more to scroll to at its start and its end (either direction of writing). */
 function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
   const [edges, setEdges] = useState({ start: false, end: false });
@@ -1051,6 +1109,8 @@ function DockButton(props: {
   lens: number;
   grow?: boolean;
   name?: number;
+  /** No tooltip: DockName shows the name over the icon already. */
+  untitled?: boolean;
   onClick: () => void;
   badge?: boolean;
   /** A tool's press, which can drag it off the bar (Dock), and whether it is the one dragged. */
@@ -1074,7 +1134,7 @@ function DockButton(props: {
       data-tool={props.id}
       aria-label={props.label}
       aria-current={props.active ? "page" : undefined}
-      title={props.label}
+      title={props.untitled ? undefined : props.label}
       onPointerDown={props.onPointerDown}
       // The click a drag's release makes opens nothing; a key's click (no count) never ends a drag.
       onClick={(e) => {
