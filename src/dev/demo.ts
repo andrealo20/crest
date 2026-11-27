@@ -78,6 +78,8 @@ const DEMO_TOOLS = [
 const coarse = matchMedia("(pointer: coarse)").matches;
 /** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. ?hover asks for the app's own hover. */
 const pinOpen = coarse || (bare && !params.has("hover"));
+/** The demo on its own page with a mouse and the room of a desktop, where Crest's bar comes too (src/dev/demoBar.tsx). */
+const desktop = (import.meta.env.MODE === "demo" || import.meta.env.DEV) && !bare && !coarse && innerWidth >= 1000;
 
 /** The host page is served from the same origin once built; in development it is the site's own dev server. */
 const hostOrigin = import.meta.env.DEV ? "*" : location.origin;
@@ -123,7 +125,8 @@ export function startDemo() {
     },
     // The focus timer below may end in a forgotten tab: silently.
     alarm: { ...s.alarm, volume: 0 },
-    music: { ...s.music, titleLyrics: true, coverBackground: true },
+    // On the desktop Now Playing shows its controls on the plain panel with the lyrics open; the site's stage keeps the cover behind it.
+    music: { ...s.music, titleLyrics: true, coverBackground: !desktop, lyricsOpen: desktop },
     closed: {
       ...s.closed,
       // The equalizer right after the cover, so the song reads as one group.
@@ -143,7 +146,7 @@ export function startDemo() {
   // The demo on its own page, with a mouse and the room of a desktop: Crest's bar too (src/dev/demoBar.tsx). Not on the site's stage.
   // Behind build constants the bundler folds, so the app's build carries no import of the demo's bar, nor the chunks it would split.
   if (import.meta.env.MODE === "demo" || import.meta.env.DEV) {
-    if (!bare && !coarse && innerWidth >= 1000) {
+    if (desktop) {
       demoBarOffered.set(true);
       void import("./demoBar").then((m) => m.mountDemoBar());
     }
