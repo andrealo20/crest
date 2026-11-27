@@ -83,11 +83,15 @@ function Days({ days }: { days: Stats["days"] }) {
 function Today() {
   const s = useStats();
   if (s === undefined) return <p className="lead">Reading today's count…</p>;
+  // No counter answering, or nobody counted in 30 days: the live figure still shows, at zero, with when it starts
   if (s === null || s.days.every((d) => d.n === 0))
     return (
-      <p className="lead">
-        Nothing counted yet. The count starts with the version of Crest that brings it, and the numbers show here once the first computers have counted themselves.
-      </p>
+      <div className="today">
+        <p className="today-n">0</p>
+        <p className="today-what">
+          computers counted today. Counting starts with the next release of Crest, the first to send the daily count, and this number then follows it live.
+        </p>
+      </div>
     );
   const t = s.today;
   return (

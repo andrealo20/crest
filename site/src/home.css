@@ -654,131 +654,6 @@ div.notch {
   max-width: 30em;
 }
 
-/* ---------- Everything it does ---------- */
-
-.catalog {
-  background: #fff;
-  color: #000;
-}
-.cat-head {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-bottom: clamp(36px, 5vw, 72px);
-}
-.cat-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--m);
-  align-items: start;
-}
-.cat-list {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-}
-.cat-group-name {
-  font-size: var(--step-small) !important;
-  font-weight: 800;
-  letter-spacing: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.cat-group-name::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background: var(--hue);
-}
-.cat-name {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 18px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 150ms var(--ease);
-}
-.cat-name:hover {
-  background: #f0f0f0;
-}
-.cat-name[aria-pressed="true"] {
-  background: #000;
-  color: #fff;
-}
-.cat-fresh {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0a7d3b;
-}
-.cat-name[aria-pressed="true"] .cat-fresh {
-  color: #7dffb0;
-}
-.cat-inline {
-  padding: 16px 0 24px;
-}
-.cat-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-}
-.cat-card h3 {
-  font-size: var(--step-sub);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  margin-top: 12px;
-}
-.cat-card p {
-  font-size: var(--step-body);
-  line-height: 1.55;
-  max-width: 36em;
-}
-.cat-notes {
-  font-weight: 650;
-}
-.cat-notes:empty {
-  display: none;
-}
-.cat-pic {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 18px;
-  color: #000;
-  padding: clamp(12px, 2vw, 32px);
-}
-.cat-pic img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-}
-.cat-word {
-  font-size: clamp(32px, 4vw, 64px);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
-  text-align: center;
-}
-
 /* ---------- Install: one tab per system ---------- */
 
 .os-tabs {
@@ -848,13 +723,6 @@ div.notch {
   .custom-material {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   }
-  .cat-body {
-    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-  }
-  .cat-panel {
-    position: sticky;
-    top: 88px;
-  }
 }
 
 @media (min-width: 1000px) {
@@ -915,4 +783,48 @@ div.notch {
 /* The sheet's rows are flex; its numbered steps stay list items, so they keep their numbers */
 .sheet .os-steps li {
   display: list-item;
+}
+
+/* The framed desktop fits a window's height on a computer: 16:10 under the bar and the caption */
+@media (min-width: 1000px) {
+  .desk-screen {
+    width: min(100%, calc((100svh - 150px) * 1.6));
+    margin: 0 auto;
+  }
+  .desk figcaption {
+    justify-content: center;
+  }
+}
+
+/* Arrows from under the notch's sides up to it, over the screen; clicks go through to the app */
+.desk-hint {
+  position: absolute;
+  z-index: 2;
+  top: 7%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(8px, 1.4vw, 20px);
+  pointer-events: none;
+  color: #fff;
+}
+.desk-hint p {
+  margin-top: clamp(28px, 3.6vw, 56px);
+  font-size: clamp(15px, 1.5vw, 22px);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.45);
+  white-space: nowrap;
+}
+.desk-arrow {
+  width: clamp(56px, 7vw, 110px);
+  height: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 6px rgb(0 0 0 / 0.4));
 }

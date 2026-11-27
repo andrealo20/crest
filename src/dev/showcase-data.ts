@@ -19,6 +19,10 @@ export const bare = demo && new URLSearchParams(location.search).has("bare");
 /** `?framed` in the demo: the whole desktop with Crest's bar, inside the home page's screen, which brings its own words and way back. */
 export const framed = demo && new URLSearchParams(location.search).has("framed");
 
+/** `&wall=/img/x.webp` with ?framed: the desktop's picture, a path on the page's own address only. */
+const wallParam = new URLSearchParams(location.search).get("wall");
+export const wall = framed && wallParam && /^\/[^/\\]/.test(wallParam) ? wallParam : null;
+
 export function cover(a: string, b: string, c: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <defs>

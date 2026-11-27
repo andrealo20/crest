@@ -5,7 +5,6 @@ import { ArrowUpRight } from "./icons";
 import { News } from "./News";
 import { Notch, type Shot } from "./Notch";
 import { PixelReveal } from "./PixelReveal";
-import { Catalog } from "./Catalog";
 import { DEMO_FULL, DEMO_ORIGIN } from "./demo";
 import { num, useStats } from "./live";
 import { useWide } from "./wide";
@@ -19,15 +18,21 @@ const files = import.meta.glob("./shots/*.png", { eager: true, query: "?url", im
 const shot = (name: string, w: number, h: number, alt: string): Shot => ({ src: files[`./shots/${name}.png`], w, h, alt });
 
 /** The scroll story: each step opens the notch on one tool and turns the page its colour. */
-const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot }[] = [
+/** `plain`: a picture of the closed notch with what sits beside it, shown as it is instead of inside an open notch. */
+const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot; plain?: true }[] = [
   { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Crest open on Now Playing, with the cover, the progress bar and the controls") },
   { tool: "overview", chapter: "overview", title: "The day at a glance", text: "The time, the weather, the song, focus, keep awake, volume and the brightness of this screen, in one panel.", shot: shot("overview", 520, 356, "Overview with the time, the weather and quick controls") },
+  { tool: "weather", chapter: "overview", title: "The weather, hour by hour", text: "Current conditions, an hourly strip and seven days from Open-Meteo, with no key and no account.", shot: shot("weather", 640, 330, "The Weather tool with the hours ahead and seven days") },
   { tool: "timer", chapter: "focus", title: "Focus, then a break", text: "A focus timer with break presets, rain or noise behind it and a countdown that stays in the closed notch.", shot: shot("timer", 520, 192, "The Timer counting down a focus session") },
   { tool: "todos", chapter: "focus", title: "To-dos that ring", text: "Projects, due times and a reminder when one is due. Notes, a water log and a scratchpad sit next to them.", shot: shot("todos", 600, 276, "To-dos with projects and due times") },
   { tool: "clipboard", chapter: "clipboard", title: "Everything you copied", text: "Text, links, images and files, kept in memory only, with password managers left out on purpose.", shot: shot("clipboard", 600, 236, "The clipboard history") },
   { tool: "shelf", chapter: "clipboard", title: "Files to your phone", text: "Drop files on the Shelf and send them to your phone with a QR code, over your own Wi-Fi and nobody else's server.", shot: shot("shelf", 560, 236, "The Shelf showing a QR code to send four files to a phone") },
+  { tool: "convert", chapter: "clipboard", title: "Units and 160 currencies", text: "Length, weight, temperature and the rates of the central banks, which Calc understands too.", shot: shot("convert", 520, 210, "The Converter turning pounds into euros") },
   { tool: "ask", chapter: "ai", title: "Ask, with your key or none", text: "Claude, ChatGPT, OpenRouter, or a model on your own PC through LM Studio or Ollama.", shot: shot("ask", 560, 440, "Ask, a chat inside the notch") },
   { tool: "system", chapter: "system", title: "What your PC is doing", text: "CPU, GPU, memory, network, power, temperatures and the busiest processes, with history while the notch is shut.", shot: shot("system", 720, 380, "Hardware with graphs for every part of the PC") },
+  { tool: "github", chapter: "system", title: "Your GitHub streak", text: "The contribution calendar of any public user for the last 36 weeks, with today's count and the longest streak.", shot: shot("github", 520, 236, "GitHub contributions for 36 weeks with the current and longest streak") },
+  { tool: "trading", chapter: "life", title: "Every broker, one total", text: "Trading 212, Kraken, Coinbase and more, added up in one currency with keys that can only read.", shot: shot("trading", 560, 380, "The Portfolio adding up two brokers in euros") },
+  { tool: "pet", chapter: "yours", title: "A pet by the notch", text: "Eight cartoon pets can live in a nest beside the closed notch. The black cat dances while music plays, runs faster when the CPU is busy, waves when you point at the notch and cheers when a download finishes.", shot: shot("pet", 632, 58, "The closed notch with a black cartoon cat sitting in its nest beside it"), plain: true },
 ];
 
 /** Width the open notch may take: the column it sits in, less the margins. */
@@ -136,7 +141,11 @@ const DESK = { w: 1440, h: 900 };
  */
 function Desk({ live }: { live: boolean }) {
   const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
   const [w, setW] = useState(0);
+  // The arrows to the notch stay until the visitor has opened it once
+  const [tried, setTried] = useState(false);
+  const reduce = useReducedMotion();
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -144,13 +153,41 @@ function Desk({ live }: { live: boolean }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  useEffect(() => {
+    const host = new URL(DEMO_ORIGIN, location.href).origin;
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow || e.origin !== host) return;
+      const d = e.data as { crest?: string; event?: string; open?: boolean };
+      if (d?.crest === "demo" && d.event === "open" && d.open) setTried(true);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
   return (
     <figure className="desk">
       <div className="desk-screen" ref={box}>
+        {live && (
+          <AnimatePresence>
+            {!tried && (
+              <motion.div className="desk-hint" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, delay: tried ? 0 : 1.2 }}>
+                <motion.svg className="desk-arrow desk-arrow-left" viewBox="0 0 120 80" animate={reduce ? undefined : { x: [0, 6, 0], y: [0, -6, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
+                  <path d="M6 74 C 30 70, 70 50, 104 12" />
+                  <path d="M86 14 L 106 10 L 102 30" />
+                </motion.svg>
+                <p>Click the notch to try it</p>
+                <motion.svg className="desk-arrow desk-arrow-right" viewBox="0 0 120 80" animate={reduce ? undefined : { x: [0, -6, 0], y: [0, -6, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
+                  <path d="M114 74 C 90 70, 50 50, 16 12" />
+                  <path d="M34 14 L 14 10 L 18 30" />
+                </motion.svg>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
         {live ? (
           w > 0 && (
             <iframe
-              src={`${DEMO_ORIGIN}?demo&framed`}
+              ref={frame}
+              src={`${DEMO_ORIGIN}?demo&framed&wall=/img/wallpaper.webp`}
               title="Crest on a Windows desktop, the real app: point at the notch, open Start, try the widgets"
               width={DESK.w}
               height={DESK.h}
@@ -336,7 +373,11 @@ function Story() {
         <Wash color={hue} />
         <h2 id="story-title" className="sr-only">What Crest opens into</h2>
         <div className="story-stage" ref={stage}>
-          <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
+          {s.plain ? (
+            <motion.img key={s.tool} className="story-plain" src={s.shot.src} alt={s.shot.alt} width={s.shot.w} height={s.shot.h} style={{ width: `min(100%, ${s.shot.w * 2}px)` }} initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} />
+          ) : (
+            <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
+          )}
         </div>
         <AnimatePresence initial={false}>
           <motion.div key={s.tool} className="story-icon" aria-hidden="true" initial={{ opacity: 0, scale: 0.6, rotate: -18 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 1.2, rotate: 12 }} transition={{ type: "spring", visualDuration: 0.5, bounce: 0.3 }}>
@@ -490,7 +531,6 @@ export default function Home() {
         <Closed />
         <Bar />
         <Custom />
-        <Catalog />
         <News release={RELEASE} />
         <Make />
         <Privacy />

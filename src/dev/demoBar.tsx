@@ -18,6 +18,7 @@ import { barWindows, groupIcons } from "../features/taskbar/store";
 import { trayPictures, trayState } from "../features/taskbar/tray";
 import { TaskbarWindow } from "../features/taskbar/window/TaskbarWindow";
 import { TRAY, appIcon, windowPicture } from "./demoBarArt";
+import { framed } from "./showcase-data";
 import { DEMO_APPS, launchApp, seedWindows, windowAction } from "./demoBarModel";
 
 /*
@@ -41,6 +42,8 @@ function applySettings() {
       pinned: DEMO_APPS.filter((a) => a.pinned).map((a) => ({ id: a.id, name: a.name })),
       zones: { left: ["readings", "weather", "rings", "tool:media"], center: ["start", "apps"], right: ["timer", "tool:notes", "tray", "status", "clock", "crest"] },
       trayShown: TRAY.map((t) => t.id),
+      // The home page's screen shows the wallpaper through the bar
+      ...(framed ? { transparency: 55 } : {}),
     },
     // Start opens the Launcher: the same apps as on the bar, which it starts there.
     launcher: { ...s.launcher, favorites: DEMO_APPS.map((a) => ({ id: a.id, name: a.name })) },

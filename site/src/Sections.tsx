@@ -53,7 +53,7 @@ export function Nav() {
       </a>
       <nav aria-label="Main">
         <a className="nav-link nav-new" href="/whats-new/">What's new</a>
-        <a className="nav-link nav-plugins" href="/#features">Features</a>
+        <a className="nav-link nav-plugins" href="/#notch">Features</a>
         <a className="nav-link nav-stats" href="/stats/">Stats</a>
         <a className="nav-link nav-privacy" href="/privacy/">Privacy</a>
         <a className="btn btn-small btn-light nav-try" href="/try/">Try it</a>
