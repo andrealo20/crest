@@ -46,8 +46,8 @@ function applySettings() {
       trayShown: TRAY.map((t) => t.id),
       // The home page's screen shows the wallpaper through the bar
       ...(framed ? { transparency: 55 } : {}),
-      // The full-screen desktop, which has the fake live copy (?glassLive, src/notch/glass/live.ts), starts with Liquid Glass + on the bar
-      ...(new URLSearchParams(location.search).has("glassLive") ? { glass: true, glassLook: "plus" as const } : {}),
+      // The full-screen desktop, which has the fake live copy (?glassLive, src/notch/glass/live.ts), starts with Liquid Glass + on the bar, clear enough to see the wallpaper through it, Glass too
+      ...(new URLSearchParams(location.search).has("glassLive") ? { glass: true, glassLook: "plus" as const, transparency: 85 } : {}),
     },
     // Start opens the Launcher: the same apps as on the bar, which it starts there.
     launcher: { ...s.launcher, favorites: DEMO_APPS.map((a) => ({ id: a.id, name: a.name })) },

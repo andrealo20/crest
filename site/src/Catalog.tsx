@@ -6,6 +6,7 @@ import { TOOLS } from "./data";
 import { ArrowUpRight } from "./icons";
 import { Rise } from "./Sections";
 import { useWide } from "./wide";
+import { SHADE_TINTS, Waves } from "./Waves";
 
 const shots = import.meta.glob("./shots/*.png", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 
@@ -63,7 +64,8 @@ export function Catalog() {
     </AnimatePresence>
   );
   return (
-    <section id="features" className="sec catalog" style={{ background: chosen.hue }} aria-labelledby="features-title">
+    <section id="features" className="sec catalog has-waves" style={{ background: chosen.hue }} aria-labelledby="features-title">
+      <Waves tints={SHADE_TINTS} />
       <div className="cat-head">
         <Rise><h2 id="features-title">Everything it does</h2></Rise>
         <Rise i={1}>
