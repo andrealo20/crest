@@ -30,8 +30,9 @@ use crate::agents::job::Job;
 #[cfg(not(feature = "store"))]
 pub mod wheel;
 
-/// The package Crest runs (the engine, and from 1.1.0 the wheel's `Pomelo.exe` beside it) and the protocol of its lines.
-const VERSION: &str = "1.1.0";
+/// The package Crest runs (the engine, and from 1.1.0 the wheel's `Pomelo.exe` beside it), numbered as the Pomelo it is made
+/// from, and the protocol of its lines.
+const VERSION: &str = "1.7.0";
 const PROTOCOL: u64 = 1;
 /// SHA-256 and size in bytes of the whole archive of `VERSION`. Placeholders that match no archive: set both (and `VERSION`)
 /// from the real archive with each new engine. While the hash is all zeros the download answers "unavailable" and sends nothing.
