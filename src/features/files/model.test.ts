@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compatible, defaultValues, engineLang, extOf, outputsOf, startRun, step, tabsOf, type Op, type RunLine } from "./model.ts";
+import { compatible, defaultValues, engineLang, extOf, outputsOf, priceShown, startRun, step, tabsOf, type Op, type RunLine } from "./model.ts";
 
 const op = (id: string, patch: Partial<Op> = {}): Op => ({ id, tab: "convert", name: id, kinds: [], extensions: [], output: null, options: [], multi: true, secret: false, ...patch });
 
@@ -61,4 +61,26 @@ test("a run follows the engine's lines file by file", () => {
   assert.deepEqual([sum.files[0].text, outputsOf(sum)], ["sha256 abc", []]);
   assert.equal(engineLang("zh-CN"), "zh-Hans");
   assert.equal(engineLang("pt-BR"), "pt-BR");
+});
+
+test("the licence shows a launch offer only with a usual price and an end still ahead", () => {
+  const end = Date.parse("2026-12-31T23:59:59Z");
+  const offer = { price: "4.99", was: "9.99", until: "2026-12-31T23:59:59Z" };
+  assert.deepEqual(priceShown(offer, end - 1), { price: "4.99", was: "9.99", until: new Date(end) });
+  // Over, by this PC's clock: the price alone, never the offer.
+  assert.deepEqual(priceShown(offer, end), { price: "4.99" });
+  assert.deepEqual(priceShown(offer, end + 86_400_000), { price: "4.99" });
+  // After the end the engine gives the usual price alone.
+  assert.deepEqual(priceShown({ price: "9.99" }, end + 1), { price: "9.99" });
+  // An older engine without the field: the panel keeps its own text.
+  assert.equal(priceShown(undefined, end), null);
+  // Half an offer, or one that is not one, shows the price only.
+  assert.deepEqual(priceShown({ price: "4.99", was: "9.99" }, 0), { price: "4.99" });
+  assert.deepEqual(priceShown({ price: "4.99", until: "2026-12-31T23:59:59Z" }, 0), { price: "4.99" });
+  assert.deepEqual(priceShown({ price: "4.99", was: "9.99", until: "soon" }, 0), { price: "4.99" });
+  assert.deepEqual(priceShown({ price: "9.99", was: "4.99", until: "2026-12-31T23:59:59Z" }, 0), { price: "9.99" });
+  assert.deepEqual(priceShown({ price: "4.99", was: "<b>9</b>", until: "2026-12-31T23:59:59Z" }, 0), { price: "4.99" });
+  // A price that is not dollars and cents is no price.
+  for (const price of ["", "4,99", "4.9", "free", "99999.00", "-1.00"]) assert.equal(priceShown({ price }, 0), null, price);
+  assert.equal(priceShown({ price: 4.99 as unknown as string }, 0), null);
 });

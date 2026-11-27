@@ -114,7 +114,7 @@ export async function license(action: "status" | "activate" | "deactivate", key?
   }
   return unlocked
     ? { state: "unlocked", email: "d***@example.com" }
-    : { state: "free", left, daily: 2, email: null, buy: "https://buy.stripe.com/test_demo" };
+    : { state: "free", left, daily: 2, email: null, buy: "https://buy.stripe.com/test_demo", offer: { price: "4.99", was: "9.99", until: "2026-12-31T23:59:59Z" } };
 }
 
 /** `?key=` in the demo's address stands in for a `crest://license?key=` link, once. */

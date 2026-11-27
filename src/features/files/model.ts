@@ -49,6 +49,25 @@ export interface License {
   email?: string | null;
   /** The payment page, when the engine knows one: Buy shows only then. */
   buy?: string;
+  /** The price, in US dollars ("4.99"); with `was` and `until` a launch offer below the usual price, until that moment. */
+  offer?: { price?: string; was?: string; until?: string };
+}
+
+/** The price the licence panel shows: an offer only with a real usual price and an end still ahead on this PC's clock. */
+export interface Price {
+  price: string;
+  was?: string;
+  until?: Date;
+}
+
+/** `offer` as the panel shows it at `now`; null without one (an older engine), which keeps the panel's own US$4.99. */
+export function priceShown(offer: License["offer"], now: number): Price | null {
+  const money = (s: unknown): s is string => typeof s === "string" && /^\d{1,4}\.\d{2}$/.test(s);
+  if (!offer || !money(offer.price)) return null;
+  const until = typeof offer.until === "string" ? new Date(offer.until) : null;
+  // An invalid date gives NaN, which is never ahead.
+  if (money(offer.was) && Number(offer.was) > Number(offer.price) && until && until.getTime() > now) return { price: offer.price, was: offer.was, until };
+  return { price: offer.price };
 }
 
 /** A file's extension with its dot, in lower case ("" for none). */

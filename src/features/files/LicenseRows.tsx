@@ -1,10 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { filesEngine } from "../../platform/services";
 import { Button, Row, TextField } from "../../ui/controls";
-import { t } from "../../i18n";
-import type { License } from "./model";
+import { locale, t } from "../../i18n";
+import { priceShown, type License, type Price } from "./model";
 
 type Activation = { ok: boolean; state?: string; error?: string; message?: string };
+
+const usd = (amount: string) => `US$${amount}`;
+
+/** The price, with the usual one struck through during an offer; a screen reader hears "regular price …, now …". */
+function PriceTag({ price }: { price: Price }) {
+  if (!price.was) return <>{usd(price.price)}</>;
+  return (
+    <>
+      <s>
+        <span className="sr-only">{t("Normaler Preis")} </span>
+        {usd(price.was)}
+      </s>{" "}
+      <span className="sr-only">{t("jetzt")} </span>
+      {usd(price.price)}
+    </>
+  );
+}
+
+/** The key row's hint about the price: the engine's when it gives one, else the panel's own. */
+function priceHint(price: Price | null): ReactNode {
+  if (!price) return t("Einmalig 4,99 USD, gilt in jeder Version von Crest");
+  if (!price.was || !price.until) return t("Einmalig {price}, gilt in jeder Version von Crest", { price: usd(price.price) });
+  // The end in UTC, as the engine gives it: never a day later than the offer lasts.
+  const date = new Intl.DateTimeFormat(locale(), { day: "numeric", month: "long", timeZone: "UTC" }).format(price.until);
+  return (
+    <>
+      <PriceTag price={price} /> {t("einmalig, gilt in jeder Version von Crest")}
+      <span className="block">{t("Startangebot bis {date}. Pomelo allein kostet {was}.", { date, was: usd(price.was) })}</span>
+    </>
+  );
+}
 
 /** The licence's states and the activation's errors, as text. */
 function licenseText(l: License | null): string {
@@ -74,6 +105,8 @@ export function LicenseRows({ installed, refresh = 0, takesLink = false }: { ins
     );
   };
   const unlocked = license?.state === "unlocked";
+  // Read at each render: a panel left open past the offer's end drops it at the next one.
+  const price = priceShown(license?.offer, Date.now());
   const type = (text: string) => {
     setKey(text);
     setLinked(false);
@@ -82,7 +115,19 @@ export function LicenseRows({ installed, refresh = 0, takesLink = false }: { ins
   return (
     <>
       <Row icon="key" label={t("Lizenz")} hint={installed ? (note ?? licenseText(license)) : t("Nach dem Download des Programms")}>
-        {license?.buy && !unlocked && <Button onClick={() => void filesEngine.buy().catch(() => setNote(t("Fehlgeschlagen")))}>{t("Kaufen, 4,99 USD")}</Button>}
+        {license?.buy && !unlocked && (
+          <Button onClick={() => void filesEngine.buy().catch(() => setNote(t("Fehlgeschlagen")))}>
+            {!price ? (
+              t("Kaufen, 4,99 USD")
+            ) : price.was ? (
+              <>
+                {t("Kaufen")} <PriceTag price={price} />
+              </>
+            ) : (
+              t("Kaufen, {price}", { price: usd(price.price) })
+            )}
+          </Button>
+        )}
         {installed && license && !unlocked && <Button onClick={() => void filesEngine.recover().catch(() => setNote(t("Fehlgeschlagen")))}>{t("Schon gekauft?")}</Button>}
         {installed && unlocked && (
           <Button
@@ -109,7 +154,7 @@ export function LicenseRows({ installed, refresh = 0, takesLink = false }: { ins
               ? t("Schlüssel aus dem Link: Prüfe ihn und klicke auf Aktivieren")
               : license?.state === "not-configured"
                 ? t("Schlüssel gibt es noch nicht zu kaufen")
-                : t("Einmalig 4,99 USD, gilt in jeder Version von Crest")
+                : priceHint(price)
           }
         >
           <TextField value={key} onChange={type} placeholder="XXXXX-XXXXX-…" onSubmit={activate} width="w-48" />
