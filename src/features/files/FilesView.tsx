@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, DownloadSimple, Files, FolderOpen, Key, Play, SlidersHorizontal, Tray, Warning, X } from "../../ui/iconset";
+import { Check, DownloadSimple, Files, FolderOpen, Key, Leaf, Play, SlidersHorizontal, Tray, Warning, X } from "../../ui/iconset";
+import { pomeloOffered } from "../pomelo/store";
 import { formatBytes } from "../../lib/format";
 import { isTaskbarWindow } from "../../lib/windowKind";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -31,6 +32,11 @@ export function FilesView() {
   useEffect(() => void loadEngine(), []);
   const actions = (
     <HeaderActions>
+      {pomeloOffered && (
+        <HeaderButton label={t("Pomelo-Rad")} onClick={() => navigate("settings", "pomelo")}>
+          <Leaf size={14} weight="bold" />
+        </HeaderButton>
+      )}
       <HeaderButton label={t("Einstellungen für Dateien")} onClick={() => navigate("settings", "files")}>
         <SlidersHorizontal size={14} weight="bold" />
       </HeaderButton>

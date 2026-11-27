@@ -29,6 +29,8 @@ const FILES = [
   "features/timer/LookSettings.tsx",
   "features/launcher/LauncherSettings.tsx",
   "features/files/FilesSettings.tsx",
+  "features/files/LicenseRows.tsx",
+  "features/pomelo/PomeloSettings.tsx",
   "features/clipboard/ClipboardSettings.tsx",
   "features/translate/TranslateSettings.tsx",
   "features/usage/UsageSettings.tsx",

@@ -584,6 +584,16 @@ pub fn run() {
             pomelo_engine::files_buy,
             #[cfg(windows)]
             pomelo_engine::files_engine_download_cancel,
+            #[cfg(all(windows, not(feature = "store")))]
+            pomelo_engine::wheel::pomelo_wheel_set,
+            #[cfg(all(windows, not(feature = "store")))]
+            pomelo_engine::wheel::pomelo_wheel_state,
+            #[cfg(all(windows, not(feature = "store")))]
+            pomelo_engine::wheel::pomelo_wheel_open,
+            #[cfg(all(windows, not(feature = "store")))]
+            pomelo_engine::wheel::pomelo_store_installed,
+            #[cfg(all(windows, not(feature = "store")))]
+            pomelo_engine::wheel::pomelo_settings,
             phone_share::phone_share_start,
             phone_share::phone_share_stop,
             timer_window::timer_window_open,

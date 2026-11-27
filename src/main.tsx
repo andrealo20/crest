@@ -41,6 +41,7 @@ import { startBarPanels } from "./features/taskbar/barPanels";
 import { WidgetSources, startBarShare } from "./features/taskbar/feed";
 import { startWallpaperShow } from "./features/wallpapers/store";
 import { startSettingsBridge } from "./features/settings/window/shared";
+import { startPomeloWheel } from "./features/pomelo/store";
 import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
 import { startDemo } from "./dev/demo";
@@ -126,6 +127,8 @@ language.subscribe(() =>
   setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
 );
 const languageReady = startLanguage(settings);
+// The Pomelo wheel, only once its switch is on; it starts in the interface language.
+void languageReady.then(startPomeloWheel);
 
 // The notch isn't a web page: no browser context menu (except in text fields for
 // cut/paste) and in the app no browser shortcuts like reload or print.

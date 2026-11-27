@@ -16,7 +16,7 @@ export function loadEngine(): Promise<void> {
   return filesEngine
     .status()
     .then((s) => engine.set(s))
-    .catch(() => engine.set({ version: null, available: false, size: 0, buy: false }));
+    .catch(() => engine.set({ version: null, wheel: false, outdated: false, available: false, size: 0, buy: false }));
 }
 
 /** The running download's bytes, null while none runs; its last error. */
@@ -39,7 +39,8 @@ export function download() {
   downloading.set({ done: 0, total: engine.get()?.size ?? 0 });
   filesEngine
     .download((p) => downloading.set(p))
-    .then((version) => engine.set((s) => (s ? { ...s, version } : s)))
+    // Asked again: whether the new package has the wheel.
+    .then(loadEngine)
     .catch((e) => downloadFailed.set(downloadError(String(e))))
     .finally(() => downloading.set(null));
 }

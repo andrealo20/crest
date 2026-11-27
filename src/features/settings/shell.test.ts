@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cascades, shellLayout, showsHeaderTitle } from "./shell.ts";
+import { cascades, scopeOptions, shellLayout, showsHeaderTitle } from "./shell.ts";
 
 test("the navigation is a list from 600 px, a rail of icons from 420 and a row on top below", () => {
   assert.equal(shellLayout(820), "list");
@@ -25,4 +25,15 @@ test("the groups cascade only in Material, with full motion, out of the search a
   assert.equal(cascades({ ...base, reduced: true }), false);
   assert.equal(cascades({ ...base, searching: true }), false);
   assert.equal(cascades({ ...base, target: true }), false);
+});
+
+test("the scope switch offers the Taskbar where the bar runs and Pomelo on Windows outside the Store", () => {
+  assert.deepEqual(scopeOptions(true, true), ["notch", "taskbar", "pomelo"]);
+  // Without the bar no switch, as before, unless Pomelo's scope is open (from Files): then the way back shows.
+  assert.deepEqual(scopeOptions(false, true), ["notch"]);
+  assert.deepEqual(scopeOptions(false, true, true), ["notch", "pomelo"]);
+  assert.deepEqual(scopeOptions(true, false, true), ["notch", "taskbar"]);
+  assert.deepEqual(scopeOptions(true, false), ["notch", "taskbar"]);
+  // Only the notch's scope: no switch at all.
+  assert.deepEqual(scopeOptions(false, false), ["notch"]);
 });
