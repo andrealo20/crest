@@ -47,6 +47,8 @@ export interface License {
   left?: number;
   daily?: number;
   email?: string | null;
+  /** The payment page, when the engine knows one: Buy shows only then. */
+  buy?: string;
 }
 
 /** A file's extension with its dot, in lower case ("" for none). */

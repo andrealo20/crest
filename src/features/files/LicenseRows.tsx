@@ -10,7 +10,7 @@ type Activation = { ok: boolean; state?: string; error?: string; message?: strin
 function licenseText(l: License | null): string {
   if (!l) return t("Wird geladen …");
   if (l.state === "unlocked") return l.email ? t("Freigeschaltet für {email}", { email: l.email }) : t("Freigeschaltet");
-  // Without a shop yet the free files still work.
+  // Before keys are sold the free files still work.
   return t("Gratis: noch {n} Dateien", { n: l.left ?? 0 });
 }
 
@@ -26,15 +26,30 @@ function activationError(a: Activation | string): string {
 /**
  * The licence's rows, the same under Settings > Tools > Files and in the Pomelo scope: one key and one count of free files for
  * the Files tool and the wheel, kept by the engine. `installed`: the package is there to ask; `refresh` changes ask again.
+ * Buying is on Stripe, from the page the engine names; the key comes from Pomelo's service, by hand or by a `crest://license`
+ * link, which only fills the field: the user activates it.
  */
-export function LicenseRows({ installed, buy, refresh = 0 }: { installed: boolean; buy: boolean; refresh?: number }) {
+export function LicenseRows({ installed, refresh = 0 }: { installed: boolean; refresh?: number }) {
   const [license, setLicense] = useState<License | null>(null);
   const [key, setKey] = useState("");
+  const [linked, setLinked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const load = () => (installed ? filesEngine.license("status").then(setLicense) : Promise.resolve(setLicense(null))).catch(() => setLicense(null));
   useEffect(() => void load(), [installed, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A link's key, when the panel opens and while it stays open. Kept without the package, for once its download is done.
+  useEffect(() => {
+    const take = () =>
+      void filesEngine.linkKey().then((k) => {
+        if (!k) return;
+        setKey(k);
+        setLinked(true);
+        setNote(null);
+      });
+    take();
+    return filesEngine.onLinkKey(take);
+  }, []);
 
   const act = (work: Promise<unknown>) => {
     setBusy(true);
@@ -50,16 +65,25 @@ export function LicenseRows({ installed, buy, refresh = 0 }: { installed: boolea
     act(
       filesEngine
         .license<Activation>("activate", key)
-        .then((a) => (a.ok ? setKey("") : setNote(activationError(a))))
+        .then((a) => {
+          if (!a.ok) return setNote(activationError(a));
+          setKey("");
+          setLinked(false);
+        })
         .catch((e) => setNote(activationError(String(e)))),
     );
   };
   const unlocked = license?.state === "unlocked";
+  const type = (text: string) => {
+    setKey(text);
+    setLinked(false);
+  };
 
   return (
     <>
       <Row icon="key" label={t("Lizenz")} hint={installed ? (note ?? licenseText(license)) : t("Nach dem Download des Programms")}>
-        {buy && !unlocked && <Button onClick={() => void filesEngine.buy()}>{t("Kaufen")}</Button>}
+        {license?.buy && !unlocked && <Button onClick={() => void filesEngine.buy().catch(() => setNote(t("Fehlgeschlagen")))}>{t("Kaufen, 4,99 USD")}</Button>}
+        {installed && license && !unlocked && <Button onClick={() => void filesEngine.recover().catch(() => setNote(t("Fehlgeschlagen")))}>{t("Schon gekauft?")}</Button>}
         {installed && unlocked && (
           <Button
             disabled={busy}
@@ -80,9 +104,15 @@ export function LicenseRows({ installed, buy, refresh = 0 }: { installed: boolea
         <Row
           icon="password"
           label={t("Schlüssel")}
-          hint={license?.state === "not-configured" ? t("Schlüssel gibt es noch nicht zu kaufen") : t("Einmalig 4,99 USD, gilt in jeder Version von Crest")}
+          hint={
+            linked
+              ? t("Schlüssel aus dem Link: Prüfe ihn und klicke auf Aktivieren")
+              : license?.state === "not-configured"
+                ? t("Schlüssel gibt es noch nicht zu kaufen")
+                : t("Einmalig 4,99 USD, gilt in jeder Version von Crest")
+          }
         >
-          <TextField value={key} onChange={setKey} placeholder="XXXX-XXXX-…" onSubmit={activate} width="w-48" />
+          <TextField value={key} onChange={type} placeholder="XXXXX-XXXXX-…" onSubmit={activate} width="w-48" />
           <Button primary disabled={!canActivate} onClick={activate}>
             {t("Aktivieren")}
           </Button>

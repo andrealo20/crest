@@ -2455,8 +2455,6 @@ export interface EngineStatus {
   available: boolean;
   /** The download's size in bytes, 0 when unknown. */
   size: number;
-  /** Buy has a checkout page to open (set in src-tauri/src/pomelo_engine). */
-  buy: boolean;
 }
 
 /** In the browser the made-up engine of src/dev/files-sample.ts answers, so the tool can be designed without the app. */
@@ -2484,7 +2482,18 @@ export const filesEngine = {
   license: <T = License>(action: "status" | "activate" | "deactivate", key?: string): Promise<T> =>
     isNative ? invoke<T>("files_license", { action, key: key ?? null }) : filesSample().then((m) => m.license(action, key) as T),
   pickFolder: (): Promise<string | null> => (isNative ? invoke<string | null>("files_pick_folder") : Promise.resolve("C:\\Users\\demo\\Desktop")),
+  /** Opens the payment page `license status` names, in the browser. */
   buy: (): Promise<void> => (isNative ? invoke("files_buy") : Promise.resolve()),
+  /** Opens pomeloapp.net's page that sends a bought key again. */
+  recover: (): Promise<void> => (isNative ? invoke("files_recover") : Promise.resolve()),
+  /** The key of a `crest://license` link, once; null without one, and always in the Store build and on a Mac, which have no links. */
+  linkKey: (): Promise<string | null> => (isNative ? invoke<string | null>("files_link_key").catch(() => null) : filesSample().then((m) => m.linkKey())),
+  /** A link brought a key while a licence panel is open: ask `linkKey`. */
+  onLinkKey(handler: () => void): () => void {
+    if (!isNative) return () => {};
+    const off = listen("licence://key", handler);
+    return () => void off.then((f) => f());
+  },
 };
 
 // ---------- The Pomelo wheel: Pomelo.exe from the same package, hosted (src-tauri/src/pomelo_engine/wheel.rs) ----------

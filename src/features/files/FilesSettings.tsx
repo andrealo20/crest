@@ -38,7 +38,7 @@ function FilesGroup() {
 
   return (
     <Group title={t("Dateien")} id="settings-files">
-      <LicenseRows installed={installed} buy={!!status?.buy} />
+      <LicenseRows installed={installed} />
       <Row icon="folder" label={t("Ausgabeordner")} hint={outDir || t("Neben den Originalen")}>
         {outDir && <Button onClick={() => setOut("")}>{t("Zurücksetzen")}</Button>}
         <Button onClick={() => void filesEngine.pickFolder().then((dir) => dir && setOut(dir))}>{t("Ändern")}</Button>

@@ -136,7 +136,7 @@ export function PomeloMain() {
         </Row>
       </Group>
       <Group title={t("Lizenz")} id="settings-pomelo-license">
-        <LicenseRows installed={!!status?.version} buy={!!status?.buy} refresh={wheel.locked ? 1 : 0} />
+        <LicenseRows installed={!!status?.version} refresh={wheel.locked ? 1 : 0} />
         <Row icon="receipt_long" label={t("Gratis-Dateien")} hint={t("Die ersten 20 Dateien sind gratis, danach 2 pro Tag. Das Rad und das Tool Dateien zählen zusammen.")} />
       </Group>
     </>

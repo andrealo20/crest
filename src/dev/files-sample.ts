@@ -12,7 +12,7 @@ let stop: (() => void) | null = null;
 const SIZE = 52 * 1024 * 1024;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const status = async () => ({ version: installed ? "1.7.0" : null, wheel: installed, outdated: false, available: true, size: SIZE, buy: false });
+export const status = async () => ({ version: installed ? "1.7.0" : null, wheel: installed, outdated: false, available: true, size: SIZE });
 
 let stopDownload = false;
 
@@ -112,5 +112,15 @@ export async function license(action: "status" | "activate" | "deactivate", key?
     unlocked = false;
     return { ok: true, state: "free" };
   }
-  return unlocked ? { state: "unlocked", email: "d***@example.com" } : { state: "free", left, daily: 2, email: null };
+  return unlocked
+    ? { state: "unlocked", email: "d***@example.com" }
+    : { state: "free", left, daily: 2, email: null, buy: "https://buy.stripe.com/test_demo" };
+}
+
+/** `?key=` in the demo's address stands in for a `crest://license?key=` link, once. */
+let linked = false;
+export async function linkKey(): Promise<string | null> {
+  if (linked) return null;
+  linked = true;
+  return new URLSearchParams(location.search).get("key");
 }
