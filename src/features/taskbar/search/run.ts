@@ -3,7 +3,7 @@
 
 import { t, tBackend } from "../../../i18n";
 import { settingsWindow } from "../../../platform/native";
-import { launcher, openFile, revealFile, systemControls, taskbar, webSearch } from "../../../platform/services";
+import { launcher, openFile, revealFile, systemControls, taskbar, webSearchBrowser } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import type { SearchEngine } from "../../overview/search";
 import { activeThemeId } from "../../themes/daynight";
@@ -144,7 +144,7 @@ export async function runAction(action: SearchAction, engine: SearchEngine): Pro
         await revealFile(action.path);
         return { close: true };
       case "web":
-        await webSearch(engine, action.query);
+        await webSearchBrowser(action.query, engine);
         return { close: true };
       case "understand":
         return {};

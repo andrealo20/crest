@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Calculator, Check, Clock, File, Folder, FolderOpen, GearSix, Globe, MagnifyingGlass, SlidersHorizontal, Sparkle, type Icon } from "../../../ui/iconset";
+import { Calculator, Check, Clock, File, Folder, FolderOpen, GearSix, Globe, SlidersHorizontal, Sparkle, type Icon } from "../../../ui/iconset";
 import { TextField } from "../../../ui/controls";
 import { english, locale, t } from "../../../i18n";
 import { fileSearch, launcher, type FoundFile } from "../../../platform/services";
@@ -21,7 +21,7 @@ import { answerHit, needsRates } from "../search/answers";
 import { appHits, toolHits, toolLabel, widgetHits } from "../search/catalog";
 import { fileHits, latestSearch } from "../search/files";
 import { askIntent, askReadyNow } from "../search/askIntent";
-import { arrange, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
+import { aiSetupHit, arrange, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
 import { runAction, type RunOutcome } from "../search/run";
 import { settingHits } from "../search/settingsTable";
 import { barWindows } from "../store";
@@ -131,9 +131,9 @@ export function SearchPanel() {
         ...settingHits(query, { ...names, themes }),
         ...widgetHits(query, widgets, s.taskbar.zones, names),
         ...(files.q === query ? fileHits(files.found, query) : []),
-        askOn ? understandHit(query.trim(), t) : null,
+        askOn ? understandHit(query.trim(), t) : aiSetupHit(query.trim(), t),
         settingsSearchHit(query.trim(), t),
-        webOrPathHit(query, engine, t),
+        webOrPathHit(query, t),
       ].filter((h): h is Hit => h !== null),
     );
   }, [query, apps, rates, s, engine, zones, files, askOn]);
@@ -248,6 +248,21 @@ export function SearchPanel() {
           </>
         ) : (
           <div className="flex flex-col gap-2 p-1">
+            {!askOn && (
+              // Capisci needs a provider set up in Ask: this takes to its page, where the API key goes.
+              <button
+                type="button"
+                className="pressable mb-1 flex items-center gap-2.5 rounded-[10px] bg-fill-2 p-2.5 text-left"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => void runAction({ do: "settings", section: "ai" }, engine).then(show)}
+              >
+                <Sparkle size={18} weight="fill" className="shrink-0 text-accent material:text-primary" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-footnote font-medium text-label">{t("KI einschalten")}</span>
+                  <span className="block text-caption text-label-3">{t("Versteht Sätze in jeder Sprache: Anbieter und API-Schlüssel wählen")}</span>
+                </span>
+              </button>
+            )}
             <p className="text-caption text-label-3">{t("Probier")}</p>
             <div className="flex flex-wrap gap-1.5">
               {tries.map((x) => (
@@ -261,7 +276,7 @@ export function SearchPanel() {
         )}
       </div>
       <div className="flex items-center gap-2">
-        <MagnifyingGlass size={14} weight="bold" className="shrink-0 text-label-3" />
+        <Sparkle size={14} weight="fill" className="shrink-0 text-accent material:text-primary" />
         <TextField
           value={query}
           onChange={(v) => {

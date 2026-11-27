@@ -16,8 +16,8 @@ export function normalizeSearch(saved: unknown): SearchSetting {
 
 export const searchEngineName = (id: SearchEngine) => SEARCH_ENGINES.find((e) => e.id === id)?.name ?? id;
 
-/** The engine the bar's search box searches with: Overview's, or Bing while Overview's line is off. */
-export const barEngine = (s: SearchSetting): SearchEngine => (s === "off" ? "bing" : s);
+/** The engine the bar's search box falls back on where the default browser cannot search itself (macOS): Overview's, or Google while Overview's line is off. */
+export const barEngine = (s: SearchSetting): SearchEngine => (s === "off" ? "google" : s);
 
 /** What the search box does with its text: open a path with its app, or search the web for the text. */
 export type SearchTarget = { kind: "path"; path: string } | { kind: "web"; query: string };

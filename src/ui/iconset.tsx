@@ -258,14 +258,6 @@ export const SkipBack = material(PhSkipBack, "SkipBack");
 export const SkipForward = material(PhSkipForward, "SkipForward");
 export const SlidersHorizontal = material(PhSlidersHorizontal, "SlidersHorizontal");
 export const Sparkle = material(PhSparkle, "Sparkle");
-/** Windows' Search button: the magnifier with an AI sparkle at its foot, where the lens leaves room, each in the style's own glyph. */
-export const SearchSparkle = forwardRef<SVGSVGElement, Parameters<Icon>[0]>(({ size = "1em", weight, ...props }, ref) => (
-  <svg ref={ref} width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <MagnifyingGlass x={4} y={0} size={20} weight={weight} />
-    <Sparkle x={0} y={14} size={10} weight="fill" />
-  </svg>
-)) as Icon;
-SearchSparkle.displayName = "SearchSparkle";
 export const SpeakerHifi = material(PhSpeakerHifi, "SpeakerHifi");
 export const SpeakerHigh = material(PhSpeakerHigh, "SpeakerHigh");
 export const SpeakerLow = material(PhSpeakerLow, "SpeakerLow");

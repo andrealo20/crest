@@ -12,7 +12,7 @@ const read = (path: string) => readFileSync(join(import.meta.dirname, path), "ut
 
 test("every name src imports from Phosphor or from iconset is mapped to Material, kept on purpose, or a type", () => {
   const src = join(import.meta.dirname, "..");
-  // iconset's own components, such as MaterialSymbol or the drawn-together SearchSparkle, are not Phosphor names.
+  // iconset's own components, such as MaterialSymbol, are not Phosphor names.
   const own = new Set([...read("iconset.tsx").matchAll(/^export (?:function (\w+)|const (\w+) = forwardRef)/gm)].map((m) => m[1] ?? m[2]));
   const loose: string[] = [];
   for (const file of readdirSync(src, { recursive: true, encoding: "utf8" }).filter((f) => /\.tsx?$/.test(f))) {

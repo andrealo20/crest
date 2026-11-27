@@ -8,6 +8,7 @@ mod backup;
 mod banners;
 #[cfg(windows)]
 mod brightness;
+mod browser_search;
 mod calendar;
 #[cfg(windows)]
 mod camera;
@@ -200,7 +201,7 @@ const TASKBAR_ALLOWED: &[&str] = &[
     "media_get", "media_control", "media_open_source", "media_sources", "mixer_list", "volume_get", "mixer_set", "volume_set",
     "lyrics_romanize", "translate_file",
     "audio_outputs", "audio_set_output", "brightness_get", "brightness_set", "focus_get", "focus_set", "quick_get", "quick_radio",
-    "quick_dark", "mic_mute", "quick_power", "web_search",
+    "quick_dark", "mic_mute", "quick_power", "web_search", "web_search_browser",
     "taskbar_wifi_scan", "taskbar_wifi_allow", "taskbar_wifi_focus", "taskbar_wifi_connect", "taskbar_wifi_disconnect", "taskbar_bt_devices",
     "taskbar_preview", "taskbar_pin_window", "taskbar_launch_window", "taskbar_reveal", "taskbar_input", "taskbar_app_volume",
     "taskbar_jump_list", "taskbar_jump_open", "taskbar_recent", "taskbar_focus", "taskbar_recycle", "taskbar_recycle_do", "taskbar_window_menu", "taskbar_arrange",
@@ -523,6 +524,7 @@ pub fn run() {
             open_sponsors,
             open_store_review,
             web_search,
+            browser_search::web_search_browser,
             open_bug_report,
             #[cfg(windows)]
             brightness::brightness_get,

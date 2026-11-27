@@ -25,7 +25,7 @@ test("the bar's search box opens a drive's or a network share's path and searche
   for (const text of ["https://github.com/andrealo20", String.raw`%USERPROFILE%\Documents`, "c:something"]) assert.deepEqual(searchTarget(text), { kind: "web", query: text });
 });
 
-test("the search box searches with Overview's engine, Bing while Overview's line is off", () => {
-  assert.equal(barEngine("off"), "bing");
+test("where the browser cannot search itself, the search box uses Overview's engine, Google while Overview's line is off", () => {
+  assert.equal(barEngine("off"), "google");
   assert.equal(barEngine("duckduckgo"), "duckduckgo");
 });

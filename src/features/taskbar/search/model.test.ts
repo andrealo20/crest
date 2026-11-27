@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GROUP_LIMIT, arrange, firstSelected, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitKind } from "./model.ts";
+import { GROUP_LIMIT, aiSetupHit, arrange, firstSelected, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitKind } from "./model.ts";
 
 const tr = (key: string, values?: Record<string, string | number>) => key.replace(/\{(\w+)\}/g, (_, k: string) => String(values?.[k] ?? ""));
 const hit = (kind: HitKind, key: string): Hit => ({ key, kind, title: key, icon: { glyph: "web" }, action: { do: "web", query: key } });
@@ -25,9 +25,11 @@ test("the first row starts selected unless it is Capisci, which waits to be chos
 });
 
 test("a typed path opens, other text searches the web, nothing typed gives no row", () => {
-  assert.deepEqual(webOrPathHit("C:\\Users", "bing", tr)?.action, { do: "path", path: "C:\\Users" });
-  assert.deepEqual(webOrPathHit("hello", "bing", tr)?.action, { do: "web", query: "hello" });
-  assert.equal(webOrPathHit("  ", "bing", tr), null);
+  assert.deepEqual(webOrPathHit("C:\\Users", tr)?.action, { do: "path", path: "C:\\Users" });
+  assert.deepEqual(webOrPathHit("hello", tr)?.action, { do: "web", query: "hello" });
+  // The default browser searches with the engine chosen in it, so the row names no engine.
+  assert.equal(webOrPathHit("hello", tr)?.subtitle, "Enter sucht im Browser");
+  assert.equal(webOrPathHit("  ", tr), null);
 });
 
 test("the Settings row carries the text, and Capisci the sentence", () => {
@@ -42,4 +44,11 @@ test("a weak row, a guess from part of a name, never starts selected; a row pick
   assert.equal(keepSelected("f1", list), 1);
   assert.equal(keepSelected("gone", list), 0);
   assert.equal(keepSelected(null, list), 0);
+});
+
+test("without Ask set up, Capisci takes to the AI page, where a provider and its API key turn it on", () => {
+  const row = aiSetupHit("make it pink", tr);
+  assert.deepEqual(row.action, { do: "settings", section: "ai" });
+  assert.equal(row.kind, "understand");
+  assert.equal(firstSelected([row, hit("web", "w")]), 1);
 });

@@ -28,6 +28,7 @@ import { TrayPanel } from "./TrayPanel";
 import { CryptoPanel } from "./CryptoPanel";
 import { RECYCLE_WARNING_ID, RecyclePanel } from "./RecyclePanel";
 import { DisksPanel, diskScan, panelDisks } from "./DisksPanel";
+import { SearchGlow } from "./SearchGlow";
 import { SearchPanel } from "./SearchPanel";
 import { levelRows } from "../disks";
 
@@ -287,6 +288,7 @@ function Panel({
           Material puts a panel above the bar at level 3; the notch's open panel stays at level 4. */}
       <div className="material:[--shadow-panel:var(--shadow-level3)]" data-theme-ink={surface.ink ? "" : undefined} style={{ zoom, ...(surface.ink && { ...surface.ink, color: "var(--color-label)" }) }}>
         <NotchShape geometry={geometry} transition={shapeSpring} elevated top={top} hangs={false}>
+          <AnimatePresence>{shown && open.content.kind === "search" && <SearchGlow key="glow" />}</AnimatePresence>
           <motion.div
             className="absolute inset-0"
             initial={{ opacity: 0 }}

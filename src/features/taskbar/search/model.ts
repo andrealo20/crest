@@ -2,7 +2,7 @@
 // (window/SearchPanel.tsx) shows the rows and run.ts carries out their actions.
 
 import type { PartId } from "../../../notch/row/parts.ts";
-import { searchEngineName, searchTarget, type SearchEngine } from "../../overview/search.ts";
+import { searchTarget } from "../../overview/search.ts";
 
 /** t() handed in: the i18n module loads its dictionaries through Vite, which the tests do not have. */
 export type Tr = (key: string, values?: Record<string, string | number>) => string;
@@ -90,6 +90,16 @@ export const understandHit = (text: string, tr: Tr): Hit => ({
   action: { do: "understand", text },
 });
 
+/** Capisci without Ask set up: the row takes to the AI page, where a provider and its API key turn it on. Never selected unasked. */
+export const aiSetupHit = (text: string, tr: Tr): Hit => ({
+  key: "understand",
+  kind: "understand",
+  title: tr("„{text}“ verstehen", { text }),
+  subtitle: tr("KI einschalten"),
+  icon: { glyph: "sparkle" },
+  action: { do: "settings", section: "ai" },
+});
+
 /** The Settings window opened on its own search with the text, for the settings the search does not change itself. */
 export const settingsSearchHit = (query: string, tr: Tr): Hit => ({
   key: "settings",
@@ -100,7 +110,7 @@ export const settingsSearchHit = (query: string, tr: Tr): Hit => ({
 });
 
 /** What the box did before the search: a typed path opens with its app, anything else searches the web. Null for nothing typed. */
-export function webOrPathHit(query: string, engine: SearchEngine, tr: Tr): Hit | null {
+export function webOrPathHit(query: string, tr: Tr): Hit | null {
   const target = searchTarget(query);
   if (!target) return null;
   if (target.kind === "path") {
@@ -110,7 +120,7 @@ export function webOrPathHit(query: string, engine: SearchEngine, tr: Tr): Hit |
     key: "web",
     kind: "web",
     title: tr("„{text}“ im Web suchen", { text: target.query }),
-    subtitle: tr("Enter sucht mit {engine}", { engine: searchEngineName(engine) }),
+    subtitle: tr("Enter sucht im Browser"),
     icon: { glyph: "web" },
     action: { do: "web", query: target.query },
   };

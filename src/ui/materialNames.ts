@@ -307,7 +307,7 @@ export const REGULAR = [
  */
 export const ROW_SYMBOLS = [
   "account_balance", "account_box", "add", "alarm", "album", "all_inclusive", "anchor", "apps", "arrow_range",
-  "arrow_selector_tool", "aspect_ratio", "attach_money", "audio_file", "avg_time", "backup", "badge", "battery_charging_full",
+  "arrow_selector_tool", "aspect_ratio", "attach_money", "audio_file", "auto_awesome", "avg_time", "backup", "badge", "battery_charging_full",
   "battery_full", "bedtime", "bluetooth", "blur_circular", "blur_linear", "blur_on", "bolt", "border_outer", "brightness_5",
   "brush", "cable", "calendar_month", "calendar_today", "campaign", "category", "chat_bubble", "check", "check_circle", "cloud", "code", "coffee", "colors", "content_copy",
   "content_paste", "contrast", "currency_exchange", "dark_mode", "data_object", "data_usage", "delete", "desktop_windows",

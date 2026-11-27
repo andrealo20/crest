@@ -333,12 +333,17 @@ export function openSponsors() {
   else window.open("https://github.com/sponsors/andrealo20", "_blank", "noopener");
 }
 
-/** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
 /** Overview's search line: the results in the default browser (lib.rs `web_search`, which builds the address). Not in the browser demo. */
 export function webSearch(engine: string, query: string): Promise<void> {
   return isNative ? invoke("web_search", { engine, query }) : Promise.resolve();
 }
 
+/** The bar's search: the default browser searches with its own engine, `fallback`'s address where it cannot (browser_search.rs). */
+export function webSearchBrowser(query: string, fallback: string): Promise<void> {
+  return isNative ? invoke("web_search_browser", { query, fallback }) : Promise.resolve();
+}
+
+/** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
 export function openBugReport() {
   if (isNative) void invoke("open_bug_report");
   else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank", "noopener");
