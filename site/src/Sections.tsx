@@ -58,7 +58,7 @@ export function Nav() {
         <a className="nav-link nav-stats" href="/stats/">Stats</a>
         <a className="nav-link nav-privacy" href="/privacy/">Privacy</a>
         <a className="btn btn-small btn-light btn-shine nav-try" href={DEMO_FULL}>Try it</a>
-        <a className="btn btn-small" href="/#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest</a>
+        <a className="btn btn-small btn-bounce" href="/#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest</a>
       </nav>
     </header>
   );

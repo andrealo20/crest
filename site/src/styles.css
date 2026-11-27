@@ -1120,3 +1120,32 @@ details p {
     animation: none;
   }
 }
+
+/* Get Crest bounces now and then, a jump and a smaller one, to invite the click. On `translate`, so the hover's scale still works. Still under reduced motion. */
+.btn-bounce {
+  animation: get-bounce 2.6s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+@keyframes get-bounce {
+  0%,
+  60%,
+  100% {
+    translate: 0 0;
+  }
+  70% {
+    translate: 0 -9px;
+  }
+  80% {
+    translate: 0 0;
+  }
+  87% {
+    translate: 0 -3px;
+  }
+  93% {
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-bounce {
+    animation: none;
+  }
+}
