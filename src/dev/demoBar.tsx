@@ -7,6 +7,7 @@ import { language, t } from "../i18n";
 import { activeTool } from "../notch/header";
 import { demoSettingsWindow, nav } from "../notch/nav";
 import { SettingsWindow } from "../features/settings/window/SettingsWindow";
+import { liveForBar } from "../notch/glass/live";
 import { notchOpen, pinned } from "../notch/useNotchState";
 import { demoOpen, settingsWindow } from "../platform/native";
 import { launcher, mockStatus, taskbar } from "../platform/services";
@@ -305,6 +306,10 @@ export function mountDemoBar() {
       <DemoBar />
     </StrictMode>,
   );
+  // The bar's glass draws in this page, whose live copy follows the notch's needs: the bar's switch asks for it too.
+  const barGlass = () => liveForBar(settings.get().taskbar.glass);
+  barGlass();
+  settings.subscribe(barGlass);
   // The settings window: over the desktop and the bar, under the notch (z-50), as in the app.
   demoSettingsWindow.set(true);
   const windowHost = document.createElement("div");

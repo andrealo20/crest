@@ -166,10 +166,13 @@ function startBarGlass(canvas: HTMLCanvasElement, now: { current: Props & { redu
     // Sized here, when the shapes change: never per frame.
     const dpr = devicePixelRatio, { top, h } = glassArea(edge, shapes, innerHeight, GLASS.zoneMargin);
     const pw = Math.round(innerWidth * dpr), ph = Math.max(1, Math.round(h * dpr));
-    if (canvas.width !== pw || canvas.height !== ph || canvas.style.top !== `${top}px`) {
+    // The shapes are in the page's px; the canvas sits in its container, which starts at 0 in the bar's window and lower in the browser
+    // demo, where the bar is a layer along the bottom of the notch's page (src/dev/demoBar.tsx).
+    const at = top - (canvas.offsetParent?.getBoundingClientRect().top ?? 0);
+    if (canvas.width !== pw || canvas.height !== ph || canvas.style.top !== `${at}px`) {
       canvas.width = pw;
       canvas.height = ph;
-      Object.assign(canvas.style, { top: `${top}px`, width: `${innerWidth}px`, height: `${h}px` });
+      Object.assign(canvas.style, { top: `${at}px`, width: `${innerWidth}px`, height: `${h}px` });
     }
     if (!copy.meta || !tokens) return clear();
     const { u, p } = gpu.main, map = textureMap({ left: 0, top }, 1, dpr, copy.meta), sliders = settings.get().themes;

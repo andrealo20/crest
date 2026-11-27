@@ -37,7 +37,7 @@ let busy = false, again = false, settle = 0, moved = false, fresh = false;
 
 // A status alert and the open panel's tool bar want the live glass while "Also the closed notch and capsule" is off; `resync` asks for
 // the exclusion they need.
-let hudWants = false, dockWants = false, resync = () => {};
+let hudWants = false, dockWants = false, barWants = false, resync = () => {};
 
 /** A status alert drawn as glass (Notch.tsx) wants the live copy, and so the exclusion, although the closed notch's own glass is off. */
 export function liveForHud(on: boolean) {
@@ -50,6 +50,13 @@ export function liveForHud(on: boolean) {
 export function liveForDock(on: boolean) {
   if (on === dockWants) return;
   dockWants = on;
+  resync();
+}
+
+/** The browser demo draws Crest's bar in the notch's page (src/dev/demoBar.tsx): its Liquid Glass wants the live copy there too. */
+export function liveForBar(on: boolean) {
+  if (on === barWants) return;
+  barWants = on;
   resync();
 }
 
@@ -199,7 +206,7 @@ export function receiveLive(meta: unknown, data: ArrayBuffer) {
 /** The notch's exclusion: Glass and "Also the closed notch and capsule" on, or a status alert drawn as glass, or the open panel's tool bar. */
 const notchWants = () => {
   const t = settings.get().themes;
-  return t.glass && (t.glassLive || hudWants || dockWants);
+  return (t.glass && (t.glassLive || hudWants || dockWants)) || barWants;
 };
 
 /**
