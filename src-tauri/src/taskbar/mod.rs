@@ -376,6 +376,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         listen(hwnd);
         start::rearm();
         tasks::arm();
+        // Nor the Recycle Bin's watch: asked for again, with a read (#107).
+        recycle::renew(hwnd);
         return LRESULT(0);
     }
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
