@@ -92,7 +92,7 @@ function StickyBar() {
       </a>
       <div className="sticky-actions">
         <a className="btn btn-small btn-light btn-shine" href={DEMO_FULL}>Try it</a>
-        <a className="btn btn-small btn-pixel" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest</a>
+        <a className="btn btn-small sticky-get" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest</a>
       </div>
     </motion.div>
   );
@@ -235,7 +235,7 @@ function Hero() {
           </div>
           <div className="actions">
             <a className="btn btn-shine" href={DEMO_FULL}>Try it in your browser</a>
-            <a className="btn btn-pixel" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
+            <a className="btn btn-ghost" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
           </div>
         </motion.div>
       </div>
@@ -292,7 +292,7 @@ function Closing() {
     <section className="sec closing" aria-labelledby="closing-title">
       <Rise><h2 id="closing-title">Rebuild yours in a minute.</h2></Rise>
       <Rise i={1} className="actions">
-        <a className="btn btn-pixel" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
+        <a className="btn" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
         <a className="btn btn-ghost" href={DEMO_FULL}>Try it first</a>
       </Rise>
     </section>

@@ -344,6 +344,11 @@
   display: flex;
   gap: 8px;
 }
+.sticky-get {
+  background: #7b61ff;
+  color: #000;
+}
+
 /* ---------- First screen: the words and the desktop ---------- */
 
 .hero-words {
