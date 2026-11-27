@@ -77,6 +77,11 @@
 .news-page .film {
   margin-top: clamp(28px, 3vw, 44px);
 }
+/* An older release's film, across both columns under its list. */
+.version .film {
+  grid-column: 1 / -1;
+  margin: 12px 0 0;
+}
 
 /* ---------- Pages beyond the home page ---------- */
 

@@ -10,12 +10,16 @@ export const RELEASE = "1.4";
  * to the clip's own size. Liquid Glass + keeps the bar out of every screen recording, so write the caption from the final cut.
  */
 export const FILM = {
+  /** The version it shows: on the home page and at the top of What's new only while that is the latest release, else under its version. */
+  version: "1.3.0",
   src: "/media/crest-1.3.mp4",
   poster: "/media/crest-1.3.jpg",
   width: 1920,
   height: 1080,
   caption: "Crest 1.3: Liquid Glass + on the bar, live window previews, the Crest menu, widgets dragged along the bar and the Material style. A bar with Liquid Glass + stays out of every screen recording, so here Crest's own code draws it over a recording of the desktop.",
 };
+/** The film belongs to the latest release. */
+export const FILM_IS_NEW = FILM.version.startsWith(`${RELEASE}.`);
 export const HAS_FILM = [FILM.src, FILM.poster].every((f) => __SITE_MEDIA__.includes(f.replace("/media/", "")));
 
 /** `demo: false`: the browser demo cannot show it, so the card only leads to the chapter. `link`: a page elsewhere, shown in its place. */

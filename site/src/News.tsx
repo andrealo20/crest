@@ -1,7 +1,7 @@
 import { useInView, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { ArrowUpRight } from "./icons";
-import { FILM, HAS_FILM, HIGHLIGHTS } from "./release";
+import { FILM, FILM_IS_NEW, HAS_FILM, HIGHLIGHTS } from "./release";
 import { Rise } from "./Sections";
 
 /**
@@ -65,7 +65,7 @@ export function News({ release }: { release: string }) {
           <a className="textlink" href="/whats-new/">Every change, version by version <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
         </Rise>
       </div>
-      <Film />
+      {FILM_IS_NEW && <Film />}
       <Highlights />
     </section>
   );

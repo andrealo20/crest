@@ -1,7 +1,7 @@
 import changelog from "../../../src/changelog.json";
 import { ArrowUpRight } from "../icons";
 import { Film, Highlights } from "../News";
-import { FIXES, RELEASE } from "../release";
+import { FILM, FILM_IS_NEW, FIXES, RELEASE } from "../release";
 import { mount, Page } from "../Page";
 import { REPO, Rise } from "../Sections";
 
@@ -12,7 +12,7 @@ function WhatsNew() {
     <Page color="#ff48b0" title="What's new" lead={<>What Crest {RELEASE} brings, then every version since the first one, as the app's own What's new page lists them.</>}>
       <section className="sec news news-page" aria-labelledby="release-title">
         <Rise><h2 id="release-title">Crest {RELEASE}</h2></Rise>
-        <Film />
+        {FILM_IS_NEW && <Film />}
         <Highlights />
         <Rise className="fixes">
           <h3>Also fixed</h3>
@@ -36,6 +36,7 @@ function WhatsNew() {
               <ul>
                 {v.items.map((it) => <li key={it.en}>{it.en}</li>)}
               </ul>
+              {!FILM_IS_NEW && v.version === FILM.version && <Film />}
             </li>
           ))}
         </ol>
