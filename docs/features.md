@@ -240,6 +240,15 @@ World clocks, off by default. Turn them on in **Settings → Tools**.
 - The card on the right shows sunrise, sunset, golden hour (the sun between 4 degrees below and 6 degrees above the horizon) and the moon's phase with the share of the disc that is lit, for the place set under **Settings → General → Weather**, in that place's own time as the Weather tool shows it. Without a place it shows the moon only, with a button that opens those settings. On a day the sun does not rise or set it says so. Sun and moon are worked out on the PC to within a few minutes, with no network request, and the times are shown in your PC's time zone, also for a place in another one.
 - The list of cities stays on this PC, and the clocks redraw once a minute while the tool is on screen.
 
+## Translate
+
+A text translator, off by default. Turn it on in **Settings → Tools**.
+
+- Type or paste the text on the left (up to 5,000 characters) and the translation shows on the right, with **Copy** in the header. The source language is recognised by itself, and the menu shows which one it found; a short or mixed text it cannot place asks you to pick it. The target is Crest's language unless you pick another, here or under **Settings → Tools → Translate**. The arrows swap the two languages and put the translation in as the new text.
+- It translates on the PC with the same models as the lyrics (Mozilla's, under the MPL 2.0) and the same folder, so a language downloaded for songs works here too. Ten languages are offered: English, Italian, Spanish, French, German, Portuguese, Russian, Japanese, Korean and Chinese. Two languages other than English go through English, with a model each. When a model is missing the tool says so, with **Load** for a download of 40 to 70 MB a model; nothing is downloaded until you press it. With the models there it translates a moment after you stop typing; Ctrl + Enter (Cmd + Enter on a Mac) or **Translate** does it at once.
+- **Use the Ask provider** (off by default, under **Settings → Tools → Translate**, or the button beside **Load**) lets the provider set in Ask translate a pair with no model on the PC, or a text whose language Crest cannot tell. The text then goes to that provider; a local model through LM Studio or Ollama keeps it on the PC. The provider is asked only on Ctrl + Enter or **Translate**, never while you type, and the line under the text says when it translated.
+- The text and the languages are saved on this PC as you type, like the Scratchpad's. Nothing goes on the clipboard unless you press Copy.
+
 ## AI chat and usage
 
 - **Ask** is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort. A local model through LM Studio or Ollama works without a key (see Setting up the integrations).
