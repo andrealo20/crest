@@ -117,6 +117,10 @@ pub fn read(name: &str) -> Option<String> {
 /// Copies "Notch/<name>" to "Crest/<name>" where Crest has none yet, once per install
 /// (the marker keeps a key deleted in Crest from coming back). The originals stay.
 pub fn migrate_legacy(data_dir: &Path) {
+    // L4-Notchbar is a Windows and Mac app: there is nothing to copy on Linux, and each lookup is a call to the secret service.
+    if cfg!(target_os = "linux") {
+        return;
+    }
     let marker = data_dir.join(MIGRATED_MARKER);
     if marker.exists() {
         return;

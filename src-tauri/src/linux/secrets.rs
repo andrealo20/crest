@@ -5,6 +5,8 @@
 //! found again by its attributes. Where nothing answers (a bare window manager) a key can't be saved, and the error says so.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use secret_service::blocking::SecretService;
 use secret_service::EncryptionType;
@@ -19,12 +21,30 @@ fn connect() -> Result<SecretService<'static>, String> {
     SecretService::connect(EncryptionType::Dh).map_err(|_| NONE.to_string())
 }
 
+/// When an unlock prompt was last turned down, or failed. The pages read keys at every refresh, so asking again at once would put
+/// the prompt back at once, and each ask holds the worker that makes it until the user answers.
+static DECLINED: Mutex<Option<Instant>> = Mutex::new(None);
+const ASK_AGAIN: Duration = Duration::from_secs(300);
+
+fn declined_lately(at: Option<Instant>) -> bool {
+    at.is_some_and(|at| at.elapsed() < ASK_AGAIN)
+}
+
 pub fn read(target: &str) -> Option<String> {
     let service = connect().ok()?;
     let found = service.search_items(attributes(target)).ok()?;
-    let item = found.unlocked.first().or(found.locked.first())?;
+    if let Some(item) = found.unlocked.first() {
+        return String::from_utf8(item.get_secret().ok()?).ok();
+    }
+    let item = found.locked.first()?;
+    if declined_lately(*DECLINED.lock().unwrap_or_else(|e| e.into_inner())) {
+        return None;
+    }
     // A locked item asks the user to unlock it, as any app reading the keyring does.
-    item.unlock().ok()?;
+    if item.unlock().is_err() {
+        *DECLINED.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+        return None;
+    }
     String::from_utf8(item.get_secret().ok()?).ok()
 }
 
@@ -47,6 +67,13 @@ pub fn delete(target: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_turned_down_unlock_is_not_asked_again_at_once() {
+        assert!(!declined_lately(None));
+        assert!(declined_lately(Some(Instant::now())));
+        assert!(!declined_lately(Instant::now().checked_sub(ASK_AGAIN + Duration::from_secs(1))));
+    }
 
     /// Needs a running Secret Service, so it is skipped by default: `cargo test -- --ignored linux::secrets`.
     #[test]

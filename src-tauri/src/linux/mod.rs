@@ -1,6 +1,6 @@
 //! Linux: what the Windows modules do with Win32, as far as every desktop allows. For now these are stand-ins so the shared
 //! code builds and runs; each tool that needs more is hidden (src/notch/tabs.ts) until its real version lands here.
-//! The audio and monitor watchers are the Mac's, which only use Tauri.
+//! The monitor watcher (mirror.rs) is the Mac's copied: it only uses Tauri. The audio levels (audio.rs) are PipeWire's.
 
 pub mod audio;
 pub mod clipboard;
@@ -10,7 +10,6 @@ pub mod media;
 pub mod mixer;
 pub mod pipewire;
 pub mod secrets;
-#[path = "../macos/mirror.rs"]
 pub mod mirror;
 
 use std::process::Command;
