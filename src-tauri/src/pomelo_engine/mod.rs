@@ -26,8 +26,12 @@ use tauri::{AppHandle, WebviewWindow};
 
 use crate::agents::job::Job;
 
-/// The engine Crest runs and the protocol of its lines.
-const VERSION: &str = "1.0.0";
+/// The wheel, `Pomelo.exe --hosted`: never in the Store build, which cannot run downloaded code (policy 10.2.2).
+#[cfg(not(feature = "store"))]
+pub mod wheel;
+
+/// The package Crest runs (the engine, and from 1.1.0 the wheel's `Pomelo.exe` beside it) and the protocol of its lines.
+const VERSION: &str = "1.1.0";
 const PROTOCOL: u64 = 1;
 /// SHA-256 and size in bytes of the whole archive of `VERSION`. Placeholders that match no archive: set both (and `VERSION`)
 /// from the real archive with each new engine. While the hash is all zeros the download answers "unavailable" and sends nothing.
@@ -39,6 +43,8 @@ fn manifest_url() -> String {
     format!("https://pomeloapp.net/engine/{VERSION}/manifest.json")
 }
 const EXE: &str = "pomelo-engine.exe";
+/// The whole Pomelo app, hosted by Crest as the wheel (wheel.rs); packages before 1.1.0 lack it.
+const WHEEL_EXE: &str = "Pomelo.exe";
 /// The licence's checkout page, opened in the browser by Buy; empty hides the button until the shop exists.
 const CHECKOUT_URL: &str = "";
 /// No engine is near this; a larger manifest is refused.
@@ -83,6 +89,10 @@ fn installed(app: &AppHandle) -> Result<PathBuf, String> {
 pub struct Status {
     /// The installed version, None without one.
     version: Option<&'static str>,
+    /// The installed package has the wheel's `Pomelo.exe`.
+    wheel: bool,
+    /// Only an older package is installed (one without the wheel): a download updates it.
+    outdated: bool,
     /// Whether a download is possible (this build knows an archive).
     available: bool,
     /// The download's size in bytes, 0 when unknown.
@@ -93,7 +103,21 @@ pub struct Status {
 
 #[tauri::command(async)]
 pub fn files_engine_status(app: AppHandle) -> Status {
-    Status { version: installed(&app).ok().map(|_| VERSION), available: available(ARCHIVE_SHA256), size: ARCHIVE_SIZE, buy: !CHECKOUT_URL.is_empty() }
+    let exe = installed(&app).ok();
+    let outdated = exe.is_none() && engine_dir(&app).is_ok_and(|dir| older_package(&dir));
+    Status {
+        version: exe.as_ref().map(|_| VERSION),
+        wheel: exe.is_some_and(|e| e.with_file_name(WHEEL_EXE).is_file()),
+        outdated,
+        available: available(ARCHIVE_SHA256),
+        size: ARCHIVE_SIZE,
+        buy: !CHECKOUT_URL.is_empty(),
+    }
+}
+
+/// A version folder other than `VERSION` with an engine in it.
+fn older_package(dir: &Path) -> bool {
+    std::fs::read_dir(dir).into_iter().flatten().flatten().any(|e| e.file_name() != VERSION && !e.file_name().to_string_lossy().starts_with('.') && e.path().join(EXE).is_file())
 }
 
 /// Opens the checkout page in the default browser.
@@ -308,6 +332,11 @@ fn extract(archive: &Path, to: &Path) -> Result<(), String> {
 pub fn files_engine_remove(app: AppHandle) -> Result<(), String> {
     if lock(&RUN).is_some() || DOWNLOADING.load(Ordering::SeqCst) {
         return Err("busy".into());
+    }
+    // The running wheel holds its files open.
+    #[cfg(not(feature = "store"))]
+    if wheel::running() {
+        return Err("wheel".into());
     }
     *lock(&CATALOG) = None;
     match std::fs::remove_dir_all(engine_dir(&app)?) {

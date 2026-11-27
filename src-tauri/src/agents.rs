@@ -152,7 +152,10 @@ pub(crate) mod job {
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 
     use windows::Win32::Foundation::HANDLE;
-    use windows::Win32::System::JobObjects::{AssignProcessToJobObject, CreateJobObjectW, TerminateJobObject};
+    use windows::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
 
     /// Plain job, no limits: closing it ends nothing, so a finished run leaves no side effects. Only `kill` ends what it holds.
     pub struct Job(OwnedHandle);
@@ -165,6 +168,17 @@ pub(crate) mod job {
                 AssignProcessToJobObject(HANDLE(job.as_raw_handle()), HANDLE(child.as_raw_handle())).ok()?;
                 Some(Job(job))
             }
+        }
+
+        /// A job that ends what it holds when its handle closes: on drop, and with Crest's own exit, a crash included.
+        #[cfg_attr(feature = "store", allow(dead_code))]
+        pub fn tied(child: &std::process::Child) -> Option<Job> {
+            let job = Job::hold(child)?;
+            let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            let size = std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32;
+            unsafe { SetInformationJobObject(HANDLE(job.0.as_raw_handle()), JobObjectExtendedLimitInformation, &info as *const _ as *const _, size) }.ok()?;
+            Some(job)
         }
 
         pub fn kill(&self) {
