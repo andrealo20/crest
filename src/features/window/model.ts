@@ -44,6 +44,8 @@ export interface WindowSettings {
   toolBar: "bottom" | "top";
   /** The tool bar's capsule behind the icons: its fill, or its glass over the glass (#76). */
   toolBarFill: boolean;
+  /** The selected tool's icon grows and its name shows beside it in the tool bar. */
+  toolNames: boolean;
   /** The tool an open without a target lands on: "live" (the live activity's, as before), "last" (the tool open last) or a tool's id (#87). */
   openOn: string;
   /** "Behind other windows": the notch rests on the desktop under every window, and comes on top only while opened with the shortcut, the
@@ -71,6 +73,7 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   hoverParts: true,
   toolBar: "bottom",
   toolBarFill: true,
+  toolNames: true,
   openOn: "live",
   behind: false,
 };
@@ -168,6 +171,7 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
     hoverParts: bool(s.hoverParts, d.hoverParts),
     toolBar: s.toolBar === "top" ? "top" : "bottom",
     toolBarFill: bool(s.toolBarFill, d.toolBarFill),
+    toolNames: bool(s.toolNames, d.toolNames),
     openOn: typeof s.openOn === "string" && /^[A-Za-z0-9:_-]{1,64}$/.test(s.openOn) ? s.openOn : d.openOn,
     behind: bool(s.behind, d.behind),
   };

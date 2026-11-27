@@ -459,6 +459,9 @@ function Panel() {
       <Row icon="format_color_fill" label={t("Hintergrund der Werkzeugleiste")}>
         <Switch label={t("Hintergrund der Werkzeugleiste")} checked={b.toolBarFill} onChange={(toolBarFill) => updateBehavior({ toolBarFill })} />
       </Row>
+      <Row icon="label" label={t("Name des gewählten Tools")}>
+        <Switch label={t("Name des gewählten Tools")} checked={b.toolNames} onChange={(toolNames) => updateBehavior({ toolNames })} />
+      </Row>
       <Row icon="zoom_in" label={t("Skalierung")} hint={t("Zeichnet Crest größer, wie eine höhere Windows-Skalierung nur für Crest")}>
         {/* Steps instead of a slider: the scale redraws the whole page, so a dragged thumb would move under the pointer. */}
         <div id="panel-scale" className="flex shrink-0 items-center gap-2">
