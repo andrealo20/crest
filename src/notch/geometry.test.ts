@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NAME, dockWidth, nameLabelLeft, nameWidth, openWidth } from "./geometry.ts";
+import { NAME, dockWidth, nameRoom, openWidth, revealScroll } from "./geometry.ts";
 
 test("the tool bar at full size: 42 px per tool, 2 px between, the separator, the gear and the padding", () => {
   assert.equal(dockWidth(1), 121);
@@ -56,33 +56,34 @@ test("where the monitor cannot hold the bar, the tool keeps its own width and th
   assert.equal(openWidth(520, 13, Number.NaN), 520);
 });
 
-test("the selected tool's name takes the room beside the bar, up to NAME.max, the same for every tool", () => {
-  // 13 tools leave the widest panel 91 px beside the bar: the name gets its full width, and every narrower tool opens as wide as the bar with it.
-  assert.equal(nameWidth(13, 1920), NAME.max);
-  assert.equal(openWidth(520, 13, 1920, nameWidth(13, 1920)), dockWidth(13) + NAME.gap + NAME.max);
-  assert.equal(openWidth(600, 13, 1920, NAME.max), openWidth(520, 13, 1920, NAME.max));
-  assert.equal(openWidth(735, 13, 1920, NAME.max), 735);
-  // 14 tools: what the widest panel leaves, so the name ends in an ellipsis, and every tool opens at the widest panel.
-  assert.equal(nameWidth(14, 1920), 740 - dockWidth(14) - NAME.gap);
-  assert.equal(openWidth(520, 14, 1920, nameWidth(14, 1920)), 740);
+test("the bar keeps room for the longest name of its tools, up to NAME.max, whichever tool shows", () => {
+  assert.equal(nameRoom([40.2, 71.6, 55]), 73);
+  assert.equal(nameRoom([40, 400]), NAME.max);
+  assert.equal(nameRoom([]), 0);
+  assert.equal(nameRoom([Number.NaN, 0]), 0);
 });
 
-test("with no room for NAME.min the name stays hidden and the bar is as wide as without it", () => {
-  assert.equal(nameWidth(15, 1920), 0);
-  assert.equal(nameWidth(20, 1920), 0);
-  assert.equal(openWidth(520, 15, 1920, 0), openWidth(520, 15, 1920));
-  // A narrow monitor: the name takes what it leaves, or nothing.
-  assert.equal(nameWidth(13, 700), 700 - dockWidth(13) - NAME.gap);
-  assert.equal(openWidth(520, 13, 700, nameWidth(13, 700)), 700);
-  assert.equal(nameWidth(13, 640), 0);
-  assert.equal(openWidth(520, 13, 640, nameWidth(13, 640)), 520);
-  assert.equal(nameWidth(13, Number.NaN), 0);
+test("the name widens the panel as far as the widest panel and the monitor go, never below the bar", () => {
+  // 13 tools with a 73 px name: every narrower tool opens as wide as the bar with it.
+  assert.equal(openWidth(520, 13, 1920, 73), dockWidth(13) + NAME.gap + 73);
+  assert.equal(openWidth(600, 13, 1920, 73), openWidth(520, 13, 1920, 73));
+  assert.equal(openWidth(735, 13, 1920, 73), 735);
+  // Past the widest panel or the monitor the strip scrolls in the capsule instead.
+  assert.equal(openWidth(520, 14, 1920, 120), 740);
+  assert.equal(openWidth(520, 27, 1920, 120), 740);
+  assert.equal(openWidth(520, 13, 700, 73), 700);
+  // A monitor that cannot hold the bar at all: as without names.
+  assert.equal(openWidth(520, 13, 640, 73), 520);
+  assert.equal(openWidth(520, 13, Number.NaN, 73), 520);
 });
 
-test("the name over the icon is centred on it, and kept inside the panel at either end", () => {
-  assert.equal(nameLabelLeft(300, 60, 740), 270);
-  assert.equal(nameLabelLeft(20, 60, 740), 8);
-  assert.equal(nameLabelLeft(730, 60, 740), 740 - 8 - 60);
-  // Wider than the panel: from its left margin.
-  assert.equal(nameLabelLeft(100, 800, 740), 8);
+test("the current tool scrolls into view out of the faded edges, and a strip that shows it stays put", () => {
+  // In view: no scroll.
+  assert.equal(revealScroll(100, 42, 0, 600, 20), 0);
+  // Past the end: just far enough to clear the fade.
+  assert.equal(revealScroll(700, 120, 0, 600, 20), 240);
+  // Before the start: back to its start, less the fade.
+  assert.equal(revealScroll(100, 42, 300, 600, 20), 80);
+  // Wider than the view: from its start.
+  assert.equal(revealScroll(100, 700, 0, 600, 20), 80);
 });

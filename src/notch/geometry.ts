@@ -34,33 +34,35 @@ export const dockWidth = (tools: number) => DOCK.pad + tools * DOCK.button + Mat
  * The open panel's width for a tool `w` wide: at least the tool bar's, so a narrower tool never squeezes the buttons and every such
  * tool opens as wide, which keeps them in place from tool to tool (#82). A bar wider than the widest panel opens every tool at the
  * widest panel, where the buttons narrow alike. Where the monitor's width `room` (CSS px, at the panel scale) cannot hold that, the
- * tool keeps its own width and the bar narrows and scrolls in it as before. `name`: the selected tool's name (nameWidth), which widens
- * the bar by its gap and its width.
+ * tool keeps its own width and the bar narrows and scrolls in it as before. `name`: the room for the selected tool's name (nameRoom),
+ * which widens the bar by it and its gap, as far as the widest panel and the monitor go; past them the strip scrolls in the capsule.
  */
 export function openWidth(w: number, tools: number, room: number, name = 0): number {
   const bar = Math.min(dockWidth(tools), PANEL_MAX.w);
-  return bar <= room ? Math.max(w, name > 0 ? bar + NAME.gap + name : bar) : w;
+  return bar <= room ? Math.max(w, name > 0 ? Math.min(bar + NAME.gap + name, PANEL_MAX.w, room) : bar) : w;
 }
 
-/** The selected tool's name in the tool bar (behavior.toolNames): the gap after its icon (Notch.tsx DockButton's pl-1.5), its widest and its narrowest. */
-export const NAME = { gap: 6, max: 72, min: 28 } as const;
+/** The selected tool's name in the tool bar (behavior.toolNames): the gap after its icon (Notch.tsx DockButton's pl-1.5) and its widest, past which it ends in an ellipsis. */
+export const NAME = { gap: 6, max: 180 } as const;
 
 /**
- * How wide the selected tool's name can be with `tools` tools on a monitor `room` wide: the room the widest panel and the monitor leave
- * beside the bar at full size, up to NAME.max, and 0 (no name) under NAME.min. The same for every tool, so the bar keeps its width
- * and its place from tool to tool; a longer name ends in an ellipsis.
+ * The room the bar keeps for the selected tool's name: the longest of the names `widths` of the tools on it (and the gear's), as
+ * measured, up to NAME.max. The same whichever tool shows, so the panel and the capsule never change width from tool to tool; a
+ * pixel more, as a measure may round down.
  */
-export function nameWidth(tools: number, room: number): number {
-  const w = Math.min(NAME.max, Math.min(PANEL_MAX.w, room) - dockWidth(tools) - NAME.gap);
-  return w >= NAME.min ? w : 0;
+export function nameRoom(widths: number[]): number {
+  const w = Math.max(0, ...widths.filter(Number.isFinite));
+  return w > 0 ? Math.min(NAME.max, Math.ceil(w) + 1) : 0;
 }
 
 /**
- * Where the selected tool's name goes over or under its icon when the bar has no room beside it (Notch.tsx DockName): its left edge,
- * centred on the icon at `mid`, `w` wide, kept `margin` px inside the bar's `width` so the shape never cuts it.
+ * The strip's scroll that brings a button at `at` (content px from its start), `w` wide, into its `view` px from `scroll`, out of the
+ * `fade` px its edges fade over; the scroll unchanged when it shows already. One wider than the view shows from its start.
  */
-export function nameLabelLeft(mid: number, w: number, width: number, margin = 8): number {
-  return Math.max(margin, Math.min(mid - w / 2, width - margin - w));
+export function revealScroll(at: number, w: number, scroll: number, view: number, fade: number): number {
+  if (at - fade < scroll || w + 2 * fade > view) return at - fade;
+  if (at + w + fade > scroll + view) return at + w + fade - view;
+  return scroll;
 }
 
 /** Padding when open. Inner radii = r − PADDING (concentric). */
