@@ -6,13 +6,19 @@
 //! The others Crest relies on are the `TaskbandHWND` property on its tray spy (taskband.rs) and the `ITaskList_Deleted`
 //! property it reads on apps' windows (tasks.rs). Before it writes the
 //! value it writes a record, `taskbar-keys` beside `taskbar-hidden` (explorer.rs): whether the value existed and which characters
-//! Crest added, so only those go again. Then it restarts Explorer through the Restart Manager, as installers do, and registers
-//! the keys with `RegisterHotKey` through the global-shortcut plugin (shell.rs). No keyboard hook.
+//! Crest added, so only those go again. Then it registers the keys with `RegisterHotKey` through the global-shortcut plugin
+//! (shell.rs), and while Explorer still holds Win+1 it restarts Explorer through the Restart Manager, as installers do. No keyboard
+//! hook.
+//!
+//! Never while Crest starts (#104): an Explorer closed for that restart crashed in its taskbar on a 22631 PC, and as the restart
+//! failed the value went back, so every start, at sign-in too, restarted Explorer again. Then, and after any restart that fails,
+//! the value stays and the keys come to the bar from the next sign-in.
 //!
 //! The value goes back, and Explorer restarts so Windows has the keys again, when the switch or the bar goes off, and after Crest
 //! quits: from the taskbar guard once Crest is gone (explorer.rs `guard`), or at once without a live guard. At sign-out it stays
 //! while Crest starts with Windows, so the next sign-in needs no restart. The uninstaller takes it out (`--restore-taskbar`) and
-//! Windows has the keys from the next sign-in; the next start gives back what a crash left.
+//! Windows has the keys from the next sign-in; the next start takes back what a crash left, and Windows has the keys from the next
+//! sign-in too.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -40,7 +46,8 @@ const OURS: &str = "1234567890TB";
 const PROBE_ID: i32 = 0xB6D0;
 const VK_1: u32 = 0x31;
 
-/// "off", "busy" (Explorer restarting), "on", "partial" (another program holds some), "held" (Windows keeps Win+1), "failed".
+/// "off", "busy" (Explorer restarting), "on", "partial" (another program holds some), "held" (Windows keeps Win+1), "later"
+/// (they come at the next sign-in), "failed".
 static STATUS: Mutex<&str> = Mutex::new("off");
 /// Explorer was restarted for this turn-on: never twice.
 static RESTARTED: AtomicBool = AtomicBool::new(false);
@@ -131,14 +138,21 @@ fn parse_name(name: &str) -> Option<Key> {
 }
 
 /// After the keys are given back: Explorer restarts only when Crest had changed the value, nobody holds Win+1 now (Explorer read
-/// the value at its start) and the session is not ending.
-fn restart_after_off(had_record: bool, win1_free: bool, shutting_down: bool) -> bool {
-    had_record && win1_free && !shutting_down
+/// the value at its start) and it is no time for a restart (`quiet`: the session is ending, or Crest is starting).
+fn restart_after_off(had_record: bool, win1_free: bool, quiet: bool) -> bool {
+    had_record && win1_free && !quiet
 }
 
-/// Turning on: one restart per turn-on, and only when Win+1 could not be registered.
-fn restart_after_on(win1_ok: bool, restarted: bool) -> bool {
-    !win1_ok && !restarted
+/// Turning on: one restart per turn-on, only when Win+1 could not be registered, and never as Crest starts (#104).
+fn restart_after_on(win1_ok: bool, start: bool, restarted: bool) -> bool {
+    !win1_ok && !start && !restarted
+}
+
+/// Win+1 still held at the end: whether the value stays for the next sign-in, as the Explorer holding the key started before the
+/// value was there (written just now at a start, or a restart that failed), rather than going back because Explorer read it and
+/// kept the key anyway.
+fn until_sign_in(start: bool, fresh: bool, restarted: bool) -> bool {
+    if start { fresh } else { !restarted }
 }
 
 /// What the registration gave: every key, Win+1 and some others, or not Win+1.
@@ -190,18 +204,21 @@ pub(crate) fn restore_value() -> bool {
     true
 }
 
-/// Adds Crest's characters, the record first. A record already there means the value is Crest's from an earlier run.
-fn set_value() -> Result<(), String> {
+/// Adds Crest's characters, the record first: true when written now. A record already there means the value is Crest's from an
+/// earlier run (false).
+fn set_value() -> Result<bool, String> {
     let path = explorer::keys_path().ok_or("no folder")?;
     if path.exists() {
-        return Ok(());
+        return Ok(false);
     }
     let user = read_value();
     let (value, added) = merge(user.as_deref(), OURS);
     crate::write_atomic(&path, format_record(user.is_some(), &added).as_bytes()).map_err(|e| e.to_string())?;
-    write_value(&value).inspect_err(|_| {
-        restore_value();
-    })
+    write_value(&value)
+        .inspect_err(|_| {
+            restore_value();
+        })
+        .map(|()| true)
 }
 
 /// Whether nobody holds Win+`vk` now. Only while Crest's own is not registered.
@@ -339,35 +356,41 @@ fn bind(app: &AppHandle, on: bool) -> Vec<bool> {
     crate::shell::bind_taskbar(app, if on { shortcuts() } else { Vec::new() })
 }
 
-fn apply(app: &AppHandle, on: bool) -> &'static str {
+/// `start`: the saved state Crest starts with, when Explorer is never restarted (#104).
+fn apply(app: &AppHandle, on: bool, start: bool) -> &'static str {
     if !on {
         bind(app, false);
         let had = restore_value();
-        if restart_after_off(had, free(VK_1), shutting_down()) {
+        if restart_after_off(had, free(VK_1), start || shutting_down()) {
             set_status(app, "busy");
             restart_explorer();
         }
         RESTARTED.store(false, Ordering::SeqCst);
         return "off";
     }
-    if let Err(e) = set_value() {
-        eprintln!("taskbar: DisabledHotkeys not written, the keys stay with Windows: {e}");
-        return "failed";
-    }
-    let mut results = bind(app, true);
-    if restart_after_on(results[0], RESTARTED.swap(true, Ordering::SeqCst)) {
-        bind(app, false);
-        set_status(app, "busy");
-        if !restart_explorer() {
-            restore_value();
+    let fresh = match set_value() {
+        Ok(fresh) => fresh,
+        Err(e) => {
+            eprintln!("taskbar: DisabledHotkeys not written, the keys stay with Windows: {e}");
             return "failed";
         }
+    };
+    let mut results = bind(app, true);
+    let mut restarted = false;
+    if restart_after_on(results[0], start, RESTARTED.swap(true, Ordering::SeqCst)) {
+        bind(app, false);
+        set_status(app, "busy");
+        restarted = restart_explorer();
+        // After a failed one too: the shell Windows brought back may have read the value.
         results = bind(app, true);
     }
     let status = classify(&results);
     if status == "held" {
-        // Explorer kept the keys: nothing to give back by a restart.
         bind(app, false);
+        if until_sign_in(start, fresh, restarted) {
+            return "later";
+        }
+        // Explorer kept the keys: nothing to give back by a restart.
         restore_value();
     }
     status
@@ -378,16 +401,17 @@ fn set_status(app: &AppHandle, status: &'static str) {
     let _ = app.emit("taskbar://keys", status);
 }
 
-/// The notch only: the bar's Windows keys wanted (bar on and the switch on) or not. Answers the status.
+/// The notch only: the bar's Windows keys wanted (bar on and the switch on) or not, `start` for the saved state Crest starts with.
+/// Answers the status.
 #[tauri::command]
-pub async fn taskbar_keys(on: bool, app: AppHandle) -> String {
+pub async fn taskbar_keys(on: bool, start: bool, app: AppHandle) -> String {
     // The Store build never turns the bar on (bar.rs).
     if cfg!(feature = "store") {
         return "off".into();
     }
     tauri::async_runtime::spawn_blocking(move || {
         let _one = APPLYING.lock().unwrap_or_else(|e| e.into_inner());
-        let status = apply(&app, on);
+        let status = apply(&app, on, start);
         set_status(&app, status);
         status.to_owned()
     })
@@ -492,14 +516,28 @@ mod tests {
     fn explorer_restarts_only_when_it_changes_something() {
         assert!(restart_after_off(true, true, false));
         assert!(!restart_after_off(false, true, false) && !restart_after_off(true, false, false) && !restart_after_off(true, true, true));
-        assert!(restart_after_on(false, false));
-        assert!(!restart_after_on(true, false) && !restart_after_on(false, true));
+        assert!(restart_after_on(false, false, false));
+        assert!(!restart_after_on(true, false, false) && !restart_after_on(false, false, true));
+        // Never as Crest starts (#104).
+        assert!(!restart_after_on(false, true, false));
         let mut results = vec![true; 53];
         assert_eq!(classify(&results), "on");
         results[5] = false;
         assert_eq!(classify(&results), "partial");
         results[0] = false;
         assert_eq!(classify(&results), "held");
+    }
+
+    #[test]
+    fn the_value_waits_for_the_sign_in_when_explorer_started_before_it() {
+        // A start that wrote the value just now: the Explorer holding Win+1 never read it.
+        assert!(until_sign_in(true, true, false));
+        // A start that found it written: Explorer read it at sign-in and keeps the key anyway, so it goes back.
+        assert!(!until_sign_in(true, false, false));
+        // A turn-on whose restart failed keeps it, whatever was there (#104: it went back, and every start restarted Explorer again).
+        assert!(until_sign_in(false, true, false) && until_sign_in(false, false, false));
+        // A restart that worked and still left Win+1 held: nothing a sign-in would change.
+        assert!(!until_sign_in(false, true, true));
     }
 
     #[test]

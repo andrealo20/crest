@@ -1423,7 +1423,7 @@ export interface WindowsPins {
 }
 
 /** Where the bar's Windows keys stand (taskbar/keys.rs). */
-export type KeysStatus = "off" | "busy" | "on" | "partial" | "held" | "failed";
+export type KeysStatus = "off" | "busy" | "on" | "partial" | "held" | "later" | "failed";
 /** What the Recycle Bin holds, by Windows' count (taskbar/recycle.rs). */
 export type RecycleBin = { items: number; bytes: number };
 
@@ -1492,8 +1492,8 @@ export const taskbar = {
   keepPins: (ids: string[]): Promise<void> => (isNative ? invoke("taskbar_own_pins_keep", { ids }) : Promise.resolve()),
   /** The preview card's live thumbnails in its slots (CSS px of this page), each call the whole set: `[]` takes them all away. Each answer is where that thumbnail shows, or null where none does (in the browser, always). */
   preview: (slots: { id: number; x: number; y: number; w: number; h: number }[]): Promise<({ x: number; y: number; w: number; h: number } | null)[]> => (isNative ? invoke("taskbar_preview", { slots }) : Promise.resolve(slots.map(() => null))),
-  /** The bar's Windows keys wanted or not (keysWanted); Rust writes Explorer's value, restarts Explorer when needed and answers the status. The notch only. */
-  keys: (on: boolean): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys", { on }) : Promise.resolve("off")),
+  /** The bar's Windows keys wanted or not (keysWanted), `start` for the saved state Crest starts with; Rust writes Explorer's value, restarts Explorer when needed (never at a start) and answers the status. The notch only. */
+  keys: (on: boolean, start: boolean): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys", { on, start }) : Promise.resolve("off")),
   /** Where the keys stand: "busy" while Explorer restarts. The settings only. */
   keysStatus: (): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys_status") : Promise.resolve("off")),
   /** The keys' status each time it changes; Rust sends it to every window. */
