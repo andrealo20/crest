@@ -4,12 +4,16 @@
 
 pub mod audio;
 pub mod clipboard;
+pub mod files;
 pub mod input;
 pub mod media;
 pub mod mixer;
 pub mod secrets;
 #[path = "../macos/mirror.rs"]
 pub mod mirror;
+
+use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::WebviewWindow;
 
@@ -20,6 +24,18 @@ pub fn prefer_x11() {
     let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var("XDG_SESSION_TYPE").is_ok_and(|t| t == "wayland");
     if wayland && std::env::var_os("DISPLAY").is_some() && std::env::var_os("GDK_BACKEND").is_none() && std::env::var_os("CREST_WAYLAND").is_none() {
         std::env::set_var("GDK_BACKEND", "x11");
+        SET_BY_CREST.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Whether `prefer_x11` put GDK_BACKEND there, and not the user.
+pub(crate) static SET_BY_CREST: AtomicBool = AtomicBool::new(false);
+
+/// What Crest starts must not inherit the GDK_BACKEND it set for itself: a browser opened from a link would run under XWayland too.
+/// One the user set is theirs and stays.
+pub fn own_environment_out(command: &mut Command) {
+    if SET_BY_CREST.load(Ordering::Relaxed) {
+        command.env_remove("GDK_BACKEND");
     }
 }
 

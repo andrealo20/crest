@@ -276,17 +276,38 @@ pub(crate) fn open_url(url: &str) -> Result<(), String> {
         if ok { Ok(()) } else { Err("open-failed".into()) }
     }
     #[cfg(not(windows))]
-    opener().arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    {
+        let mut opener = opener();
+        opener.arg(url);
+        spawn_and_reap(opener).map_err(|e| e.to_string())
+    }
+}
+
+/// Starts a program and lets it go. A thread waits for it, because a child that is dropped without a wait stays a zombie until
+/// Crest exits: every link or folder opened would leave one.
+#[cfg_attr(windows, allow(dead_code))]
+pub(crate) fn spawn_and_reap(mut command: std::process::Command) -> std::io::Result<()> {
+    let mut child = command.spawn()?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 /// Opens files and folders: Explorer on Windows, by its full path, since a bare "explorer" is looked up next
-/// to crest.exe first, and a portable copy's folder may be one other users can write to. `open` on a Mac.
+/// to crest.exe first, and a portable copy's folder may be one other users can write to. `open` on a Mac, `xdg-open` on Linux (where
+/// `open` is a different program: the virtual-terminal tool).
 pub(crate) fn opener() -> std::process::Command {
     if cfg!(windows) {
         let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
         std::process::Command::new(std::path::Path::new(&root).join("explorer.exe"))
-    } else {
+    } else if cfg!(target_os = "macos") {
         std::process::Command::new("open")
+    } else {
+        let mut open = std::process::Command::new("xdg-open");
+        #[cfg(target_os = "linux")]
+        linux::own_environment_out(&mut open);
+        open
     }
 }
 
