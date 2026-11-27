@@ -1974,6 +1974,8 @@
  "Widget hinzufügen …": "Add widget …",
  "Automatisch ausblenden": "Auto-hide",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger ihren Bildschirmrand berührt": "The bar slides away when a window touches it, for example a maximized one, and comes back when the pointer touches its screen edge.",
+ "Nur auf dem Bildschirm, auf dem du arbeitest": "Only on the screen you're working on",
+ "Die Leiste gleitet nur auf dem Bildschirm der App im Vordergrund weg. Auf den anderen Bildschirmen bleibt sie, außer über einer App im Vollbild": "The bar slides away only on the screen of the app in front. On the other screens it stays, except over a full-screen app.",
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich vor dem Rand, oder dahinter liegt ein anderer Bildschirm": "On one monitor the bar can't slide away: its work area ends short of the edge there, or another monitor lies past it",
  "Gilt für die Leiste auf jedem Bildschirm. Die Notch weicht dem Rand der Leiste aus. Start und die Bereiche von Windows öffnen sich weiter am Rand der Windows-Taskleiste": "Applies to the bar on every monitor. The notch moves off the bar's edge. Start and Windows' panels still open at the edge of Windows' taskbar",
  "Startmenü": "Start",

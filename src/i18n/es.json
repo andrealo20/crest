@@ -1974,6 +1974,8 @@
  "Widget hinzufügen …": "Añadir widget …",
  "Automatisch ausblenden": "Ocultar automáticamente",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger ihren Bildschirmrand berührt": "La barra se oculta cuando una ventana la toca, por ejemplo una maximizada, y vuelve cuando el puntero toca su borde de la pantalla.",
+ "Nur auf dem Bildschirm, auf dem du arbeitest": "Solo en la pantalla en la que trabajas",
+ "Die Leiste gleitet nur auf dem Bildschirm der App im Vordergrund weg. Auf den anderen Bildschirmen bleibt sie, außer über einer App im Vollbild": "La barra se oculta solo en la pantalla de la app en primer plano. En las demás pantallas se queda, salvo sobre una app a pantalla completa.",
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich vor dem Rand, oder dahinter liegt ein anderer Bildschirm": "En un monitor la barra no puede ocultarse: allí el área de trabajo termina antes del borde, o hay otro monitor más allá",
  "Gilt für die Leiste auf jedem Bildschirm. Die Notch weicht dem Rand der Leiste aus. Start und die Bereiche von Windows öffnen sich weiter am Rand der Windows-Taskleiste": "Se aplica a la barra en todos los monitores. El notch se aparta del borde de la barra. Inicio y los paneles de Windows siguen abriéndose en el borde de la barra de tareas de Windows",
  "Startmenü": "Inicio",

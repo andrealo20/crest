@@ -60,6 +60,8 @@ export interface TaskbarSettings {
   enabled: boolean;
   /** Each bar slides off its screen while the window in front of its monitor touches it (autoHide.ts). */
   autoHide: boolean;
+  /** With autoHide, only the bar of the screen where the app in front is slides away; the others stay (Rust front.rs `may_slide`, #97). */
+  activeScreenOnly: boolean;
   zones: Record<Zone, BarItem[]>;
   height: number;
   iconSize: number;
@@ -155,6 +157,7 @@ const APPS_ONS: AppsOn[] = ["own", "main", "all"];
 export const TASKBAR_DEFAULTS: TaskbarSettings = {
   enabled: false,
   autoHide: false,
+  activeScreenOnly: false,
   zones: { left: [], center: ["start", "apps"], right: ["weather", "tray", "status", "clock", "crest"] },
   height: 44,
   iconSize: 24,
@@ -293,6 +296,7 @@ export function normalizeTaskbar(v: unknown): TaskbarSettings {
   return {
     enabled: s.enabled === true,
     autoHide: s.autoHide === true,
+    activeScreenOnly: s.activeScreenOnly === true,
     zones,
     height: within(s.height, HEIGHT, d.height),
     iconSize: within(s.iconSize, ICON, d.iconSize),

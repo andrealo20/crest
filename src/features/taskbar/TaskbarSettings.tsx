@@ -55,7 +55,7 @@ const APPS_ON_LABEL: Record<AppsOn, string> = { all: "Allen Taskleisten", main: 
 
 /** Taskbar → General: the bar on or off, whether it slides away when a window touches it, what a double click beside its buttons does, and where the system icons it leaves out are. */
 export function TaskbarGeneral() {
-  const { enabled, autoHide, shape, emptyDouble, flashing, wheelVolume, batteryPercent, allScreens, appsOn, clockAll, winKeys } = settings.use().taskbar;
+  const { enabled, autoHide, activeScreenOnly, shape, emptyDouble, flashing, wheelVolume, batteryPercent, allScreens, appsOn, clockAll, winKeys } = settings.use().taskbar;
   // Bars that stay up with auto-hide on (Rust front.rs `stays_up`), read as the page opens and when the switch changes.
   const [blocked, setBlocked] = useState(0);
   useEffect(() => void taskbar.slideBlocked().then(setBlocked, () => {}), [autoHide]);
@@ -112,6 +112,15 @@ export function TaskbarGeneral() {
       >
         <Switch label={t("Automatisch ausblenden")} checked={autoHide} onChange={(on) => setTaskbar({ autoHide: on })} />
       </Row>
+      {autoHide && allScreens && (
+        <Row
+          icon="desktop_windows"
+          label={t("Nur auf dem Bildschirm, auf dem du arbeitest")}
+          hint={t("Die Leiste gleitet nur auf dem Bildschirm der App im Vordergrund weg. Auf den anderen Bildschirmen bleibt sie, außer über einer App im Vollbild")}
+        >
+          <Switch label={t("Nur auf dem Bildschirm, auf dem du arbeitest")} checked={activeScreenOnly} onChange={(on) => setTaskbar({ activeScreenOnly: on })} />
+        </Row>
+      )}
       <Row
         icon="keyboard"
         label={t("Windows-Tasten auf der Leiste")}

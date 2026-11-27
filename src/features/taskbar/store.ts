@@ -32,7 +32,7 @@ export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSetti
 export function startTaskbar() {
   if (!isNative || isMac) return;
   let last = "";
-  let hides: boolean | null = null;
+  let hides: string | null = null;
   let tray: boolean | null = null;
   let statusOn: boolean | null = null;
   let micOn: boolean | null = null;
@@ -71,12 +71,12 @@ export function startTaskbar() {
       });
   };
   const sync = () => {
-    const { enabled, height, shape, pinned, autoHide, allScreens, appsOn, position, allDesktops, endTask, keepClear } = settings.get().taskbar;
+    const { enabled, height, shape, pinned, autoHide, activeScreenOnly, allScreens, appsOn, position, allDesktops, endTask, keepClear } = settings.get().taskbar;
     const wantTray = trayOnBar(settings.get().taskbar.zones);
     // Outside the queue: a flag the display poll reads, which never waits for a bar to be built or taken down.
-    if (autoHide !== hides) {
-      hides = autoHide;
-      void taskbar.autoHide(autoHide);
+    if (`${autoHide}|${activeScreenOnly}` !== hides) {
+      hides = `${autoHide}|${activeScreenOnly}`;
+      void taskbar.autoHide(autoHide, activeScreenOnly);
     }
     // Likewise, the other monitors' bars and which windows each lists: Rust takes the bars down or builds them and lists again.
     if (`${allScreens}|${appsOn}` !== spread) {

@@ -38,6 +38,8 @@ use crate::display;
 
 /// "Hide when a window touches it" is on. The notch applies it, as it does the bar's other settings (`taskbar_auto_hide`).
 static AUTO_HIDE: AtomicBool = AtomicBool::new(false);
+/// With it, "only on the screen in use": the other monitors' bars stay up (`may_slide`, #97).
+static ACTIVE_ONLY: AtomicBool = AtomicBool::new(false);
 /// What each bar was last sent, by label (`taskbar_front`). Held only to read or write it, never across an emit.
 static SENT: LazyLock<Mutex<HashMap<String, Option<Rect>>>> = LazyLock::new(Mutex::default);
 /// What the bars were last sent as `taskbar://hold`; false again once the option is off.
@@ -113,6 +115,13 @@ fn front(fg: Fg, fg_here: bool, desktop_here: bool, stack: &[isize]) -> Option<i
         Fg::Desktop if desktop_here => None,
         _ => stack.first().copied(),
     }
+}
+
+/// Whether a bar may slide away while a window touches it. With "only on the screen in use" on (`ACTIVE_ONLY`, #97), only the
+/// bar of the monitor where the app in front is (`listed_here`); the other bars stay, and over a full-screen app each bar
+/// still hides (`screens::set_fullscreen`).
+fn may_slide(active_only: bool, fg: Fg, listed_here: bool) -> bool {
+    !active_only || matches!(fg, Fg::Listed(_)) && listed_here
 }
 
 /// Windows' own surfaces hold the bars up, as their own menus do: Start while it shows, or a window in front with no button
@@ -203,6 +212,7 @@ pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
         }
     }
     let auto_hide = AUTO_HIDE.load(Ordering::SeqCst);
+    let active_only = ACTIVE_ONLY.load(Ordering::SeqCst);
     let hold = auto_hide && {
         // A null foreground (nothing active) holds nothing, or the bars would stay up as long as it lasts; Start is heard on its own.
         let other = !raw.is_invalid() && Fg::of(raw, own) == Fg::Other && !screens::is_bar(raw.0 as isize);
@@ -226,7 +236,8 @@ pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
             || ahead.is_some_and(|w| w != foreground.0 as isize && display::fills(HWND(w as _), monitor, false));
         screens::set_fullscreen(app, label, hides(full, start_on, *m));
         if auto_hide {
-            rects.push((label.clone(), rect_for(ahead, *bar, *m, &monitors)));
+            let rect = may_slide(active_only, fg, listed_on == *m).then(|| rect_for(ahead, *bar, *m, &monitors)).flatten();
+            rects.push((label.clone(), rect));
         }
     }
     if auto_hide {
@@ -299,12 +310,14 @@ fn sent() -> MutexGuard<'static, HashMap<String, Option<Rect>>> {
     SENT.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Turns "hide when a window touches it" on or off: the notch only, as it applies the bar's other settings. On a change the
-/// record is cleared, so the next poll sends every bar its rect again.
+/// Turns "hide when a window touches it" on or off, and with it "only on the screen in use" (`active_only`): the notch only, as
+/// it applies the bar's other settings. On a change of `on` the record is cleared, so the next poll sends every bar its rect
+/// again; a change of `active_only` changes the rects themselves, which the next poll sends.
 #[tauri::command]
-pub fn taskbar_auto_hide(on: bool) {
+pub fn taskbar_auto_hide(on: bool, active_only: bool) {
     // Under the record's lock, so a poll that read the option before this never fills the record again after it.
     let mut sent = sent();
+    ACTIVE_ONLY.store(active_only, Ordering::SeqCst);
     if AUTO_HIDE.swap(on, Ordering::SeqCst) != on {
         sent.clear();
         // Only posts to the taskbar thread, so the record's lock is fine.
@@ -374,6 +387,19 @@ mod tests {
         assert!(!hides(true, Some(1), 1)); // Start opens over it, a game too: the bar comes up, as Windows' taskbar does
         assert!(hides(true, Some(2), 1)); // Start on another monitor: this bar stays hidden
         assert!(!hides(false, None, 1));
+    }
+
+    #[test]
+    fn only_on_the_screen_in_use_the_bar_slides_where_the_app_in_front_is() {
+        // Off: every bar slides wherever a window touches it, as before (#97).
+        assert!(may_slide(false, Fg::Listed(5), false));
+        assert!(may_slide(false, Fg::Desktop, false));
+        // On: only the bar of the app in front's monitor; the others stay over a maximized window.
+        assert!(may_slide(true, Fg::Listed(5), true));
+        assert!(!may_slide(true, Fg::Listed(5), false));
+        // The desktop in front, or nothing seen yet: no app in use, every bar stays.
+        assert!(!may_slide(true, Fg::Desktop, true));
+        assert!(!may_slide(true, Fg::Other, true));
     }
 
     #[test]

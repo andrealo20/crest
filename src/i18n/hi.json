@@ -1974,6 +1974,8 @@
  "Widget hinzufügen …": "विजेट जोड़ें …",
  "Automatisch ausblenden": "स्वचालित रूप से छिपाएँ",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger ihren Bildschirmrand berührt": "जब कोई विंडो, जैसे बड़ी की हुई विंडो, बार को छूती है तो बार खिसककर हट जाती है, और पॉइंटर के बार वाले स्क्रीन किनारे को छूने पर वापस आ जाती है।",
+ "Nur auf dem Bildschirm, auf dem du arbeitest": "केवल उस स्क्रीन पर जिस पर आप काम कर रहे हैं",
+ "Die Leiste gleitet nur auf dem Bildschirm der App im Vordergrund weg. Auf den anderen Bildschirmen bleibt sie, außer über einer App im Vollbild": "बार केवल सामने वाले ऐप की स्क्रीन पर खिसककर हटती है। दूसरी स्क्रीन पर वह बनी रहती है, फ़ुल-स्क्रीन ऐप के ऊपर को छोड़कर।",
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich vor dem Rand, oder dahinter liegt ein anderer Bildschirm": "एक मॉनिटर पर बार खिसककर नहीं हट सकती: वहाँ कार्य क्षेत्र किनारे से पहले ख़त्म हो जाता है, या उसके पार कोई और मॉनिटर है",
  "Gilt für die Leiste auf jedem Bildschirm. Die Notch weicht dem Rand der Leiste aus. Start und die Bereiche von Windows öffnen sich weiter am Rand der Windows-Taskleiste": "हर मॉनिटर की बार पर लागू होता है। नॉच बार के किनारे से हट जाता है। प्रारंभ और Windows के पैनल अब भी Windows टास्कबार के किनारे पर खुलते हैं",
  "Startmenü": "प्रारंभ",

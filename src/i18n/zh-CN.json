@@ -1974,6 +1974,8 @@
  "Widget hinzufügen …": "添加小组件 …",
  "Automatisch ausblenden": "自动隐藏",
  "Die Leiste gleitet weg, wenn ein Fenster sie berührt, zum Beispiel ein maximiertes, und kommt zurück, wenn der Zeiger ihren Bildschirmrand berührt": "当窗口（例如最大化的窗口）触碰任务栏时，任务栏会滑出屏幕，指针触碰任务栏所在的屏幕边缘时再滑回。",
+ "Nur auf dem Bildschirm, auf dem du arbeitest": "仅在正在使用的屏幕上",
+ "Die Leiste gleitet nur auf dem Bildschirm der App im Vordergrund weg. Auf den anderen Bildschirmen bleibt sie, außer über einer App im Vollbild": "任务栏只在前台应用所在的屏幕上滑出。在其他屏幕上它会保留，全屏应用上方除外。",
  "Auf einem Bildschirm kann die Leiste nicht weggleiten: Dort endet der Arbeitsbereich vor dem Rand, oder dahinter liegt ein anderer Bildschirm": "某台显示器上的任务栏无法滑出：那里的工作区在屏幕边缘之前就结束了，或者边缘外还有另一台显示器",
  "Gilt für die Leiste auf jedem Bildschirm. Die Notch weicht dem Rand der Leiste aus. Start und die Bereiche von Windows öffnen sich weiter am Rand der Windows-Taskleiste": "适用于每台显示器上的任务栏。刘海会离开任务栏所在的边缘。开始菜单和 Windows 的面板仍在 Windows 任务栏所在的边缘打开",
  "Startmenü": "开始",
