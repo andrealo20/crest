@@ -28,7 +28,8 @@ export function LyricsPanel({ np }: { np: NowPlaying }) {
   const lines = useRomanized(useOfflineTranslation(np, linesOf(state), music.lyricTranslation && music.offlineTranslation === true), music.lyricRoman);
   const index = useLyricIndex(lines, np);
   const list = useRef<HTMLDivElement>(null);
-  const userScrolledAt = useRef(0);
+  // No wheel yet: 0 would read as one in the page's first seconds (performance.now() counts from the load) and hold the first scroll
+  const userScrolledAt = useRef(-Infinity);
 
   useEffect(() => {
     const el = list.current;
