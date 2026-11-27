@@ -77,19 +77,38 @@ export function forgetSchema() {
  * other values with it (a key moved between tabs), so all are read again.
  */
 export async function setPomeloValue(key: string, value: unknown, reload = false): Promise<string | null> {
-  const before = pomeloValues.get();
-  if (!reload) pomeloValues.set({ ...before, [key]: value });
+  const had = key in pomeloValues.get(), was = pomeloValues.get()[key];
+  if (!reload) pomeloValues.set((v) => ({ ...v, [key]: value }));
+  // Only this key goes back: another row changed meanwhile keeps its value.
+  const undo = () =>
+    pomeloValues.set((v) => {
+      const next = { ...v };
+      if (had) next[key] = was;
+      else delete next[key];
+      return next;
+    });
+  let answer: { ok?: boolean; error?: string; message?: string } | null;
   try {
-    const answer = (await pomeloWheel.settings("set", { key, value })) as { ok?: boolean; error?: string; message?: string } | null;
-    if (answer?.ok) {
-      if (reload) pomeloValues.set(valuesOf(await pomeloWheel.settings("get")));
-      return null;
-    }
-    pomeloValues.set(before);
+    answer = (await pomeloWheel.settings("set", { key, value })) as typeof answer;
+  } catch {
+    undo();
+    return t("Wird nicht angenommen");
+  }
+  if (!answer?.ok) {
+    undo();
     // The engine's message says what it expects (in English); its code alone says nothing to the user.
     return answer?.message || t("Wird nicht angenommen");
+  }
+  if (reload) await reloadPomeloValues();
+  return null;
+}
+
+/** Reads every value again (once the schema is loaded): after a change that moves others, or Pomelo's own window. */
+export async function reloadPomeloValues() {
+  if (!schema.get()?.pages.length) return;
+  try {
+    pomeloValues.set(valuesOf(await pomeloWheel.settings("get")));
   } catch {
-    pomeloValues.set(before);
-    return t("Wird nicht angenommen");
+    // The values on screen stay.
   }
 }

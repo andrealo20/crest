@@ -16,7 +16,11 @@ export function cascades(c: { material: boolean; reduced: boolean; searching: bo
   return c.material && !c.reduced && !c.searching && !c.target;
 }
 
-/** The settings window's scopes, in the switch's order: the Taskbar's where the bar can run, Pomelo's on Windows outside the Store. */
-export function scopeOptions(taskbar: boolean, pomelo: boolean): ("notch" | "taskbar" | "pomelo")[] {
-  return ["notch", ...(taskbar ? ["taskbar" as const] : []), ...(pomelo ? ["pomelo" as const] : [])];
+/**
+ * The settings window's scopes, in the switch's order: the Taskbar's where the bar can run, then Pomelo's. Pomelo's joins only a switch
+ * the Taskbar already brings, or while its scope is open (reached from Files), so the way back shows: without the bar, the window
+ * looks as it always did to anyone who does not open it.
+ */
+export function scopeOptions(taskbar: boolean, pomelo: boolean, pomeloOpen = false): ("notch" | "taskbar" | "pomelo")[] {
+  return ["notch", ...(taskbar ? ["taskbar" as const] : []), ...(pomelo && (taskbar || pomeloOpen) ? ["pomelo" as const] : [])];
 }

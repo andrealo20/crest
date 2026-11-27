@@ -10,7 +10,7 @@ import { engineLang } from "../files/model";
 import { LicenseRows } from "../files/LicenseRows";
 import { cancelDownload, download, downloadFailed, downloading, engine, loadEngine } from "../files/store";
 import { keyOf, listText, packageNeed, parseList, parseWhole, RETRY_PHASES, shownRows, valueOf, type Control, type RowType, type SchemaRow, type WheelState } from "./model";
-import { followWheel, forgetSchema, pomeloValues, schema, setPomeloValue, wheelState } from "./store";
+import { followWheel, forgetSchema, pomeloValues, reloadPomeloValues, schema, setPomeloValue, wheelState } from "./store";
 
 /*
  * The Pomelo scope of the settings window: its first page (the wheel, the package, the licence), then the pages of Pomelo's own
@@ -21,10 +21,11 @@ type Need = ReturnType<typeof packageNeed>;
 
 function stateText(s: WheelState, on: boolean, need: Need | null): string {
   if (!on) return t("Aus");
+  if (!need) return t("Wird geladen …");
   if (need !== "ready" || s.phase === "missing") return t("Diesem Paket fehlt das Rad: Programm aktualisieren");
   if (s.phase === "conflict") {
     if (s.with === "store") return t("Pomelo aus dem Microsoft Store läuft schon. Schließe es und versuche es noch einmal.");
-    if (s.with === "hosted") return t("Ein anderes Pomelo-Rad mit denselben Daten läuft schon, etwa aus einer zweiten Crest-Kopie. Schließe es und versuche es noch einmal.");
+    if (s.with === "hosted") return t("Eine andere Crest-Kopie hat das Pomelo-Rad schon. Schließe sie und versuche es noch einmal.");
     return t("Eine andere Kopie von Pomelo läuft schon. Schließe sie und versuche es noch einmal.");
   }
   if (s.phase === "crashed") return t("Mehrmals abgestürzt. Versuche es noch einmal.");
@@ -152,6 +153,11 @@ export function PomeloSchemaPage({ id }: { id: string }) {
   const values = pomeloValues.use();
   const ready = wheelState.use().phase === "ready";
   useEffect(followWheel, []);
+  // Pomelo's own window (Open on a row) may change any setting: read again when this window comes back to the front.
+  useEffect(() => {
+    window.addEventListener("focus", reloadPomeloValues);
+    return () => window.removeEventListener("focus", reloadPomeloValues);
+  }, []);
   if (!loaded) return <div className="px-3 pt-2 text-caption text-label-3">{t("Wird geladen …")}</div>;
   const page = loaded.pages.find((p) => p.id === id);
   if (!page) return <div className="px-3 pt-2 text-caption text-label-3">{t("Fehlgeschlagen")}</div>;

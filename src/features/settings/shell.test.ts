@@ -29,7 +29,10 @@ test("the groups cascade only in Material, with full motion, out of the search a
 
 test("the scope switch offers the Taskbar where the bar runs and Pomelo on Windows outside the Store", () => {
   assert.deepEqual(scopeOptions(true, true), ["notch", "taskbar", "pomelo"]);
-  assert.deepEqual(scopeOptions(false, true), ["notch", "pomelo"]);
+  // Without the bar no switch, as before, unless Pomelo's scope is open (from Files): then the way back shows.
+  assert.deepEqual(scopeOptions(false, true), ["notch"]);
+  assert.deepEqual(scopeOptions(false, true, true), ["notch", "pomelo"]);
+  assert.deepEqual(scopeOptions(true, false, true), ["notch", "taskbar"]);
   assert.deepEqual(scopeOptions(true, false), ["notch", "taskbar"]);
   // Only the notch's scope: no switch at all.
   assert.deepEqual(scopeOptions(false, false), ["notch"]);

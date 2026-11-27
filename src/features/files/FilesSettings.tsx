@@ -6,6 +6,7 @@ import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row } from "../../ui/controls";
 import { t } from "../../i18n";
 import { LicenseRows } from "./LicenseRows";
+import { forgetSchema, pomeloOffered } from "../pomelo/store";
 
 /** Settings > Tools > Files, while the tool is on: the licence, the output folder and the engine's version, with Remove. */
 export function FilesSettings() {
@@ -25,6 +26,7 @@ function FilesGroup() {
     setNote(null);
     filesEngine
       .remove()
+      .then(forgetSchema)
       .catch((e) => setNote(String(e) === "wheel" ? t("Zuerst das Pomelo-Rad ausschalten") : t("Fehlgeschlagen")))
       .finally(() => {
         setBusy(false);
@@ -41,6 +43,15 @@ function FilesGroup() {
         {outDir && <Button onClick={() => setOut("")}>{t("Zurücksetzen")}</Button>}
         <Button onClick={() => void filesEngine.pickFolder().then((dir) => dir && setOut(dir))}>{t("Ändern")}</Button>
       </Row>
+      {pomeloOffered && (
+        <Row
+          icon="touch_app"
+          label={t("Pomelo-Rad")}
+          hint={t("Zieh Dateien im Explorer und halte Umschalt, Strg oder Alt: Ein Rad mit den Umwandlungen und Werkzeugen von Pomelo erscheint.")}
+        >
+          <Button onClick={() => navigate("settings", "pomelo")}>{t("Öffnen")}</Button>
+        </Row>
+      )}
       <Row icon="download_done" label={t("Programm")} hint={note ?? (installed ? t("Version {v}", { v: status.version ?? "" }) : t("Nicht heruntergeladen"))}>
         {installed ? (
           <Button disabled={busy} onClick={remove}>

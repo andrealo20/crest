@@ -205,7 +205,7 @@ export function ScopeSwitch({ scopes }: { scopes: Scope[] }) {
 
 /** The scopes this window offers. */
 export function useScopes(): Scope[] {
-  return scopeOptions(useTaskbarShown(), pomeloOffered);
+  return scopeOptions(useTaskbarShown(), pomeloOffered, savedPage.use().scope === "pomelo");
 }
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. Every page's own id opens it too, at its top. */
@@ -341,7 +341,10 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   // Pomelo's schema is asked for only once its scope is opened or a search would look into it: nothing runs for the others.
   const lang = language.use();
   const wheelPackage = engine.use()?.wheel;
-  const wantsSchema = pomeloOffered && (scopeOf(page) === "pomelo" || searching);
+  // The search never starts the engine: it finds Pomelo's rows only once the scope was opened in this window (the schema is in memory).
+  const wantsSchema = pomeloOffered && scopeOf(page) === "pomelo";
+  const schemaRead = !!schema.use()?.pages.length;
+  const indexed = pages.filter((p) => scopeOf(p.id) !== "pomelo" || schemaRead);
   useEffect(() => {
     if (!wantsSchema) return;
     if (wheelPackage === undefined) void loadEngine();
@@ -489,7 +492,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
   // The site's full-screen demo shows the settings in the notch's panel (src/dev/demoBar.tsx): the Notch | Taskbar switch the app's
   // settings window draws in its title row goes over the page there. Never in the app, whose window has its own.
-  const scopes = scopeOptions(taskbarShown, pomeloOffered);
+  const scopes = scopeOptions(taskbarShown, pomeloOffered, saved.scope === "pomelo");
   const scopeSwitch = demoBar && scopes.length > 1 && <ScopeSwitch scopes={scopes} />;
   // Material's items: pills with their name in the list, round icons in the rail and the row on top.
   const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
@@ -587,7 +590,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
     // Every page, never shown: only read for the index. The LayoutGroup keeps their layoutIds apart from the visible ones.
     <div ref={hidden} hidden inert>
       <LayoutGroup id="settings-search">
-        {pages.map((p) => (
+        {indexed.map((p) => (
           <div key={p.id} data-page={p.id}>
             <PageContent page={p.id} />
           </div>
