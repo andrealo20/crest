@@ -8,6 +8,7 @@ pub mod files;
 pub mod input;
 pub mod media;
 pub mod mixer;
+pub mod pipewire;
 pub mod secrets;
 #[path = "../macos/mirror.rs"]
 pub mod mirror;
