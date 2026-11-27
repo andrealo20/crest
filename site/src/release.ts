@@ -2,7 +2,7 @@
  * What the latest release brings, for the home page and What's new. Each item points at the chapter of the home page whose demo
  * shows it. The full list of every version comes from src/changelog.json, the one the app shows.
  */
-export const RELEASE = "1.3";
+export const RELEASE = "1.4";
 
 /**
  * The release's short film, from public/media. The page shows it only once both files are there at build time (vite.config.ts
@@ -18,98 +18,56 @@ export const FILM = {
 };
 export const HAS_FILM = [FILM.src, FILM.poster].every((f) => __SITE_MEDIA__.includes(f.replace("/media/", "")));
 
-/** `demo: false`: the browser demo cannot show it, so the card only leads to the chapter. */
-export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: string; demo?: false }[] = [
+/** `demo: false`: the browser demo cannot show it, so the card only leads to the chapter. `link`: a page elsewhere, shown in its place. */
+export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: string; demo?: false; link?: { href: string; label: string } }[] = [
   {
-    title: "Folders on the bar",
-    text: "New in 1.3.2. Hold a pinned app over another for a moment and both go into a folder, a button with four small icons that opens in a panel over the bar. Open apps from a folder still show on the bar as usual, and a right click moves an app in or out, renames the folder or dissolves it.",
-    chapter: "yours",
-    hue: "#2fd5c4",
-    demo: false,
-  },
-  {
-    title: "Many more widgets, sized to fit",
-    text: "New in 1.3.2. The bar gets Now Playing with its cover, battery rings, top apps, world time, more clocks, weather details, currencies, crypto, unread notifications, device batteries, temperatures and more. A Widget size slider makes them smaller or larger than the icons, and the widgets the bar has no room for open from a button in a panel over it. Pinned tools such as Portfolio, Calc and Clipboard open right there too.",
-    chapter: "yours",
-    hue: "#7b61ff",
-    demo: false,
-  },
-  {
-    title: "Screen Time and the day timeline",
-    text: "New in 1.3.2. Off until you turn it on, Screen Time counts the time you spend in each app, kept only on your PC for 30 days. The day timeline shows your focus rounds, events, sunrise and sunset on one strip, in the closed notch or on the bar.",
-    chapter: "focus",
-    hue: "#b46cff",
-    demo: false,
-  },
-  {
-    title: "Wallpapers",
-    text: "New in 1.3.2. A Wallpapers tool sets a picture from Crest's collection or from a folder of your own, for each screen, and can change it on a timer. The collection's pictures are downloaded the first time you use them.",
-    chapter: "themes",
-    hue: "#ff8a3d",
-    demo: false,
-  },
-  {
-    title: "Crest's own taskbar",
-    text: "On Windows, Crest can take the place of the taskbar with a bar in its own style (off by default, not in the Microsoft Store version). Settings, Taskbar, Appearance sets its shape: Docked, Floating, Capsule or Tiles. Pinned apps and open windows sit on it, and resting the pointer on an app shows a live preview of each of its windows. Next to them come the Notification area, tool buttons and widgets made from the notch's tools, and a widget drags along the bar to a new place. Turn it off and the Windows taskbar is back.",
+    title: "Search or open",
+    text: "The search box on Crest's taskbar finds apps, also by their initials, Crest's tools, settings with a value (\"volume 30\"), widgets, and files and folders from Windows' index with a preview. It answers sums, currency and unit conversions and the time in a city, and sends anything else to the web. With a provider set up in Ask, a sentence in any language becomes an action. A shortcut opens it from any app. On Windows, not in the Microsoft Store version.",
     chapter: "yours",
     hue: "#4fa8ff",
     demo: false,
   },
   {
-    title: "Liquid Glass + on the bar",
-    text: "A third choice for the bar's Glass draws it the way the widgets of LiquidGlassWindows draw theirs: a strong lens along the edge, red and blue a little apart, almost no blur and white content, over a copy of the screen renewed up to 10 times a second. It needs Windows 11 24H2 or later on x64 and is not in the Microsoft Store version for now. While it is chosen the bar stays out of screenshots, recordings and screen shares.",
+    title: "Pomelo comes to Crest",
+    text: "Files, a new tool, converts and edits images, PDFs, audio and video with Pomelo's conversions and tools: drop them on the open tool or take them from the Shelf, and the results land beside the originals, which never change. The Pomelo wheel, in the settings window, brings Pomelo's wheel to files you drag in File Explorer while you hold Shift, Ctrl or Alt. Both run on Pomelo's engine, a separate closed-source program the GitHub versions download only when you ask, and the Microsoft Store version carries in its package. 20 files are free, then 2 a day; a key is US$4.99 once until 31 December 2026, then US$9.99. On Windows.",
     chapter: "yours",
-    hue: "#9d7aff",
+    hue: "#ff8a3d",
+    demo: false,
+    link: { href: "https://pomeloapp.net", label: "Pomelo's site" },
+  },
+  {
+    title: "Translate",
+    text: "A new tool translates text on your PC with the same offline models as the lyrics, in ten languages, a moment after you stop typing. A pair with no model can go to the provider set up in Ask, only when you allow it.",
+    chapter: "clipboard",
+    hue: "#00a6a6",
     demo: false,
   },
   {
-    title: "The Material style",
-    text: "Settings, Themes, Style turns every Crest window into Material 3, on Windows and on the Mac: colours worked out from your theme, text in Google Sans Flex, Material Symbols icons and Material's springs. Weather and Hardware take the layout of Stellaria's dashboard, and the look you know is still one click away.",
-    chapter: "themes",
+    title: "Stocks and your Portfolio on the bar",
+    text: "The crypto widget also shows a stock, fund or index by its Yahoo Finance symbol, or your Portfolio's total, over today, a week, a month or a year. Battery, Wi-Fi and volume are drawn as on an iPhone and a Mac, the battery with its percentage beside it.",
+    chapter: "yours",
     hue: "#00c26a",
-  },
-  {
-    title: "Status and quick settings",
-    text: "Status shows the network, the volume and the battery as one button on Crest's taskbar. A click opens a quick panel with Wi-Fi and Bluetooth, each with a page of its own, the volume and its output, the brightness, Energy saver and Airplane mode.",
-    chapter: "yours",
-    hue: "#ffb511",
     demo: false,
   },
   {
-    title: "Settings in a window of their own",
-    text: "Crest's settings open in their own window, kept in step with the notch. Under Material, contour lines drift behind its pages (Animated background turns them off), and resting the pointer on a theme's card shows the window in that theme.",
+    title: "Room for the bar, on every screen",
+    text: "Floating, Capsule and Tiles can keep room for the bar, so maximized windows end above it, and Start opens above it over a full-screen game too. With Auto-hide, Only on the screen you're working on lets just the bar in use slide away.",
+    chapter: "yours",
+    hue: "#7b61ff",
+    demo: false,
+  },
+  {
+    title: "Behind other windows",
+    text: "Settings, Window can keep the notch on the desktop, under every window; the shortcut still brings it to the front. The tool bar shows the selected tool's name, Overview gets Hibernate when hibernation is on, and Material gets Pure black and its own shapes.",
     chapter: "yours",
     hue: "#ff48b0",
-    demo: false,
-  },
-  {
-    title: "Focus mode is back",
-    text: "In Settings, Display, the switch Focus mode with three clicks is off by default. Turned on, it lets three quick clicks on the notch put it aside, half transparent or as a thin line, while clicks pass through to the app below. Three more bring it back.",
-    chapter: "yours",
-    hue: "#ff7c2f",
-    demo: false,
-  },
-  {
-    title: "Both limits in each quota ring",
-    text: "Each AI quota ring shows the weekly (or other longer) limit outside and the 5-hour session in a thinner ring inside, so the session no longer hides behind the weekly number.",
-    chapter: "ai",
-    hue: "#c069ff",
-    demo: false,
-  },
-  {
-    title: "Status alerts everywhere",
-    text: "Volume, brightness, the lock keys and the microphone can show over full-screen apps too, with Show everywhere, off by default. With Glass on they come as glass (Windows 11 24H2 or later on x64, not in the Microsoft Store version for now), and new alerts cover Copy, the output device, Do not disturb, Energy saver, airplane mode and monitors.",
-    chapter: "closed",
-    hue: "#ff5c87",
     demo: false,
   },
 ];
 
 export const FIXES = [
-  "Hardware shows your local IP and, when you ask, your public IP, and a click on the battery health opens Windows' battery report.",
-  "The equalizer uses much less CPU, Crest no longer shows up in Alt+Tab, and the tool bar keeps its width so its icons stay put.",
-  "The notch no longer stays open when you switch tools while typing on WebKit, which is mostly the Mac.",
-  "A picture copied twice shows once in the clipboard history.",
-  "The notch's window, its hit zone and the screen copy behind its glass follow Windows' Text size, and the detached timer grows with it and stays on its monitor.",
-  "With Hide the Windows indicator on, Windows' own volume slider stays hidden even when another app registers a window of the taskbar's kind.",
+  "With Windows keys on the bar on, Crest no longer restarts Explorer as it starts, which crashed the taskbar on some Windows builds.",
+  "The Recycle Bin widget stays up to date after Explorer restarts.",
+  "The floating timer follows the window rules like the notch, thanks to Anton Matis.",
+  "A daily install count, with no ID, public on the Stats page. Count this install, in Settings, General, Updates, turns it off.",
 ];

@@ -39,7 +39,11 @@ export function Highlights({ base = "/try/" }: { base?: string }) {
             <h3>{h.title}</h3>
             <div className="highlight-body">
               <p>{h.text}</p>
-              {h.demo !== false && (
+              {h.link ? (
+                <a className="textlink" href={h.link.href}>
+                  {h.link.label} <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
+                </a>
+              ) : h.demo !== false && (
                 <a className="textlink" href={`${base}#${h.chapter}`}>
                   Try it in the demo <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
                 </a>

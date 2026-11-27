@@ -320,6 +320,7 @@ export function Footer() {
           <a href={`${REPO}/issues/new/choose`}>Suggest an idea</a>
           <a href="/feedback/">Report a problem</a>
           <a href="https://github.com/sponsors/andrealo20">Sponsor the project</a>
+          <a href="https://pomeloapp.net">Pomelo, the file app</a>
         </div>
         <div className="small-links">
           <a href={`${REPO}/blob/main/docs/features.md`}>Every feature, in detail</a>
