@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "नया फ़ोल्डर",
  "Aus Ordner nehmen": "फ़ोल्डर से निकालें",
  "Ordner auflösen": "ऐप्स को अलग करें",
- "Ordnername": "फ़ोल्डर का नाम"
+ "Ordnername": "फ़ोल्डर का नाम",
+ "Diese Installation mitzählen": "इस इंस्टॉल को गिनें",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "दिन में एक बार crestisland.app को: केवल संस्करण, Windows या macOS, और Crest कहाँ से आया। कोई पहचानकर्ता नहीं; देश IP से पता चलता है, जिसे सहेजा नहीं जाता।"
 }

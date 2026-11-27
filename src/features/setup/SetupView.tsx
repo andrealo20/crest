@@ -8,7 +8,7 @@ import { tabs } from "../../notch/tabs";
 import { EdgeSettings } from "../../notch/EdgeSettings";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, StyleCards } from "../../ui/controls";
-import { ClosedStyle, OpenRows, ShortcutRow } from "../settings/SettingsView";
+import { ClosedStyle, CountRow, OpenRows, ShortcutRow } from "../settings/SettingsView";
 import { applyPreset, matchPreset, type PresetFields, type PresetId } from "./presets";
 
 const STEPS = 3;
@@ -141,6 +141,9 @@ function PresetStep({ preset, original, onPick }: { preset: PresetId; original: 
           })}
         </div>
       )}
+      <Group>
+        <CountRow />
+      </Group>
     </>
   );
 }

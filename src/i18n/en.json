@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "New folder",
  "Aus Ordner nehmen": "Remove from folder",
  "Ordner auflösen": "Ungroup apps",
- "Ordnername": "Folder name"
+ "Ordnername": "Folder name",
+ "Diese Installation mitzählen": "Count this install",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "Once a day to crestisland.app: only the version, Windows or macOS and where Crest came from. No ID; the country comes from the IP, which is not stored."
 }

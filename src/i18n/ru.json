@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "Новая папка",
  "Aus Ordner nehmen": "Убрать из папки",
  "Ordner auflösen": "Разгруппировать приложения",
- "Ordnername": "Имя папки"
+ "Ordnername": "Имя папки",
+ "Diese Installation mitzählen": "Учитывать эту установку",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "Раз в день на crestisland.app: только версия, Windows или macOS и откуда установлен Crest. Без идентификатора; страна определяется по IP, который не сохраняется."
 }

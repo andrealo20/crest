@@ -95,8 +95,8 @@ export interface Settings {
    * `hideFromCapture`: Crest's windows stay out of other apps' screen sharing and recordings (src-tauri sharing.rs), off by default.
    */
   presentation: { manual: boolean; auto: boolean; hideFromCapture: boolean };
-  /** Check for a new version once a day, anonymously (installs only on click). */
-  updates: { auto: boolean };
+  /** Check for a new version every 4 hours, anonymously (installs only on click). `count`: the anonymous daily count (src/lib/dailyCount.ts). */
+  updates: { auto: boolean; count: boolean };
   /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
   timer: { look: TimerLook; clockLook: ClockLook; color: LookColor; clockColor: LookColor; focusSound: FocusSound; focusVolume: number };
   /** To-do reminders (sound), dates in plain words in the new-task field, the water reminder and the quote line in Overview. */
@@ -208,7 +208,7 @@ const defaults: Settings = {
   lang: "system",
   units: regionUnits(),
   presentation: { manual: false, auto: true, hideFromCapture: false },
-  updates: { auto: true },
+  updates: { auto: true, count: true },
   timer: { look: "clean", clockLook: "standard", color: "orange", clockColor: "white", focusSound: "off", focusVolume: 0.3 },
   productivity: { reminderSound: true, nlDates: true, quotes: false, search: "off", water: WATER_DEFAULTS, overview: OVERVIEW_PARTS_DEFAULT },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },

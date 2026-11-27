@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "Nouveau dossier",
  "Aus Ordner nehmen": "Retirer du dossier",
  "Ordner auflösen": "Dissocier les applications",
- "Ordnername": "Nom du dossier"
+ "Ordnername": "Nom du dossier",
+ "Diese Installation mitzählen": "Compter cette installation",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "Une fois par jour vers crestisland.app : seulement la version, Windows ou macOS et la provenance de Crest. Aucun identifiant ; le pays est déduit de l'IP, qui n'est pas conservée."
 }
