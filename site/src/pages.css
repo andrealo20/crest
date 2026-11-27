@@ -446,25 +446,6 @@ tbody tr + tr td {
   font-weight: 500;
   max-width: 26em;
 }
-.days {
-  margin-bottom: clamp(40px, 5vw, 72px);
-}
-.days figcaption {
-  margin-bottom: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.days svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.days .day {
-  fill: #5c5c62;
-  transition: fill 150ms var(--ease);
-}
-.days .day.on {
-  fill: var(--y);
-}
 /* Today's countries above the shares (stats.tsx WorldMap) */
 .world {
   margin: 0 0 clamp(28px, 4vw, 48px);

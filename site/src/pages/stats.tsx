@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { num, type Stats, useStats } from "../live";
+import { num, useStats } from "../live";
 import { mount, Page } from "../Page";
 import { REPO, Rise } from "../Sections";
 import { ArrowUpRight } from "../icons";
@@ -15,7 +15,6 @@ const pct = (n: number, of: number) => {
   const p = (n / of) * 100;
   return `${p >= 1 ? Math.round(p) : p.toFixed(1)}%`;
 };
-const dayName = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
 /** Today's countries on a world map: each one counted in the site's yellow, deeper the more computers it has, the rest faint. */
 function WorldMap({ counts }: { counts: Record<string, number> }) {
@@ -63,43 +62,6 @@ function Shares({ title, rows, total, limit }: { title: string; rows: [string, n
   );
 }
 
-/** The last 30 daily totals as bars, today last, with the figure of the bar under the pointer; the table says the same to a screen reader. */
-function Days({ days }: { days: Stats["days"] }) {
-  const [at, setAt] = useState(days.length - 1);
-  const top = Math.max(1, ...days.map((d) => d.n));
-  const W = 600, H = 160, gap = 2, bw = W / days.length - gap;
-  const d = days[at];
-  return (
-    <figure className="days">
-      <figcaption>
-        <strong>{num(d.n)}</strong> on {dayName(d.day)}
-      </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Computers that ran Crest on each of the last 30 days" onMouseLeave={() => setAt(days.length - 1)}>
-        {days.map((x, i) => {
-          const h = Math.max(x.n ? 4 : 0, (x.n / top) * (H - 4));
-          return (
-            <g key={x.day} onMouseEnter={() => setAt(i)}>
-              <rect x={i * (bw + gap)} y={0} width={bw + gap} height={H} fill="transparent" />
-              <rect x={i * (bw + gap)} y={H - h} width={bw} height={h} rx={Math.min(4, bw / 2)} className={i === at ? "day on" : "day"} />
-            </g>
-          );
-        })}
-      </svg>
-      <table className="sr-only">
-        <caption>Computers that ran Crest, by day</caption>
-        <tbody>
-          {days.map((x) => (
-            <tr key={x.day}>
-              <th scope="row">{dayName(x.day)}</th>
-              <td>{x.n}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </figure>
-  );
-}
-
 function Today() {
   const s = useStats();
   if (s === undefined) return <p className="lead">Reading today's count…</p>;
@@ -122,7 +84,6 @@ function Today() {
           computers ran Crest today, {s.day} in UTC. Yesterday, {num(s.yesterday)}.
         </p>
       </div>
-      <Days days={s.days} />
       <WorldMap counts={t.country} />
       <div className="share-grid">
         <Shares title="Where" rows={Object.entries(t.country).map(([k, n]) => [country(k), n])} total={t.total} limit={10} />
@@ -172,7 +133,7 @@ function StatsPage() {
           Once a day, each copy of Crest sends one request with three things: its version, whether it runs on Windows or a Mac, and whether it came from the Microsoft Store, the installer or the portable zip. There is no ID, so two requests from the same computer cannot be told apart, and nothing about you, your files or your settings.
         </p>
         <p>
-          Cloudflare, which serves this site, tells the counter which country a request came from. The address itself is not stored or logged. Each day's countries, systems and versions are deleted just after midnight UTC; only that day's total stays, for the line of the last 30 days.
+          Cloudflare, which serves this site, tells the counter which country a request came from. The address itself is not stored or logged. Each day's countries, systems and versions are deleted just after midnight UTC; only that day's total stays.
         </p>
         <p>
           To leave the count, turn off Count this install in Crest's Settings, General, Updates. The code of the counter is in the repository, in <a href={`${REPO}/tree/main/site/stats-worker`}>site/stats-worker</a>.
