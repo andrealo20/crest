@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { content } from "../../../design/motion";
-import { GLOW_COLOURS, edgeMask } from "./glow";
+import { GLOW_COLOURS, GLOW_OPACITY, edgeMask } from "./glow";
 import "./glow.css";
 
 const MASK = edgeMask();
@@ -17,7 +17,7 @@ export function SearchGlow() {
       className="pointer-events-none absolute inset-0 overflow-clip [container-type:size]"
       style={{ maskImage: MASK }}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 0.75, transition: content.enter }}
+      animate={{ opacity: GLOW_OPACITY, transition: content.enter }}
       exit={{ opacity: 0, transition: content.exit }}
     >
       {/* As wide as the panel's diagonal, so the turning square covers it at every angle. */}
