@@ -121,6 +121,12 @@ fn held(start_open: bool, other: bool, crest: bool) -> bool {
     start_open || (other && !crest)
 }
 
+/// A bar hides over a full-screen app in front of its monitor, except while Start shows on that monitor (`start_on`): Start
+/// brings Windows' taskbar up over a maximized window or a game, and the bar comes up with it.
+fn hides(full: bool, start_on: Option<isize>, monitor: isize) -> bool {
+    full && start_on != Some(monitor)
+}
+
 /// Another monitor shares part of this one's bottom edge: there the pointer passes on to it instead of stopping at the edge,
 /// so a bar that slid away could not be brought back.
 fn below(monitor: RECT, all: &[RECT]) -> bool {
@@ -209,6 +215,8 @@ pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
         }
     }
     let monitors = if auto_hide { monitors() } else { Vec::new() };
+    // While Start shows it is the window Windows calls the foreground, so its monitor is that window's.
+    let start_on = (start::open() && !raw.is_invalid()).then(|| tasks::monitor_of(raw));
     let mut rects = Vec::new();
     for (label, bar, m) in &bars {
         let ahead = front(fg, listed_on == *m, seen.desktop_on == Some(*m), &stacks[m]);
@@ -216,7 +224,7 @@ pub(crate) fn poll(app: &AppHandle, raw: HWND, foreground: HWND) {
         // The foreground counts with Windows' exclusive full screen, which speaks of it only; the window in front, if another, without.
         let full = (fg_on == *m && display::fills(foreground, monitor, exclusive))
             || ahead.is_some_and(|w| w != foreground.0 as isize && display::fills(HWND(w as _), monitor, false));
-        screens::set_fullscreen(app, label, full);
+        screens::set_fullscreen(app, label, hides(full, start_on, *m));
         if auto_hide {
             rects.push((label.clone(), rect_for(ahead, *bar, *m, &monitors)));
         }
@@ -358,6 +366,14 @@ mod tests {
         assert_eq!(desktop.next(Fg::Other, m2), desktop); // then Start: still the desktop on m1
         assert_eq!(desktop.next(Fg::Listed(5), m1).next(Fg::Desktop, m2).desktop_on, m2); // an app, then the desktop from m2
         assert_eq!(Seen::default().next(Fg::Other, m1), Seen::default()); // nothing before: each monitor's top window
+    }
+
+    #[test]
+    fn start_brings_the_bar_back_over_a_full_screen_app_on_its_monitor() {
+        assert!(hides(true, None, 1)); // a full-screen app in front: the bar hides
+        assert!(!hides(true, Some(1), 1)); // Start opens over it, a game too: the bar comes up, as Windows' taskbar does
+        assert!(hides(true, Some(2), 1)); // Start on another monitor: this bar stays hidden
+        assert!(!hides(false, None, 1));
     }
 
     #[test]
