@@ -29,6 +29,12 @@ export const draggingOut = createStore(false);
  */
 export const appDrop = createStore(false);
 
+/**
+ * The open Files tool takes the files, while it shows: a drop goes to Rust as "files-drop" and its paths come back as
+ * "files://drop" to this handler alone (in the browser at once), never to the Shelf. Null while the tool is closed.
+ */
+export const filesDrop = createStore<((paths: string[]) => void) | null>(null);
+
 /** Demo: the files the visitor dropped or pasted, by the made-up path the Shelf shows. They stay in this page's memory. */
 export const demoFiles = new Map<string, File>();
 /** Demo: the text of the last paste, which the Shelf reads like the clipboard (the page may not read the real one). */
@@ -107,6 +113,7 @@ export function startDropListener() {
   started = true;
 
   if (isNative) void listen<string[]>("notch://drop", ({ payload }) => drop.set({ dragging: false, dropped: payload }));
+  if (isNative) void listen<string[]>("files://drop", ({ payload }) => filesDrop.get()?.(payload));
 
   // HTML5 drag. Only files count, not selected text.
   let depth = 0;
@@ -140,6 +147,12 @@ export function startDropListener() {
     e.preventDefault();
     depth = 0;
     const files = [...(e.dataTransfer?.files ?? [])];
+    const toFiles = filesDrop.get();
+    if (toFiles) {
+      drop.set((s) => ({ ...s, dragging: false }));
+      if (!postFiles("files-drop", files)) toFiles(files.map(demoPath));
+      return;
+    }
     // Paths come back asynchronously as "notch://drop" (and the Launcher's pins as "launcher://pinned").
     if (postFiles(appDrop.get() ? "launcher-drop" : "notch-drop", files)) {
       drop.set((s) => ({ ...s, dragging: false }));

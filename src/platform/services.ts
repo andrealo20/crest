@@ -23,6 +23,7 @@ import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
 import type { BarSeen } from "../features/taskbar/widgets";
 import type { Favorite } from "../features/launcher/apps";
 import type { WallFit, WallSource } from "../features/wallpapers/model";
+import type { License, Op, RunLine } from "../features/files/model";
 import { COLLECTION } from "../features/wallpapers/collection";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
@@ -2438,3 +2439,44 @@ export function fetchLeetcode(
     ),
   );
 }
+
+// ---------- Files tool: the separate engine (src-tauri/src/pomelo_engine) ----------
+
+export interface EngineStatus {
+  /** The installed version, null without one. */
+  version: string | null;
+  /** This build knows an archive to download. */
+  available: boolean;
+  /** The download's size in bytes, 0 when unknown. */
+  size: number;
+  /** Buy has a checkout page to open (set in src-tauri/src/pomelo_engine). */
+  buy: boolean;
+}
+
+/** In the browser the made-up engine of src/dev/files-sample.ts answers, so the tool can be designed without the app. */
+const filesSample = () => import("../dev/files-sample");
+
+export const filesEngine = {
+  status: (): Promise<EngineStatus> => (isNative ? invoke<EngineStatus>("files_engine_status") : filesSample().then((m) => m.status())),
+  download: (onProgress: (p: { done: number; total: number }) => void): Promise<string> => {
+    if (!isNative) return filesSample().then((m) => m.download(onProgress));
+    const channel = new Channel<{ done: number; total: number }>();
+    channel.onmessage = onProgress;
+    return invoke<string>("files_engine_download", { onProgress: channel });
+  },
+  downloadCancel: (): Promise<void> => (isNative ? invoke("files_engine_download_cancel") : filesSample().then((m) => m.downloadCancel())),
+  remove: (): Promise<void> => (isNative ? invoke("files_engine_remove") : filesSample().then((m) => m.remove())),
+  catalog: (lang: string): Promise<Op[]> => (isNative ? invoke<Op[]>("files_catalog", { lang }) : filesSample().then((m) => m.catalog())),
+  /** `options` as (id, value) pairs; resolves when the engine is done, rejects with its reason ("locked", "cancelled", ...). */
+  run: (req: { op: string; files: string[]; out: string | null; options: [string, string][]; secret: string | null; lang: string }, onLine: (line: RunLine) => void): Promise<void> => {
+    if (!isNative) return filesSample().then((m) => m.run(req, onLine));
+    const channel = new Channel<RunLine>();
+    channel.onmessage = onLine;
+    return invoke("files_run", { ...req, onEvent: channel });
+  },
+  cancel: (): Promise<void> => (isNative ? invoke("files_cancel") : filesSample().then((m) => m.cancel())),
+  license: <T = License>(action: "status" | "activate" | "deactivate", key?: string): Promise<T> =>
+    isNative ? invoke<T>("files_license", { action, key: key ?? null }) : filesSample().then((m) => m.license(action, key) as T),
+  pickFolder: (): Promise<string | null> => (isNative ? invoke<string | null>("files_pick_folder") : Promise.resolve("C:\\Users\\demo\\Desktop")),
+  buy: (): Promise<void> => (isNative ? invoke("files_buy") : Promise.resolve()),
+};

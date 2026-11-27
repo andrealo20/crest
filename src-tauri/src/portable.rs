@@ -77,6 +77,22 @@ pub fn data_dir() -> Option<PathBuf> {
     data_dir_for(&c.dir, c.portable, c.writable)
 }
 
+/// Where the app keeps large files that need not roam (the wallpapers, the Files tool's engine): the portable data folder, the
+/// Store package's LocalCache (a real path, where the package's AppData writes would be redirected), else the local app data folder.
+pub fn local_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(all(windows, feature = "store"))]
+    {
+        let _ = app;
+        let folder = windows::Storage::ApplicationData::Current().and_then(|d| d.LocalCacheFolder()).and_then(|f| f.Path());
+        Ok(PathBuf::from(folder.map_err(|_| "app-data".to_string())?.to_os_string()))
+    }
+    #[cfg(not(all(windows, feature = "store")))]
+    match data_dir() {
+        Some(dir) => Ok(dir),
+        None => app.path().app_local_data_dir().map_err(|_| "app-data".to_string()),
+    }
+}
+
 /// Where the app keeps its own files: the portable data folder or the usual app data folder.
 pub fn app_data_dir(app: &AppHandle) -> tauri::Result<PathBuf> {
     match data_dir() {

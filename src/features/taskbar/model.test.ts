@@ -551,9 +551,9 @@ test("with the Battery widget on the bar, Stato and the Hardware widget leave th
 });
 
 test("the bar offers every tool but the seven whose widget opens the same panel, and Find on screen last", () => {
-  assert.equal(TOOL_BUTTONS.length, 28);
+  assert.equal(TOOL_BUTTONS.length, 30);
   for (const id of ["timer", "discord", "github", "leetcode", "calendar", "weather", "screentime"]) assert.equal(TOOL_BUTTONS.includes(id), false, id);
-  for (const id of ["overview", "media", "notes", "clipboard", "agents", "calc", "wallpapers"]) assert.equal(TOOL_BUTTONS.includes(id), true, id);
+  for (const id of ["overview", "media", "notes", "clipboard", "agents", "calc", "wallpapers", "translate", "files"]) assert.equal(TOOL_BUTTONS.includes(id), true, id);
   assert.equal(TOOL_BUTTONS.at(-1), "find");
 });
 

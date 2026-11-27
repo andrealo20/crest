@@ -60,7 +60,9 @@ export function useBarDrop(capsule: RefObject<HTMLDivElement | null>, strip: Ref
     const css = b && getComputedStyle(b);
     const view = b && strip.current?.contains(b) ? strip.current.getBoundingClientRect() : null;
     // Without a button (a page such as What's new) the drop shrinks where it is.
-    const [x, w] = b && css ? visiblePart(b.getBoundingClientRect(), parseFloat(css.width) * z, view) : [drop.x.get() * z + mid, 0];
+    // Where it lands, not where it slides from: the bar's slide as the current tool's name moves (Notch.tsx useNameSlide) is a translate.
+    const r = b?.getBoundingClientRect(), shift = (css && parseFloat(css.translate)) || 0;
+    const [x, w] = r && css ? visiblePart({ left: r.left - shift * z, width: r.width }, parseFloat(css.width) * z, view) : [drop.x.get() * z + mid, 0];
     // One that comes back from nothing starts on its tool.
     if (drop.w.get() < 0.5 && w > 0) drop.x.jump((x - mid) / z);
     // On its way the drop is sent on, keeping its speed, to where the tool is now; at rest it follows at once (a scroll, a resize).

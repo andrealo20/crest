@@ -82,11 +82,16 @@ import { AgentsView } from "../features/agents/AgentsView";
 import { CalcView } from "../features/calc/CalcView";
 import { ScreenTimeView } from "../features/screentime/ScreenTimeView";
 import { WallpapersView } from "../features/wallpapers/WallpapersView";
+import { Translate } from "../ui/iconset";
+import { TranslateView } from "../features/translate/TranslateView";
+import { Files } from "../ui/iconset";
+import { FilesView } from "../features/files/FilesView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
+import { NOT_IN_STORE, storeBuild } from "../platform/storeBuild";
 
 /** Tools built on Windows APIs with no Mac version yet (src-tauri/src/macos/); a Mac doesn't list them. */
-const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal", "launcher", "notices", "capture", "recorder", "camera"]);
+const WINDOWS_ONLY = new Set(["shelf", "system", "discord", "vault", "terminal", "launcher", "notices", "capture", "recorder", "camera", "files"]);
 
 /**
  * Registry of all tools in the open notch. New tool = new entry here
@@ -155,7 +160,9 @@ export const tabs: NotchTab[] = ([
   { id: "calc", hue: "indigo", label: "Rechner", icon: Calculator, size: { w: 600, h: 320 }, View: CalcView },
   { id: "screentime", hue: "purple", label: "Bildschirmzeit", icon: Hourglass, size: { w: 600, h: 340 }, View: ScreenTimeView },
   { id: "wallpapers", hue: "sky", label: "Hintergründe", icon: ImageSquare, size: { w: 620, h: 440 }, View: WallpapersView },
-] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
+  { id: "translate", hue: "cyan", label: "Übersetzen", icon: Translate, size: { w: 640, h: 340 }, View: TranslateView },
+  { id: "files", hue: "lime", label: "Dateien", icon: Files, size: { w: 580, h: 340 }, View: FilesView },
+] satisfies NotchTab[]).filter((t) => (!isMac || !WINDOWS_ONLY.has(t.id)) && !(storeBuild && NOT_IN_STORE.includes(t.id)));
 
 /** Settings: reached via the gear, not in the tool bar. */
 export const settingsTab: NotchTab = { id: "settings", label: "Einstellungen", icon: GearSix, size: { w: 660, h: 460 }, View: SettingsView };

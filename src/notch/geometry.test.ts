@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { dockWidth, openWidth } from "./geometry.ts";
+import { NAME, dockWidth, nameRoom, openWidth, revealScroll } from "./geometry.ts";
 
 test("the tool bar at full size: 42 px per tool, 2 px between, the separator, the gear and the padding", () => {
   assert.equal(dockWidth(1), 121);
@@ -28,6 +28,8 @@ test("dockWidth's sizes are the Dock's own classes in Notch.tsx", () => {
   assert.ok(classes(dock, /ref=\{strip\} className="([^"]*)"/).includes("gap-0.5"), "gap-0.5");
   assert.match(dock, /<span aria-hidden className="mx-1 h-5 w-px /);
   assert.ok(classes(button, /className=\{`([^`]*)`\}/).includes("w-[42px]"), "w-[42px]");
+  // The name's gap after the icon, NAME.gap.
+  assert.ok(classes(button, /key="name"[\s\S]*?className="([^"]*)"/).includes("pl-1.5"), "pl-1.5");
 });
 
 test("a tool narrower than the tool bar opens as wide as the bar, so its icons stay in place from tool to tool (#82)", () => {
@@ -52,4 +54,36 @@ test("where the monitor cannot hold the bar, the tool keeps its own width and th
   // Just as wide as the room still fits.
   assert.equal(openWidth(520, 13, 649), 649);
   assert.equal(openWidth(520, 13, Number.NaN), 520);
+});
+
+test("the bar keeps room for the longest name of its tools, up to NAME.max, whichever tool shows", () => {
+  assert.equal(nameRoom([40.2, 71.6, 55]), 73);
+  assert.equal(nameRoom([40, 400]), NAME.max);
+  assert.equal(nameRoom([]), 0);
+  assert.equal(nameRoom([Number.NaN, 0]), 0);
+});
+
+test("the name widens the panel as far as the widest panel and the monitor go, never below the bar", () => {
+  // 13 tools with a 73 px name: every narrower tool opens as wide as the bar with it.
+  assert.equal(openWidth(520, 13, 1920, 73), dockWidth(13) + NAME.gap + 73);
+  assert.equal(openWidth(600, 13, 1920, 73), openWidth(520, 13, 1920, 73));
+  assert.equal(openWidth(735, 13, 1920, 73), 735);
+  // Past the widest panel or the monitor the strip scrolls in the capsule instead.
+  assert.equal(openWidth(520, 14, 1920, 120), 740);
+  assert.equal(openWidth(520, 27, 1920, 120), 740);
+  assert.equal(openWidth(520, 13, 700, 73), 700);
+  // A monitor that cannot hold the bar at all: as without names.
+  assert.equal(openWidth(520, 13, 640, 73), 520);
+  assert.equal(openWidth(520, 13, Number.NaN, 73), 520);
+});
+
+test("the current tool scrolls into view out of the faded edges, and a strip that shows it stays put", () => {
+  // In view: no scroll.
+  assert.equal(revealScroll(100, 42, 0, 600, 20), 0);
+  // Past the end: just far enough to clear the fade.
+  assert.equal(revealScroll(700, 120, 0, 600, 20), 240);
+  // Before the start: back to its start, less the fade.
+  assert.equal(revealScroll(100, 42, 300, 600, 20), 80);
+  // Wider than the view: from its start.
+  assert.equal(revealScroll(100, 700, 0, 600, 20), 80);
 });

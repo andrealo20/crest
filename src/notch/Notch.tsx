@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
-import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue, type Transition } from "motion/react";
+import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMotion, useTransform, type AnimationPlaybackControls, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin } from "../ui/iconset";
-import { content, springs } from "../design/motion";
+import { content, fade as nameFade, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
 import { isMac, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow, setPassthrough } from "../platform/native";
 import { PrivacyDots, usePrivacyDots } from "../features/privacy/PrivacyDots";
@@ -21,7 +21,7 @@ import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle, startTool } from "../features/window/model";
 import { display, windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, NAME, dockWidth, nameRoom, openGeometry, revealScroll, openWidth, peekGeometry, type NotchGeometry } from "./geometry";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, lineCapsuleY, panelTop, surfaceOf, windowYFor } from "./capsule";
@@ -39,7 +39,7 @@ import { CLOSE_SETTLE_MS, HUD_LIVE_LINGER_MS, SNAPSHOT_STALE_MS, dockNeed, dropL
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
 import { dropLive, liveForDock, liveForHud, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
-import { appDrop, drop, takeDropped } from "../platform/drop";
+import { appDrop, drop, filesDrop, takeDropped } from "../platform/drop";
 import { hoverDelayMs, settings, updateSettings } from "../settings/store";
 import { toolOff } from "../settings/tools";
 import { createStore } from "../lib/store";
@@ -183,8 +183,9 @@ export function Notch() {
   const extraH = !overridden && extra?.tabId === tab.id ? extra.h : 0;
   const maxH = limits(tab.size, monitorMetrics().height).maxH;
   const own = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
-  // Never narrower than the tool bar at full size, where the monitor holds it (#82).
-  const size = { w: openWidth(own.w, visible.length, monitorMetrics().width), h: own.h };
+  // Never narrower than the tool bar at full size, where the monitor holds it (#82), with the selected tool's name where it fits.
+  const nameW = behavior.toolNames ? nameRoom([...visible, settingsTab].map((tool) => textWidth(t(tool.label)))) : 0;
+  const size = { w: openWidth(own.w, visible.length, monitorMetrics().width, nameW), h: own.h };
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -279,7 +280,7 @@ export function Notch() {
   const dockLive = plusDock && behavior.toolBarFill && glass === "shown" && status === "open" && !backdrop && !session.locked && !session.remote && !session.asleep;
   // The tool bar under the header or at the bottom of the open panel (#76): the same element either way, so it is built once.
   const dockTop = behavior.toolBar === "top";
-  const dock = <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} top={dockTop} plus={plusDock} />;
+  const dock = <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} top={dockTop} plus={plusDock} name={nameW} />;
   const reduced = useReducedMotion();
   // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on,
   // where the live glass can run: elsewhere (a Mac with a Windows backup restored) the row keeps global.css's fade of the accent.
@@ -817,9 +818,10 @@ function Header({ title }: { title: string }) {
  * there is no capsule, of glass or fill: the icons keep the panel's ink, and the plain drop shows only under the pointer or the keyboard's focus.
  * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass. `plus`: the
  * taskbar's Liquid Glass + (Notch plusDock): a pill, and over the glass the closed notch's ink as on the bar, with the plain drop.
+ * `name`: the room the bar keeps for the current tool's name, its longest name's (geometry.ts nameRoom), 0 with names off.
  */
-function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean; top: boolean; plus: boolean }) {
-  const fill = settings.use().behavior.toolBarFill;
+function Dock({ tabs, activeId, liquid, fades, top, plus, name }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean; top: boolean; plus: boolean; name: number }) {
+  const { toolBarFill: fill, toolNames } = settings.use().behavior;
   // The shader draws the capsule and its drop only with the background on (GlassLayer.tsx uBar); under Liquid Glass + the capsule alone.
   const glassBar = liquid && fill;
   const inSettings = activeId === settingsTab.id;
@@ -836,7 +838,8 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   const capsule = useRef<HTMLDivElement>(null);
-  const { pointed, handlers, settle } = useBarDrop(capsule, strip, activeId, tabs.map((tab) => tab.id).join());
+  const toolIds = tabs.map((tab) => tab.id).join();
+  const { pointed, handlers, settle } = useBarDrop(capsule, strip, activeId, toolIds);
   const root = useRef<HTMLDivElement>(null);
   // The tool dragged, only its id: the pointer's moves would draw the whole bar again (DockDrop follows them).
   const dragged = useSyncExternalStore(toolDrag.subscribe, () => toolDrag.get()?.id ?? null);
@@ -874,6 +877,22 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
   // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their
   // default; under Liquid Glass + the drop is the plain one.
   const mag = reduced ? 1 : dropLens(glassBar && !plus ? refraction : 100)[1];
+  // After useBarDrop's effects, which measure the buttons where they land.
+  useNameSlide(capsule, strip, `${activeId} ${toolIds} ${name}`, toolNames && !reduced);
+  // With the names the current tool is brought into view with a smooth scroll (DockButton's scrollIntoView is instant, and a promise in
+  // Chromium 156): measured where it lands, out from under the faded edge.
+  useLayoutEffect(() => {
+    const list = strip.current, b = list?.querySelector<HTMLElement>(`[data-tool="${CSS.escape(activeId)}"]`);
+    if (!toolNames || !list || !b) return;
+    const z = viewZoom(), s = list.getBoundingClientRect(), r = b.getBoundingClientRect();
+    const at = (r.left - s.left) / z + list.scrollLeft - (parseFloat(b.style.translate) || 0);
+    const to = revealScroll(at, r.width / z, list.scrollLeft, list.clientWidth, 20);
+    if (to !== list.scrollLeft) list.scrollTo({ left: to, behavior: reduced ? "auto" : "smooth" });
+  }, [strip, activeId, toolIds, toolNames, reduced]);
+  const grow = toolNames && !reduced;
+  // With the names the capsule is as wide as the bar with the longest name, whichever tool shows, so it never jumps; its row is
+  // centred in it, and a strip too long for it scrolls (its px-3 is the panel's, not the capsule's).
+  const named = toolNames ? { width: dockWidth(tabs.length) - 24 + NAME.gap + name } : undefined;
   return (
     <div ref={root} className="relative flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div
@@ -882,9 +901,9 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
         // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk);
         // over Liquid Glass + the closed notch's, as on the taskbar (BarGlass.tsx), its hues and link flattened to its label (plusInk).
         // Where the glass does not show, the theme's: an opaque light panel cannot take white.
-        style={glassBar && plus ? plusInk(darkInk(), hues) : glassBar ? barInk(theme, hues) : undefined}
+        style={glassBar && plus ? { ...plusInk(darkInk(), hues), ...named } : glassBar ? { ...barInk(theme, hues), ...named } : named}
         // Round ends by the look, not by whether the glass shows, as on the taskbar (look.ts barRadius).
-        className={`relative flex h-10 max-w-full items-center ${plus && fill ? "rounded-full" : "rounded-[14px] material:rounded-[20px]"} p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"}`}
+        className={`relative flex h-10 max-w-full items-center ${plus && fill ? "rounded-full" : "rounded-[14px] material:rounded-[20px]"} p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"} ${named ? "justify-center" : ""}`}
       >
         {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards.
             Under Material it is the state layer that moves with the pointer, so it matches the current tool's pill when it rests there.
@@ -912,13 +931,15 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
               pointed={pointed === tab.id}
               liquid={glassBar}
               lens={pointed === tab.id ? mag : 1}
+              grow={grow}
+              named={toolNames}
               onPointerDown={tabs.length > 1 ? dragFrom(tab.id) : undefined}
               dimmed={dragged === tab.id}
               onClick={() => navigate(tab.id)}
             />
           ))}
         </div>
-        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
+        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" data-slide />
         <DockButton
           id={settingsTab.id}
           label={t(settingsTab.label)}
@@ -927,6 +948,8 @@ function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; 
           pointed={pointed === settingsTab.id}
           liquid={glassBar}
           lens={pointed === settingsTab.id ? mag : 1}
+          grow={grow}
+          named={toolNames}
           badge={badge}
           onClick={() => navigate(settingsTab.id, badge ? "updates" : null)}
         />
@@ -1026,7 +1049,11 @@ function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
   return edges;
 }
 
-/** `pointed`: under the drop (glass/bar.ts), so in the label colour, which over the glass is the bar's ink; `lens`: the icon's scale under it. */
+/**
+ * `pointed`: under the drop (glass/bar.ts), so in the label colour, which over the glass is the bar's ink; `lens`: the icon's scale under it.
+ * `grow`: the current tool's icon grows to ICON_GROW; `named` (behavior.toolNames): the current tool shows its name beside the icon, as
+ * wide as it is up to NAME.max, and no button narrows, as the strip scrolls instead.
+ */
 function DockButton(props: {
   id: string;
   label: string;
@@ -1036,6 +1063,8 @@ function DockButton(props: {
   pointed: boolean;
   liquid: boolean;
   lens: number;
+  grow?: boolean;
+  named?: boolean;
   onClick: () => void;
   badge?: boolean;
   /** A tool's press, which can drag it off the bar (Dock), and whether it is the one dragged. */
@@ -1044,12 +1073,16 @@ function DockButton(props: {
 }) {
   const I = props.icon;
   const color = useHue(props.hue);
+  const reduced = useReducedMotion() === true;
+  // With the names no button narrows, and the current one is as wide as its icon and name (w-[42px] is the bar without names).
+  const name = props.named && props.active;
+  const wide = props.named ? { flexShrink: 0, ...(name && { width: "auto", paddingInline: 12 }) } : null;
   const ref = useRef<HTMLButtonElement>(null);
   // A key shortcut can pick a tool scrolled out of the dock's view. Before the Dock's own layout effects, so the drop measures
   // the strip already scrolled.
   useLayoutEffect(() => {
-    if (props.active) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [props.active]);
+    if (props.active && !props.named) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [props.active, props.named]);
   return (
     <button
       ref={ref}
@@ -1066,7 +1099,7 @@ function DockButton(props: {
       className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] material:rounded-[18px] transition-colors duration-150 ${
         props.active ? "text-label material:text-on-secondary-container" : props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       } ${props.onPointerDown ? "touch-pan-x" : ""} ${props.dimmed ? "opacity-40" : ""}`}
-      style={color ? { color } : undefined}
+      style={color || wide ? { color, ...wide } : undefined}
     >
       {/* The current tool's mark under the icon, sliding from tool to tool along the bar only: when the panel changes height it stays
           with the bar, as the drop does. The brighter pill over it is the drop: the shader's over the glass, the Dock's own without.
@@ -1081,7 +1114,12 @@ function DockButton(props: {
           />
         </motion.span>
       )}
-      <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens})` }} transition={springs.peek}>
+      <motion.span
+        className="relative flex"
+        initial={false}
+        animate={{ transform: `scale(${Math.max(props.lens, props.active && props.grow ? ICON_GROW : 1)})` }}
+        transition={springs.peek}
+      >
         <I size={18} weight={props.active ? "fill" : "bold"} />
         {/* Badge dot (e.g. update available) at the icon's top right; in here it grows with the icon under the drop. Over the glass
             it is the gear's colour (the bar's one ink), so its ring stays, thinned, to keep it off the gear. */}
@@ -1097,8 +1135,92 @@ function DockButton(props: {
           )}
         </AnimatePresence>
       </motion.span>
+      {/* The name fades in beside the icon; the one left fades out where it was (popLayout), over the bar sliding on (useNameSlide).
+          The button's aria-label already says it. */}
+      <AnimatePresence initial={false} mode="popLayout">
+        {name ? (
+          <motion.span
+            key="name"
+            aria-hidden
+            className="relative min-w-0 truncate pl-1.5 text-footnote font-semibold"
+            style={{ maxWidth: NAME.gap + NAME.max }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={reduced ? { duration: 0 } : nameFade}
+          >
+            {props.label}
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
     </button>
   );
+}
+
+/** The current tool's icon with its name beside it (behavior.toolNames), as much as the drop's lens lifts one at its default. */
+const ICON_GROW = 1.15;
+
+let measure: { ctx: CanvasRenderingContext2D | null; font: string; widths: Map<string, number> } | null = null;
+/** How wide `text` draws as the tool bar's name (DockButton's text-footnote font-semibold, in the page's font), in CSS px; 0 where it cannot tell. */
+function textWidth(text: string): number {
+  const font = `600 12px ${getComputedStyle(document.body).fontFamily}`;
+  if (measure?.font !== font) measure = { ctx: document.createElement("canvas").getContext("2d"), font, widths: new Map() };
+  let w = measure.widths.get(text);
+  if (w === undefined && measure.ctx) {
+    measure.ctx.font = font;
+    measure.widths.set(text, (w = measure.ctx.measureText(text).width));
+  }
+  return w ?? 0;
+}
+
+/**
+ * With the current tool's name on (`on`), the tool bar's buttons and its separator slide on the x axis from where they showed to where
+ * the name moved them, as a CSS translate, which bar.ts takes off its measure. Only the two buttons whose name came and went change
+ * width, at once, so the capsule keeps its own; the bar's height never slides, as the panel's spring moves it. `key` changes with the
+ * current tool and the tools on the bar; places are read from the capsule's edge and across the strip's scroll, so neither slides.
+ */
+function useNameSlide(capsule: RefObject<HTMLDivElement | null>, strip: RefObject<HTMLDivElement | null>, key: string, on: boolean) {
+  const places = useRef(new Map<HTMLElement, number>());
+  const runs = useRef(new Map<HTMLElement, AnimationPlaybackControls>());
+  // Switched off mid-slide, or the bar gone, no button stays aside.
+  const stop = useRef(() => {
+    runs.current.forEach((run, el) => {
+      run.stop();
+      el.style.translate = "";
+    });
+    runs.current.clear();
+  });
+  useEffect(() => stop.current, []);
+  useLayoutEffect(() => {
+    const cap = capsule.current, list = strip.current;
+    if (!on) stop.current();
+    if (!cap) return;
+    const was = places.current, z = viewZoom(), left = cap.getBoundingClientRect().left;
+    places.current = new Map();
+    cap.querySelectorAll<HTMLElement>("[data-tool], [data-slide]").forEach((el) => {
+      const shown = parseFloat(el.style.translate) || 0;
+      // The centre, which a press's scale (.pressable) leaves in place.
+      const r = el.getBoundingClientRect();
+      const at = (r.left + r.width / 2 - left) / z - shown + (list?.contains(el) ? list.scrollLeft : 0);
+      places.current.set(el, at);
+      const from = was.get(el);
+      if (!on || from === undefined || Math.abs(from - at) < 0.5) return;
+      runs.current.get(el)?.stop();
+      runs.current.set(
+        el,
+        animate(from + shown - at, 0, {
+          ...springs.snappy,
+          onUpdate: (x) => {
+            el.style.translate = `${x}px`;
+          },
+          onComplete: () => {
+            el.style.translate = "";
+            runs.current.delete(el);
+          },
+        }),
+      );
+    });
+  }, [capsule, strip, key, on]);
 }
 
 /**
@@ -1176,7 +1298,8 @@ function useTransitionFor(status: NotchStatus, shape: NotchGeometry, hud: boolea
 
 /**
  * Quick drop: drag files over the notch and it opens on the Shelf, ahead of a live activity. Over the open Launcher it stays
- * there (`appDrop`), and only the files that are no app reach the Shelf, which opens then.
+ * there (`appDrop`), and only the files that are no app reach the Shelf, which opens then. Over the open Files tool it stays
+ * there too, and the files go to that tool alone (`filesDrop`), with the Shelf on or off.
  * A cancelled drag closes it again if it only opened for that. With the Shelf off nothing takes files:
  * the drag is ignored and a drop forgotten, so it cannot turn up when the Shelf is switched on later.
  */
@@ -1193,7 +1316,9 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
       const off = drop.subscribe(() => {
         const { dragging, dropped } = drop.get();
         if (dragging || dropped) window.clearTimeout(closing.current);
-        if (!findTab("shelf") || !settings.get().tools.some((t) => t.id === "shelf" && t.enabled)) {
+        // The open Files tool takes the drag itself, Shelf or not (`filesDrop`).
+        const toTool = (appDrop.get() || filesDrop.get() !== null) && statusRef.current === "open";
+        if (!(filesDrop.get() && toTool) && (!findTab("shelf") || !settings.get().tools.some((t) => t.id === "shelf" && t.enabled))) {
           if (dropped) takeDropped();
           return;
         }
@@ -1205,7 +1330,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
             openedByDrag.current = true;
             open();
           }
-          if (nav.get().tabId !== "shelf" && !(appDrop.get() && statusRef.current === "open")) openOn("shelf");
+          if (nav.get().tabId !== "shelf" && !toTool) openOn("shelf");
         } else if (!dragging && holding.current) {
           // Drag over: dropped → stay open, cancelled → close again.
           holding.current = false;
