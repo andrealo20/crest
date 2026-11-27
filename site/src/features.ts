@@ -36,6 +36,7 @@ export const CATALOG: Group[] = [
       { name: "Live previews and jump lists", text: "Rest the pointer on an app and its windows show as live previews, as in Windows 11. A right click brings the app's jump list, with its tasks and recent files.", win: true, noStore: true },
       { name: "Shapes and Liquid Glass +", text: "Docked along the whole edge, floating, a capsule as wide as its buttons, or tiles, at the height and icon size you like. Liquid Glass + draws a strong lens along the edge over a live copy of the screen, on Windows 11 24H2 and later on x64.", win: true, noStore: true },
       { name: "Status", text: "The network, the volume and the battery as one button, drawn as on an iPhone, with a quick panel for Wi-Fi, Bluetooth, volume and brightness.", win: true, noStore: true },
+      { name: "Search or open", text: "Apps, tools, settings with a value, widgets, files from Windows' index and quick answers, from the bar's search box or a shortcut. With Ask, a sentence becomes an action.", tool: "ask", win: true, noStore: true, fresh: "1.4" },
     ],
   },
   {
@@ -74,7 +75,16 @@ export const CATALOG: Group[] = [
       { name: "To-dos and notes", text: "Projects, due times and reminders. Type \"call Marco tomorrow 9am\" and the task gets the time. Notes save as you type.", shot: "todos", w: 600, h: 276, alt: "To-dos with projects and due times", demo: "focus" },
       { name: "Clipboard", text: "Text, links, images and files, never written to disk. Password managers are left out on purpose.", shot: "clipboard", w: 600, h: 236, alt: "The clipboard history", demo: "clipboard" },
       { name: "Shelf and Send to phone", text: "Drop files on the notch to park them, then scan a QR code and the phone downloads them from your PC over your own network.", shot: "shelf", w: 560, h: 236, alt: "The Shelf with a QR code for the phone", win: true, demo: "clipboard" },
+      { name: "Translate", text: "Text translated on your PC with the lyrics' offline models, in ten languages, or by the Ask provider when you allow it.", tool: "convert", fresh: "1.4" },
       { name: "Prompter", text: "A teleprompter that scrolls your script at the speed you set, with a mirror mode.", tool: "teleprompter" },
+    ],
+  },
+  {
+    name: "Pomelo",
+    hue: "#ff8a3d",
+    entries: [
+      { name: "Files", text: "Convert and edit images, PDFs, audio and video with Pomelo's conversions and tools. The originals never change; the results land beside them or on the Shelf. 20 files free, then a key for US$4.99 once.", tool: "shelf", win: true, fresh: "1.4" },
+      { name: "Pomelo wheel", text: "Drag files in File Explorer, hold Shift, Ctrl or Alt, and Pomelo's wheel of conversions appears. Off until you turn it on in the Pomelo page of the settings.", win: true, fresh: "1.4" },
     ],
   },
   {

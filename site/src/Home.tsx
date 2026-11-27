@@ -209,7 +209,7 @@ function Hero() {
             </p>
             <p className="hero-meta">
               Windows 11 and 10, macOS 12 or later as a preview.{" "}
-              <a href="/whats-new/">New in {RELEASE}: Liquid Glass +, folders on the bar, Material</a>
+              <a href="/whats-new/">New in {RELEASE}: Search or open, Pomelo's Files tool, Translate</a>
             </p>
             <Live />
           </div>
