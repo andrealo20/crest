@@ -25,7 +25,8 @@ export async function set(on: boolean) {
   setTimeout(() => current.phase === "starting" && tell({ phase: "ready", locked: false }), 700);
 }
 
-const values: Record<string, unknown> = { "wheel.size": 260, "wheel.glass": true, "wheel.modifier": "shift" };
+const values: Record<string, unknown> = { "wheel.size": 260, "wheel.glass": true, "wheel.modifier": "shift", keys: { convert: "Shift", tools: "Ctrl", actions: "Alt" } };
+const KEYS = ["Shift", "Ctrl", "Alt"];
 
 const SCHEMA = {
   pages: [
@@ -40,8 +41,17 @@ const SCHEMA = {
             { key: "wheel.size", type: "int", label: "Size", hint: "Of the wheel around the pointer", default: 240, min: 160, max: 400, step: 10 },
             { key: "wheel.modifier", type: "choice", label: "Opens with", default: "shift", choices: [{ id: "shift", label: "Shift" }, { id: "ctrl", label: "Ctrl" }, { id: "alt", label: "Alt" }] },
             { key: "wheel.glass", type: "bool", label: "Glass", hint: "The wheel shows what is behind it", default: true },
-            { key: "wheel.glassTint", type: "choice", label: "Tint", default: "auto", visibleIf: { key: "wheel.glass", equals: true }, choices: [{ id: "auto", label: "Automatic" }, { id: "light", label: "Light" }, { id: "dark", label: "Dark" }, { id: "accent", label: "Accent colour" }] },
-            { key: "wheel.custom", type: "custom", label: "Custom wheel", hint: "Pick the slices and their order", action: "wheel" },
+            { key: "wheel.glassTint", type: "choice", label: "Tint", default: "auto", visibleIf: { key: "wheel.modifier", equals: ["shift", "ctrl"] }, choices: [{ id: "auto", label: "Automatic" }, { id: "light", label: "Light" }, { id: "dark", label: "Dark" }, { id: "accent", label: "Accent colour" }] },
+            {
+              key: "keys",
+              type: "keys",
+              label: "Keys",
+              hint: "Tap the key during a drag to open that tab. Each tab has its own key.",
+              default: { convert: "Shift", tools: "Ctrl", actions: "Alt" },
+              choices: KEYS.map((k) => ({ id: k, label: k })),
+              parts: [{ id: "convert", label: "Convert" }, { id: "tools", label: "Tools" }, { id: "actions", label: "Actions" }],
+            },
+            { key: "wedges", type: "custom", label: "Wedge layout", hint: "Pick the wedges and their order", action: "open-settings", page: "wedges" },
           ],
         },
       ],
@@ -68,9 +78,20 @@ const SCHEMA = {
 export async function settings(action: "schema" | "get" | "set", args: { key?: string; value?: unknown }): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 150));
   if (action === "schema") return SCHEMA;
-  if (action === "get") return { values: { ...values } };
+  if (action === "get") return { ...values };
   if (args.key === "files.suffix" && typeof args.value === "string" && /[\\/:*?"<>|]/.test(args.value))
-    return { ok: false, error: "A file name cannot contain \\ / : * ? \" < > |" };
+    return { ok: false, error: "invalid", message: "A file name cannot contain \\ / : * ? \" < > |" };
+  if (args.key === "keys") {
+    // As Pomelo does: the key given to a tab leaves the tab that had it, which takes this tab's old key.
+    const keys = { ...(values.keys as Record<string, string>) };
+    for (const [tab, key] of Object.entries(args.value as Record<string, string>)) {
+      const holder = Object.keys(keys).find((t) => keys[t] === key);
+      if (holder) keys[holder] = keys[tab];
+      keys[tab] = key;
+    }
+    values.keys = keys;
+    return { ok: true };
+  }
   values[args.key!] = args.value;
   return { ok: true };
 }

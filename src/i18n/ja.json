@@ -2322,5 +2322,10 @@
  "Wenn das Pomelo-Rad läuft": "Pomelo ホイールの実行中に使えます",
  "Wird nicht angenommen": "受け付けられません",
  "Zieh Dateien im Explorer und halte Umschalt, Strg oder Alt: Ein Rad mit den Umwandlungen und Werkzeugen von Pomelo erscheint.": "エクスプローラーでファイルをドラッグし、Shift、Ctrl、Alt のいずれかを押したままにすると、Pomelo の変換とツールのホイールが表示されます。",
- "Zuerst das Pomelo-Rad ausschalten": "先に Pomelo ホイールをオフにしてください"
+ "Zuerst das Pomelo-Rad ausschalten": "先に Pomelo ホイールをオフにしてください",
+ "Ein Vorgang wurde abgelehnt: zu wenige Gratis-Dateien (noch {n})": "処理が拒否されました。無料のファイルが足りません (残り {n})",
+ "Ein anderes Pomelo-Rad mit denselben Daten läuft schon, etwa aus einer zweiten Crest-Kopie. Schließe es und versuche es noch einmal.": "同じデータを使う別の Pomelo ホイールがすでに実行中です (2 つ目の Crest など)。閉じてからもう一度お試しください。",
+ "Eine andere Kopie von Pomelo läuft schon. Schließe sie und versuche es noch einmal.": "別の Pomelo のコピーがすでに実行中です。閉じてからもう一度お試しください。",
+ "Pomelo hat sich beendet": "Pomelo が終了しました",
+ "Pomelo ist nicht gestartet": "Pomelo を起動できませんでした"
 }

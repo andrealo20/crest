@@ -72,15 +72,22 @@ export function forgetSchema() {
   pomeloValues.set({});
 }
 
-/** Writes one setting through the engine, which checks it; the error to show, null once saved. */
-export async function setPomeloValue(key: string, value: unknown): Promise<string | null> {
+/**
+ * Writes one setting through the engine, which checks it; the error to show, null once saved. `reload`: the engine may have changed
+ * other values with it (a key moved between tabs), so all are read again.
+ */
+export async function setPomeloValue(key: string, value: unknown, reload = false): Promise<string | null> {
   const before = pomeloValues.get();
-  pomeloValues.set({ ...before, [key]: value });
+  if (!reload) pomeloValues.set({ ...before, [key]: value });
   try {
-    const answer = (await pomeloWheel.settings("set", { key, value })) as { ok?: boolean; error?: string } | null;
-    if (answer?.ok) return null;
+    const answer = (await pomeloWheel.settings("set", { key, value })) as { ok?: boolean; error?: string; message?: string } | null;
+    if (answer?.ok) {
+      if (reload) pomeloValues.set(valuesOf(await pomeloWheel.settings("get")));
+      return null;
+    }
     pomeloValues.set(before);
-    return answer?.error || t("Wird nicht angenommen");
+    // The engine's message says what it expects (in English); its code alone says nothing to the user.
+    return answer?.message || t("Wird nicht angenommen");
   } catch {
     pomeloValues.set(before);
     return t("Wird nicht angenommen");

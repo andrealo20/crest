@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { controlOf, defaultsOf, listText, packageNeed, parseList, parseSchema, parseWhole, shownRows, valueOf, valuesOf, visible, type SchemaRow } from "./model.ts";
+import { controlOf, defaultsOf, keyOf, listText, packageNeed, parseList, parseSchema, parseWhole, shownRows, valueOf, valuesOf, visible, type SchemaRow } from "./model.ts";
 
 const row = (patch: Partial<SchemaRow> & Pick<SchemaRow, "key" | "type">): SchemaRow => ({ label: patch.key, ...patch });
 
@@ -20,7 +20,17 @@ test("the schema keeps the pages, groups and rows Crest can draw", () => {
               { key: "nochoices", type: "choice", label: "Empty", choices: [] },
               { key: "odd", type: "slider", label: "Unknown type" },
               { key: "nolabel", type: "bool" },
-              { key: "recipes", type: "custom", label: "Recipes" },
+              { key: "recipes", type: "custom", label: "Recipes", action: "open-settings", page: "wedges" },
+              { key: "folders", type: "custom", label: "Folders", action: "open-settings", page: "../x" },
+              {
+                key: "keys",
+                type: "keys",
+                label: "Keys",
+                default: { convert: "Shift", tools: "Ctrl", actions: "Alt" },
+                choices: [{ id: "Shift", label: "Shift" }, { id: "Ctrl", label: "Ctrl" }, { id: "Alt", label: "Alt" }],
+                parts: [{ id: "convert", label: "Convert" }, { id: "tools", label: "Tools" }, { id: "actions", label: "Actions" }],
+              },
+              { key: "nokeys", type: "keys", label: "No parts", choices: [{ id: "Shift", label: "Shift" }] },
               "not a row",
             ],
           },
@@ -34,10 +44,15 @@ test("the schema keeps the pages, groups and rows Crest can draw", () => {
   });
   assert.deepEqual(pages.map((p) => p.id), ["wheel"]);
   assert.equal(pages[0].groups.length, 1);
-  assert.deepEqual(pages[0].groups[0].rows.map((r) => r.key), ["wheel.size", "wheel.mode", "recipes"]);
-  assert.deepEqual(pages[0].groups[0].rows[1].choices, [{ id: "a", label: "A" }]);
-  // A custom row without its own action opens the page named by its key.
-  assert.equal(pages[0].groups[0].rows[2].action, "recipes");
+  const rows = pages[0].groups[0].rows;
+  assert.deepEqual(rows.map((r) => r.key), ["wheel.size", "wheel.mode", "recipes", "folders", "keys"]);
+  assert.deepEqual(rows[1].choices, [{ id: "a", label: "A" }]);
+  // A custom row opens the page of Pomelo's window it names, only one that makes a plain argument.
+  assert.equal(rows[2].page, "wedges");
+  assert.equal(rows[3].page, undefined);
+  assert.equal(controlOf(rows[4]), "keys");
+  assert.equal(keyOf(rows[4].default, "tools"), "Ctrl");
+  assert.equal(keyOf(null, "tools"), "");
   assert.deepEqual(parseSchema(null), []);
   assert.deepEqual(parseSchema({ pages: "x" }), []);
 });
@@ -53,7 +68,7 @@ test("each row type gets its Crest control", () => {
   assert.equal(controlOf(row({ key: "a", type: "choice", choices: choices(4) })), "select");
   assert.equal(controlOf(row({ key: "a", type: "choice", choices: choices(2, "A rather long label") })), "select");
   assert.equal(controlOf(row({ key: "a", type: "text" })), "text");
-  assert.equal(controlOf(row({ key: "a", type: "keys" })), "text");
+  assert.equal(controlOf(row({ key: "a", type: "keys" })), "keys");
   assert.equal(controlOf(row({ key: "a", type: "list" })), "list");
   assert.equal(controlOf(row({ key: "a", type: "custom" })), "button");
 });
@@ -67,15 +82,18 @@ test("visibleIf follows the other setting, saved or by default", () => {
   assert.deepEqual(defaults, { glass: true, tint: undefined, size: 3 });
   assert.deepEqual(shownRows(group, {}, defaults).map((r) => r.row.key), ["glass", "tint", "size"]);
   assert.deepEqual(shownRows(group, { glass: false }, defaults).map((r) => [r.row.key, r.control]), [["glass", "switch"], ["size", "number"]]);
-  assert.equal(visible(row({ key: "x", type: "bool", visibleIf: { key: "list", equals: ["a"] } }), { list: ["a"] }, {}), true);
+  // An array names the values any of which shows the row.
+  const either = row({ key: "x", type: "bool", visibleIf: { key: "format", equals: ["Jpg", "Webp"] } });
+  assert.equal(visible(either, { format: "Webp" }, {}), true);
+  assert.equal(visible(either, { format: "Png" }, {}), false);
   assert.equal(visible(row({ key: "x", type: "bool", visibleIf: { key: "missing", equals: 1 } }), {}, {}), false);
   assert.equal(valueOf(size, {}), 3);
   assert.equal(valueOf(size, { size: 7 }), 7);
 });
 
 test("values, typed numbers and lists", () => {
-  assert.deepEqual(valuesOf({ values: { a: 1 } }), { a: 1 });
-  assert.deepEqual(valuesOf({ a: 1 }), { a: 1 });
+  // Flat, as the engine prints it.
+  assert.deepEqual(valuesOf({ "wheel.size": 1, keys: { convert: "Shift" } }), { "wheel.size": 1, keys: { convert: "Shift" } });
   assert.deepEqual(valuesOf("x"), {});
   const limit = row({ key: "n", type: "int", min: 1, max: 10 });
   assert.equal(parseWhole(limit, " 7 "), 7);

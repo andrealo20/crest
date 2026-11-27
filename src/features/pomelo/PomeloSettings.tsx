@@ -9,7 +9,7 @@ import { language, t } from "../../i18n";
 import { engineLang } from "../files/model";
 import { LicenseRows } from "../files/LicenseRows";
 import { cancelDownload, download, downloadFailed, downloading, engine, loadEngine } from "../files/store";
-import { listText, packageNeed, parseList, parseWhole, shownRows, valueOf, type Control, type RowType, type SchemaRow, type WheelState } from "./model";
+import { keyOf, listText, packageNeed, parseList, parseWhole, RETRY_PHASES, shownRows, valueOf, type Control, type RowType, type SchemaRow, type WheelState } from "./model";
 import { followWheel, forgetSchema, pomeloValues, schema, setPomeloValue, wheelState } from "./store";
 
 /*
@@ -22,9 +22,17 @@ type Need = ReturnType<typeof packageNeed>;
 function stateText(s: WheelState, on: boolean, need: Need | null): string {
   if (!on) return t("Aus");
   if (need !== "ready" || s.phase === "missing") return t("Diesem Paket fehlt das Rad: Programm aktualisieren");
-  if (s.phase === "conflict") return t("Pomelo aus dem Microsoft Store läuft schon. Schließe es und versuche es noch einmal.");
+  if (s.phase === "conflict") {
+    if (s.with === "store") return t("Pomelo aus dem Microsoft Store läuft schon. Schließe es und versuche es noch einmal.");
+    if (s.with === "hosted") return t("Ein anderes Pomelo-Rad mit denselben Daten läuft schon, etwa aus einer zweiten Crest-Kopie. Schließe es und versuche es noch einmal.");
+    return t("Eine andere Kopie von Pomelo läuft schon. Schließe sie und versuche es noch einmal.");
+  }
   if (s.phase === "crashed") return t("Mehrmals abgestürzt. Versuche es noch einmal.");
-  if (s.phase === "ready") return s.locked ? t("Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr") : t("Läuft und wartet auf gezogene Dateien");
+  if (s.phase === "stopped") return t("Pomelo hat sich beendet");
+  if (s.phase === "failed") return t("Pomelo ist nicht gestartet");
+  if (s.phase === "ready" && s.locked)
+    return s.left ? t("Ein Vorgang wurde abgelehnt: zu wenige Gratis-Dateien (noch {n})", { n: s.left }) : t("Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr");
+  if (s.phase === "ready") return t("Läuft und wartet auf gezogene Dateien");
   return t("Startet …");
 }
 
@@ -51,7 +59,7 @@ export function PomeloMain() {
     // In the app the notch sends the switch (store.ts startPomeloWheel); the browser has no notch behind this page.
     if (!isNative) void pomeloWheel.set(wheel, engineLang(lang));
   };
-  const retry = on && need === "ready" && (wheel.phase === "conflict" || wheel.phase === "crashed" || wheel.phase === "missing");
+  const retry = on && need === "ready" && RETRY_PHASES.includes(wheel.phase);
   const remove = () => {
     setBusy(true);
     setNote(null);
@@ -168,7 +176,8 @@ function SchemaRowView({ row, control, value, ready }: { row: SchemaRow; control
   const [live, setLive] = useState<number | null>(null);
   const save = (v: unknown) => {
     setError(null);
-    void setPomeloValue(row.key, v).then(setError);
+    // A key given to one tab moves the key that tab had to the one that held it: the values are read again.
+    void setPomeloValue(row.key, v, control === "keys").then(setError);
   };
   const shown = control === "list" ? listText(value) : value == null ? "" : String(value);
   const commit = () => {
@@ -203,9 +212,20 @@ function SchemaRowView({ row, control, value, ready }: { row: SchemaRow; control
     );
   else if (control === "segmented") field = <Segmented id={`pomelo-${row.key}`} label={row.label} value={String(value)} options={choices} onChange={save} />;
   else if (control === "select") field = <Select value={String(value)} options={choices} onChange={save} />;
-  else if (control === "button")
+  else if (control === "keys")
     field = (
-      <Button disabled={!ready} onClick={() => void pomeloWheel.open(row.action ?? row.key, engineLang(lang)).catch(() => setError(t("Fehlgeschlagen")))}>
+      <span className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+        {(row.parts ?? []).map((part) => (
+          <span key={part.id} className="flex items-center gap-1.5 text-caption text-label-3">
+            {part.label}
+            <Select value={keyOf(value, part.id)} options={choices} onChange={(key) => save({ [part.id]: key })} width="w-24" />
+          </span>
+        ))}
+      </span>
+    );
+  else if (control === "button")
+    field = row.page && (
+      <Button disabled={!ready} onClick={() => void pomeloWheel.open(row.page!, engineLang(lang)).catch(() => setError(t("Fehlgeschlagen")))}>
         {t("Öffnen")}
       </Button>
     );

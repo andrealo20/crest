@@ -2322,5 +2322,10 @@
  "Wenn das Pomelo-Rad läuft": "Cuando la rueda de Pomelo está activa",
  "Wird nicht angenommen": "No aceptado",
  "Zieh Dateien im Explorer und halte Umschalt, Strg oder Alt: Ein Rad mit den Umwandlungen und Werkzeugen von Pomelo erscheint.": "Arrastra archivos en el Explorador y mantén Mayús, Ctrl o Alt: aparece una rueda con las conversiones y herramientas de Pomelo.",
- "Zuerst das Pomelo-Rad ausschalten": "Primero desactiva la rueda de Pomelo"
+ "Zuerst das Pomelo-Rad ausschalten": "Primero desactiva la rueda de Pomelo",
+ "Ein Vorgang wurde abgelehnt: zu wenige Gratis-Dateien (noch {n})": "Se rechazó una tarea: no hay suficientes archivos gratis (quedan {n})",
+ "Ein anderes Pomelo-Rad mit denselben Daten läuft schon, etwa aus einer zweiten Crest-Kopie. Schließe es und versuche es noch einmal.": "Ya se ejecuta otra rueda de Pomelo con los mismos datos, por ejemplo de una segunda copia de Crest. Ciérrala y vuelve a intentarlo.",
+ "Eine andere Kopie von Pomelo läuft schon. Schließe sie und versuche es noch einmal.": "Ya se ejecuta otra copia de Pomelo. Ciérrala y vuelve a intentarlo.",
+ "Pomelo hat sich beendet": "Pomelo se ha cerrado",
+ "Pomelo ist nicht gestartet": "Pomelo no se ha iniciado"
 }

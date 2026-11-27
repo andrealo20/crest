@@ -2322,5 +2322,10 @@
  "Wenn das Pomelo-Rad läuft": "عندما تعمل عجلة Pomelo",
  "Wird nicht angenommen": "غير مقبول",
  "Zieh Dateien im Explorer und halte Umschalt, Strg oder Alt: Ein Rad mit den Umwandlungen und Werkzeugen von Pomelo erscheint.": "اسحب الملفات في مستكشف الملفات مع الضغط على Shift أو Ctrl أو Alt: تظهر عجلة فيها تحويلات Pomelo وأدواته.",
- "Zuerst das Pomelo-Rad ausschalten": "أوقف عجلة Pomelo أولًا"
+ "Zuerst das Pomelo-Rad ausschalten": "أوقف عجلة Pomelo أولًا",
+ "Ein Vorgang wurde abgelehnt: zu wenige Gratis-Dateien (noch {n})": "رُفضت مهمة: الملفات المجانية لا تكفي (بقي {n})",
+ "Ein anderes Pomelo-Rad mit denselben Daten läuft schon, etwa aus einer zweiten Crest-Kopie. Schließe es und versuche es noch einmal.": "عجلة Pomelo أخرى بالبيانات نفسها تعمل بالفعل، مثلًا من نسخة ثانية من Crest. أغلقها وحاول مرة أخرى.",
+ "Eine andere Kopie von Pomelo läuft schon. Schließe sie und versuche es noch einmal.": "نسخة أخرى من Pomelo تعمل بالفعل. أغلقها وحاول مرة أخرى.",
+ "Pomelo hat sich beendet": "أُغلق Pomelo",
+ "Pomelo ist nicht gestartet": "لم يبدأ Pomelo"
 }
