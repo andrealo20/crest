@@ -34,7 +34,7 @@ export const CATALOG: Group[] = [
       { name: "Widgets", text: "Weather, clocks, hardware, the timer, Now Playing, top apps, batteries, temperatures, disk space, world time, currencies, crypto, Screen Time and unread notifications, each in the version you pick, dragged anywhere along the bar.", img: "/img/bar.webp", w: 1440, h: 64, alt: "Crest's taskbar: CPU, memory and GPU, the weather and the AI quota rings on the left, Start and the apps in the middle, the timer, the tray, Wi-Fi, volume and the battery charging at 64 percent, and the clock on the right", win: true, noStore: true, fresh: "1.3.2" },
       { name: "Folders", text: "Hold a pinned app over another for half a second and both go into a folder, which opens in a panel over the bar. Drag apps in and out, rename it, or ungroup it.", img: "/img/folder-1.3.2.webp", w: 640, h: 184, alt: "A folder called Creative open over Crest's taskbar, with four app icons", win: true, noStore: true, fresh: "1.3.2" },
       { name: "Live previews and jump lists", text: "Rest the pointer on an app and its windows show as live previews, as in Windows 11. A right click brings the app's jump list, with its tasks and recent files.", img: "/img/cat/bar-preview.webp", w: 760, h: 250, alt: "Two live previews of File Explorer windows over Crest's taskbar", win: true, noStore: true },
-      { name: "Shapes and Liquid Glass +", text: "Docked along the whole edge, floating, a capsule as wide as its buttons, or tiles, at the height and icon size you like. Liquid Glass + draws a strong lens along the edge over a live copy of the screen, on Windows 11 24H2 and later on x64.", img: "/img/cat/bar-wall.webp", w: 1440, h: 200, alt: "Crest's taskbar along the bottom of a blue wallpaper, the picture showing through it", win: true, noStore: true },
+      { name: "Shapes, transparency and glass", text: "Docked along the whole edge, floating, a capsule as wide as its buttons, or tiles, at the height and icon size you like, as opaque or as clear as you want. Liquid Glass + draws a strong lens along the edge over a live copy of the screen, on Windows 11 24H2 and later on x64.", img: "/img/cat/bar-right.webp", w: 720, h: 140, alt: "The right end of Crest's taskbar over a blue wallpaper, the picture showing through it, with the battery charging and the clock", win: true, noStore: true },
       { name: "Status", text: "The network, the volume and the battery as one button, drawn as on an iPhone, with a quick panel for Wi-Fi, Bluetooth, volume and brightness.", img: "/img/cat/bar-status.webp", w: 560, h: 460, alt: "The quick panel over the taskbar: Wi-Fi, Bluetooth, volume, brightness and quick switches", win: true, noStore: true },
     ],
   },
@@ -42,9 +42,9 @@ export const CATALOG: Group[] = [
     name: "The closed notch",
     hue: "#ff9a4d",
     entries: [
-      { name: "Three looks, four edges", text: "A notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress, on the top, bottom, left or right edge.", img: "/img/bottom-edge.png", w: 780, h: 548, alt: "The notch on the bottom edge of the screen", demo: "closed" },
+      { name: "Three looks, four edges", text: "A notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress, on the top, bottom, left or right edge.", img: "/img/cat/looks.webp", w: 694, h: 358, alt: "The closed notch in its three looks over a wallpaper: the notch, the capsule and the thin line", demo: "closed" },
       { name: "The row", text: "The parts you pick, in your order: cover, timer, the lyric line, AI quota rings, CPU, RAM, GPU, network, battery, clock, weather, the next event and parts your own scripts set.", shot: "closed", w: 732, h: 42, alt: "The closed notch with a running timer, quota rings, CPU, memory and GPU, the clock and the weather", demo: "closed" },
-      { name: "Notices", text: "A finished timer, a due to-do, a meeting about to start, a download, a quota alert, the charger, Bluetooth or Caps Lock take the row for a moment, then go back.", img: "/img/closed-notch.png", w: 611, h: 28, alt: "A notice in the closed notch", demo: "closed" },
+      { name: "Notices", text: "A finished timer, a due to-do, a meeting about to start, a download, a quota alert, the charger, Bluetooth or Caps Lock take the row for a moment, then go back.", img: "/img/cat/notices-row.webp", w: 406, h: 234, alt: "Two notices in the closed notch: a meeting about to start with a join button, and a finished timer", demo: "closed" },
       { name: "A pet", text: "Eight cartoon pets for a nest beside the notch. The black cat dances to the music and runs faster when the CPU is busy.", shot: "pet", w: 632, h: 58, alt: "A black cat in its nest beside the closed notch", demo: "yours" },
     ],
   },
@@ -53,7 +53,7 @@ export const CATALOG: Group[] = [
     hue: "#ff48b0",
     entries: [
       { name: "Now Playing", text: "Any player with a Windows media session, with the cover, progress, a live equalizer and a mixer for every app.", img: "/img/cat/media.webp", w: 767, h: 241, alt: "Now Playing with the cover, the progress bar and the controls", demo: "music" },
-      { name: "Synced lyrics", text: "Word by word where the source times words, also in the closed notch. Translation and romanisation of Japanese, Chinese and Korean.", img: "/img/now-playing-styles.png", w: 520, h: 232, alt: "Now Playing in its looks, with lyrics", demo: "music" },
+      { name: "Synced lyrics", text: "Word by word where the source times words, also in the closed notch. Translation and romanisation of Japanese, Chinese and Korean.", img: "/img/cat/lyrics.webp", w: 767, h: 477, alt: "Now Playing with synced lyrics, the line being sung lighting up word by word", demo: "music" },
       { name: "Discord", text: "Your voice call with who is talking, and buttons to mute, deafen and hang up.", img: "/img/cat/discord.webp", w: 767, h: 219, alt: "A Discord voice call in the notch, with who is in it and buttons to mute, deafen and hang up", win: true },
     ],
   },
@@ -96,7 +96,7 @@ export const CATALOG: Group[] = [
       { name: "AI usage and Ask", text: "Your limits for Claude, ChatGPT, Cursor and more, with where each is heading, and a chat with your own key or a model on your PC.", img: "/img/cat/usage.webp", w: 767, h: 427, alt: "AI Usage with the limits of four providers", demo: "ai" },
       { name: "Terminal and Agents", text: "PowerShell or Command Prompt inside the notch, and the coding agent sessions running on your PC with what each one waits for.", img: "/img/cat/agents.webp", w: 767, h: 329, alt: "Agents with four coding sessions and what each one waits for", win: true },
       { name: "GitHub and LeetCode", text: "Activity calendars and streaks of any public user, with today's count.", img: "/img/cat/github.webp", w: 767, h: 245, alt: "A GitHub contribution calendar with the streak", demo: "system" },
-      { name: "crest-notify", text: "Scripts and builds send notices, ask a question with buttons, or put their own part in the closed row.", img: "/img/cat/notices.webp", w: 767, h: 329, alt: "The Notices page with messages from several apps" },
+      { name: "crest-notify", text: "Scripts and builds send notices, ask a question with buttons, or put their own part in the closed row.", img: "/img/cat/ask.webp", w: 746, h: 159, alt: "A question from a coding agent in the closed notch, with Allow, Always allow and Deny" },
     ],
   },
   {
@@ -113,7 +113,7 @@ export const CATALOG: Group[] = [
     hue: "#c069ff",
     entries: [
       { name: "Crest or Material", text: "Two styles for the whole app: the black Crest you know, or Material, with colours from your theme and soft shapes.", img: "/img/settings-material.webp", w: 800, h: 524, alt: "The settings window in the Material style on Themes", demo: "themes" },
-      { name: "Fifteen themes", text: "Dracula, Nord, Catppuccin, Gruvbox and more, an editor for your own, sixteen fonts and a day and night switch that can follow the sun.", shot: "theme-dracula", w: 520, h: 356, alt: "Overview in the Dracula theme", demo: "themes" },
+      { name: "Fifteen themes", text: "Dracula, Nord, Catppuccin, Gruvbox and more, an editor for your own, sixteen fonts and a day and night switch that can follow the sun.", img: "/img/cat/themes.webp", w: 1194, h: 546, alt: "Overview in six themes: Dark, Light, Dracula, Nord, Catppuccin Latte and Gruvbox Dark", demo: "themes" },
       { name: "Wallpapers", text: "Off until you turn it on: 24 pictures or your own folder, per screen, changing on their own every 15 minutes, hour or day.", img: "/img/wallpapers.webp", w: 561, h: 339, alt: "The Wallpapers tool with the collection", fresh: "1.3.2" },
       { name: "Eleven languages", text: "English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.", img: "/img/cat/languages.webp", w: 767, h: 365, alt: "Overview in Japanese", demo: "yours" },
       { name: "Plugins", text: "Your own tools in HTML, CSS and JavaScript, sandboxed, with only the addresses and storage they declare.", img: "/img/cat/plugin.webp", w: 767, h: 258, alt: "Hello Crest, a sample plugin, as a tool of its own in the notch" },
