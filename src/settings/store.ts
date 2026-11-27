@@ -173,6 +173,8 @@ export interface Settings {
   clipChips: boolean;
   /** Clipboard tool: a click on an entry also pastes it into the app that had the keyboard before the notch opened (clipboard.rs). Off by default: it changes what a click does. */
   clipPaste: boolean;
+  /** Translate tool: the target language ("" = Crest's own) and whether the provider set in Ask may translate a pair with no model on this PC. Off by default: the text would leave the PC. */
+  translate: { target: string; provider: boolean };
   /** Crest's bar in place of Windows' taskbar (Windows only, off by default): its zones, size, background and pinned apps (src/features/taskbar). */
   taskbar: TaskbarSettings;
   /** Screen Time records which app is in front, per hour, only on this PC and only once turned on (src/features/screentime). */
@@ -245,6 +247,7 @@ const defaults: Settings = {
   setup: { done: false },
   clipChips: true,
   clipPaste: false,
+  translate: { target: "", provider: false },
   taskbar: TASKBAR_DEFAULTS,
   screenTime: { on: false },
   wallpapers: WALLPAPER_DEFAULTS,
@@ -376,6 +379,8 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     closedSize: normalizeClosedSize(s.closedSize),
     notices: normalizeNotices(s.notices),
     ask: migrateAsk(s.ask),
+    // Only an explicit true sends text to the provider.
+    translate: { target: typeof s.translate?.target === "string" ? s.translate.target : "", provider: s.translate?.provider === true },
     behavior: normalizeWindow(s.behavior, s.display?.visibility),
     dock: normalizeDock(s.dock),
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
