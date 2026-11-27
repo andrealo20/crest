@@ -419,3 +419,96 @@ tbody tr + tr td {
     transition: none;
   }
 }
+
+/* ---------- Stats ---------- */
+
+.stats .today {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 24px;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+.today-n {
+  font-size: var(--step-display);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+.today-what {
+  font-size: var(--step-lead);
+  font-weight: 500;
+  max-width: 26em;
+}
+.days {
+  margin-bottom: clamp(40px, 5vw, 72px);
+}
+.days figcaption {
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.days svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.days .day {
+  fill: #5c5c62;
+  transition: fill 150ms var(--ease);
+}
+.days .day.on {
+  fill: var(--y);
+}
+.share-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(32px, 4vw, 56px) var(--m);
+}
+.shares h3 {
+  font-size: var(--step-lead);
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+.shares li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+.share-pct {
+  color: var(--label-2);
+  margin-left: 6px;
+}
+.share-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--y);
+  transform-origin: left;
+}
+.share-more {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.stats-note {
+  margin-top: clamp(28px, 4vw, 48px);
+  max-width: 44em;
+}
+
+@media (min-width: 760px) {
+  .share-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

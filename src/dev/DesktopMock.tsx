@@ -4,7 +4,7 @@ import { demoOpen } from "../platform/native";
 import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
 import { settings } from "../settings/store";
 import { demoBarOffered } from "../features/taskbar/store";
-import { bare, demo, showcase } from "./showcase-data";
+import { bare, demo, framed, showcase } from "./showcase-data";
 
 /** Mixer: the playing app moves to the next one in the list (tests the reorder). */
 function switchSource() {
@@ -83,7 +83,7 @@ export function DesktopMock() {
       </div>}
 
       {/* The demo on its own page: the notch opens on hover, and this is the way in without a mouse. */}
-      {demo && (
+      {demo && !framed && (
         <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-3 text-center text-sm text-white">
           <p className="opacity-80">{crestBar ? "Point at the notch to open it, and try Crest's taskbar at the bottom." : "Point at the notch to open it."}</p>
           <DevButton onClick={() => demoOpen(null)}>Open the notch</DevButton>
@@ -91,7 +91,7 @@ export function DesktopMock() {
       )}
 
       {/* With Crest's bar on the desktop, the way back takes the top left corner, clear of the bar and the notch. */}
-      {demo && barOffered && <a href="../" className={`absolute top-3 left-4 text-sm ${BACK}`}>Back to the site</a>}
+      {demo && !framed && barOffered && <a href="../" className={`absolute top-3 left-4 text-sm ${BACK}`}>Back to the site</a>}
 
       {/* Fake taskbar */}
       {!crestBar && (
@@ -101,7 +101,7 @@ export function DesktopMock() {
         >
           {clean && <WindowsLogo />}
           {/* The demo on its own page (not the project page's stage): the way back. */}
-          {demo && !barOffered && <a href="../" className={`absolute inset-y-0 left-0 flex items-center px-4 text-sm pointer-coarse:text-xl ${BACK}`}>Back to the site</a>}
+          {demo && !framed && !barOffered && <a href="../" className={`absolute inset-y-0 left-0 flex items-center px-4 text-sm pointer-coarse:text-xl ${BACK}`}>Back to the site</a>}
         </div>
       )}
     </div>

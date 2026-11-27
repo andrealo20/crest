@@ -53,7 +53,8 @@ export function Nav() {
       </a>
       <nav aria-label="Main">
         <a className="nav-link nav-new" href="/whats-new/">What's new</a>
-        <a className="nav-link nav-plugins" href="/#plugins">Plugins</a>
+        <a className="nav-link nav-plugins" href="/#features">Features</a>
+        <a className="nav-link nav-stats" href="/stats/">Stats</a>
         <a className="nav-link nav-privacy" href="/privacy/">Privacy</a>
         <a className="btn btn-small btn-light nav-try" href="/try/">Try it</a>
         <a className="btn btn-small" href="/#install">Get Crest</a>
@@ -107,8 +108,8 @@ export function Make() {
 }
 
 const FACTS: [string, string][] = [
-  ["Accounts", "None. Crest has no server of its own and nothing is sent to the developer."],
-  ["Tracking", "No analytics, no telemetry, no tracking."],
+  ["Accounts", "None. Crest has no server of its own and no account to sign in to."],
+  ["Tracking", "No analytics and no tracking. Once a day Crest counts itself for the public stats page: its version, Windows or Mac and where it was installed from, with no ID. A switch in Settings turns it off."],
   ["Your keys", "In the Windows Credential Manager (the Keychain on a Mac), never in a plain file."],
   ["The vault", "Encrypted with Windows DPAPI under your account, and sealed again with a key from your PC's security chip when Windows Hello is on."],
   ["The clipboard", "History is kept in memory only. Password managers are left out on purpose."],
@@ -187,14 +188,39 @@ const zigzag = (n: number) => {
   return `polygon(${pts.join(", ")})`;
 };
 
-const WAYS: { name: string; text: string; cta: string; href: string }[] = [
-  { name: "Microsoft Store", text: "Crest Island, signed by Microsoft and kept up to date by the Store.", cta: "Open the Store page", href: STORE },
-  { name: "Installer", text: "Crest_x.y.z_x64-setup.exe, or the arm64 one on a Windows on ARM PC. Installs for your user only, no admin rights. Not code-signed yet, so SmartScreen may warn: More info, then Run anyway.", cta: "Latest release", href: RELEASES },
-  { name: "Portable zip", text: "Crest-x.y.z-Portable-x64.zip. Unzip it anywhere you can write to and run Crest.exe. Nothing is installed and the data stays in a folder next to it.", cta: "Latest release", href: RELEASES },
-  { name: "Mac, preview", text: "A .dmg for Apple silicon or Intel, macOS 12 or later. Not notarized yet, so allow it once in System Settings, Privacy & Security, Open Anyway. Some tools are Windows-only for now.", cta: "Latest release", href: RELEASES },
+type Way = { name: string; text: string; cta: string; href: string };
+
+/** Each system's tab: the steps from download to the first open, then the ways to get it. */
+const SYSTEMS: { id: string; name: string; steps: React.ReactNode[]; ways: Way[] }[] = [
+  {
+    id: "windows",
+    name: "Windows",
+    steps: [
+      "Get it from the Microsoft Store, or download the installer or the portable zip from the latest release.",
+      "Run it. The GitHub downloads are not code-signed yet, so SmartScreen may warn: More info, then Run anyway.",
+      "Point at the top of the screen, or press Ctrl + Alt + Space. For Crest's taskbar, turn it on in Settings, Taskbar.",
+    ],
+    ways: [
+      { name: "Microsoft Store", text: "Crest Island, signed by Microsoft and kept up to date by the Store. Crest's own taskbar is not in this version for now.", cta: "Open the Store page", href: STORE },
+      { name: "Installer", text: "Crest_x.y.z_x64-setup.exe, or the arm64 one on a Windows on ARM PC. Installs for your user only, no admin rights, and updates itself.", cta: "Latest release", href: RELEASES },
+      { name: "Portable zip", text: "Crest-x.y.z-Portable-x64.zip. Unzip it anywhere you can write to and run Crest.exe. Nothing is installed and the data stays in a folder next to it.", cta: "Latest release", href: RELEASES },
+    ],
+  },
+  {
+    id: "macos",
+    name: "macOS, preview",
+    steps: [
+      "Download the .dmg for Apple silicon or Intel from the latest release, for macOS 12 or later.",
+      "It is not notarized yet: allow it once in System Settings, Privacy & Security, Open Anyway.",
+      "Point at the notch of your Mac. The taskbar and some tools are Windows only for now.",
+    ],
+    ways: [{ name: "Mac, preview", text: "One .dmg for each kind of Mac, with the notch and the tools that work on macOS.", cta: "Latest release", href: RELEASES }],
+  },
 ];
 
 export function Install() {
+  const [sys, setSys] = useState(() => (/Mac/.test(navigator.platform) ? "macos" : "windows"));
+  const s = SYSTEMS.find((t) => t.id === sys) ?? SYSTEMS[0];
   return (
     <section id="install" className="sec install" aria-labelledby="install-title">
       <div className="split">
@@ -212,8 +238,34 @@ export function Install() {
         </div>
         <Rise className="sheet-wrap" i={1}>
           <div className="sheet" style={{ clipPath: zigzag(26) }}>
+            <div className="os-tabs" role="tablist" aria-label="Your system">
+              {SYSTEMS.map((t, i) => (
+                <button
+                  key={t.id}
+                  id={`tab-${t.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={t.id === sys}
+                  aria-controls="os-panel"
+                  tabIndex={t.id === sys ? 0 : -1}
+                  onClick={() => setSys(t.id)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                    const next = (i + (e.key === "ArrowRight" ? 1 : -1) + SYSTEMS.length) % SYSTEMS.length;
+                    setSys(SYSTEMS[next].id);
+                    (e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
+                  }}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+            <div id="os-panel" role="tabpanel" aria-labelledby={`tab-${s.id}`}>
+            <ol className="os-steps">
+              {s.steps.map((step, i) => <li key={i}>{step}</li>)}
+            </ol>
             <ul>
-              {WAYS.map((w) => (
+              {s.ways.map((w) => (
                 <li key={w.name}>
                   <div className="way">
                     <h3>{w.name}</h3>
@@ -223,6 +275,7 @@ export function Install() {
                 </li>
               ))}
             </ul>
+            </div>
           </div>
         </Rise>
       </div>
@@ -271,6 +324,7 @@ export function Footer() {
         <div className="small-links">
           <a href={`${REPO}/blob/main/docs/features.md`}>Every feature, in detail</a>
           <a href="/whats-new/">What's new in {RELEASE}</a>
+          <a href="/stats/">Stats</a>
           <a href="/privacy/">Privacy policy</a>
           <a href="/press/">Press kit</a>
           <a href={`mailto:${SUPPORT}`}>{SUPPORT}</a>

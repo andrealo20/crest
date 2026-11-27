@@ -1,0 +1,26 @@
+# The Worker behind the daily count: the app's ping and the site's /stats/ page. Deploy from this folder.
+# Once, before the first deploy:
+#   npx wrangler d1 create crest-stats                          then put the id it prints in database_id below
+#   npx wrangler d1 execute crest-stats --remote --file schema.sql
+# Then: npx wrangler deploy
+name = "crest-stats"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+routes = [
+  { pattern = "crestisland.app/api/ping", zone_name = "crestisland.app" },
+  { pattern = "crestisland.app/api/stats", zone_name = "crestisland.app" },
+  { pattern = "www.crestisland.app/api/ping", zone_name = "crestisland.app" },
+  { pattern = "www.crestisland.app/api/stats", zone_name = "crestisland.app" },
+]
+# Only those routes: no *.workers.dev address and no preview addresses
+workers_dev = false
+preview_urls = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "crest-stats"
+database_id = "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create"
+
+# Just after midnight UTC, yesterday's breakdowns are deleted; the daily totals stay
+[triggers]
+crons = ["5 0 * * *"]

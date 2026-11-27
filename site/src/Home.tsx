@@ -5,7 +5,10 @@ import { ArrowUpRight } from "./icons";
 import { News } from "./News";
 import { Notch, type Shot } from "./Notch";
 import { PixelReveal } from "./PixelReveal";
-import { DEMO_ORIGIN } from "./demo";
+import { Catalog } from "./Catalog";
+import { DEMO_FULL, DEMO_ORIGIN } from "./demo";
+import { num, useStats } from "./live";
+import { useWide } from "./wide";
 import { RELEASE } from "./release";
 import { Faq, Footer, Install, Make, Mark, Nav, Privacy, Rise } from "./Sections";
 import { springs } from "../../src/design/motion";
@@ -16,21 +19,15 @@ const files = import.meta.glob("./shots/*.png", { eager: true, query: "?url", im
 const shot = (name: string, w: number, h: number, alt: string): Shot => ({ src: files[`./shots/${name}.png`], w, h, alt });
 
 /** The scroll story: each step opens the notch on one tool and turns the page its colour. */
-/** `plain`: a picture of the closed notch with what sits beside it, shown as it is instead of inside an open notch. */
-const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot; plain?: true }[] = [
+const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot }[] = [
   { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Crest open on Now Playing, with the cover, the progress bar and the controls") },
   { tool: "overview", chapter: "overview", title: "The day at a glance", text: "The time, the weather, the song, focus, keep awake, volume and the brightness of this screen, in one panel.", shot: shot("overview", 520, 356, "Overview with the time, the weather and quick controls") },
-  { tool: "weather", chapter: "overview", title: "The weather, hour by hour", text: "Current conditions, an hourly strip and seven days from Open-Meteo, with no key and no account.", shot: shot("weather", 640, 330, "The Weather tool with the hours ahead and seven days") },
   { tool: "timer", chapter: "focus", title: "Focus, then a break", text: "A focus timer with break presets, rain or noise behind it and a countdown that stays in the closed notch.", shot: shot("timer", 520, 192, "The Timer counting down a focus session") },
   { tool: "todos", chapter: "focus", title: "To-dos that ring", text: "Projects, due times and a reminder when one is due. Notes, a water log and a scratchpad sit next to them.", shot: shot("todos", 600, 276, "To-dos with projects and due times") },
   { tool: "clipboard", chapter: "clipboard", title: "Everything you copied", text: "Text, links, images and files, kept in memory only, with password managers left out on purpose.", shot: shot("clipboard", 600, 236, "The clipboard history") },
   { tool: "shelf", chapter: "clipboard", title: "Files to your phone", text: "Drop files on the Shelf and send them to your phone with a QR code, over your own Wi-Fi and nobody else's server.", shot: shot("shelf", 560, 236, "The Shelf showing a QR code to send four files to a phone") },
-  { tool: "convert", chapter: "clipboard", title: "Units and 160 currencies", text: "Length, weight, temperature and the rates of the central banks, which Calc understands too.", shot: shot("convert", 520, 210, "The Converter turning pounds into euros") },
   { tool: "ask", chapter: "ai", title: "Ask, with your key or none", text: "Claude, ChatGPT, OpenRouter, or a model on your own PC through LM Studio or Ollama.", shot: shot("ask", 560, 440, "Ask, a chat inside the notch") },
   { tool: "system", chapter: "system", title: "What your PC is doing", text: "CPU, GPU, memory, network, power, temperatures and the busiest processes, with history while the notch is shut.", shot: shot("system", 720, 380, "Hardware with graphs for every part of the PC") },
-  { tool: "github", chapter: "system", title: "Your GitHub streak", text: "The contribution calendar of any public user for the last 36 weeks, with today's count and the longest streak.", shot: shot("github", 520, 236, "GitHub contributions for 36 weeks with the current and longest streak") },
-  { tool: "trading", chapter: "life", title: "Every broker, one total", text: "Trading 212, Kraken, Coinbase and more, added up in one currency with keys that can only read.", shot: shot("trading", 560, 380, "The Portfolio adding up two brokers in euros") },
-  { tool: "pet", chapter: "yours", title: "A pet by the notch", text: "Eight cartoon pets can live in a nest beside the closed notch. The black cat dances while music plays, runs faster when the CPU is busy, waves when you point at the notch and cheers when a download finishes.", shot: shot("pet", 632, 58, "The closed notch with a black cartoon cat sitting in its nest beside it"), plain: true },
 ];
 
 /** Width the open notch may take: the column it sits in, less the margins. */
@@ -130,29 +127,154 @@ function StickyBar() {
   );
 }
 
-/** First screen: the real notch hangs from the top edge, above a large headline. */
+/** The size the framed desktop is drawn at: wide enough for the demo to put Crest's bar on it (src/dev/demo.ts wants 1000). */
+const DESK = { w: 1440, h: 900 };
+
+/**
+ * The whole desktop, notch and bar, in a screen under the headline. On a computer it is the real app in the demo build, drawn at
+ * desktop size and scaled to the column; on a phone, where the demo has no bar, a picture of the same desktop.
+ */
+function Desk({ live }: { live: boolean }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <figure className="desk">
+      <div className="desk-screen" ref={box}>
+        {live ? (
+          w > 0 && (
+            <iframe
+              src={`${DEMO_ORIGIN}?demo&framed`}
+              title="Crest on a Windows desktop, the real app: point at the notch, open Start, try the widgets"
+              width={DESK.w}
+              height={DESK.h}
+              style={{ transform: `scale(${w / DESK.w})` }}
+              allow="clipboard-write"
+            />
+          )
+        ) : (
+          <img src="/img/desktop.webp" width={960} height={600} alt="Crest on a Windows desktop: the notch open on Hardware at the top, and Crest's taskbar along the bottom with its widgets, Start, the apps, the tray, the battery charging and the clock" />
+        )}
+      </div>
+      <figcaption>
+        {live ? "The real app, running in this page: point at the notch, open Start, try the widgets." : "Crest's notch and taskbar on Windows. On a computer this screen is the real app."}{" "}
+        <a className="textlink" href={live ? DEMO_FULL : "/try/"}>
+          {live ? "Open it full screen" : "Try the notch in your browser"} <ArrowUpRight size={16} weight="bold" aria-hidden="true" />
+        </a>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** How many computers run Crest today, from the daily count, linked to /stats/; nothing until there is a count to show. */
+function Live() {
+  const s = useStats();
+  if (!s?.today.total) return null;
+  return (
+    <a className="hero-live" href="/stats/">
+      <span className="hero-live-dot" aria-hidden="true" />
+      <span>
+        <strong>{num(s.today.total)}</strong> computers run Crest today<span className="hero-live-then">, {num(s.yesterday)} yesterday</span>
+      </span>
+    </a>
+  );
+}
+
+/** First screen: the headline, what Crest is, and under them the desktop it makes. On a phone the real notch hangs from the top. */
 function Hero() {
   const reduce = useReducedMotion();
+  const wide = useWide();
   return (
     <section className="hero" aria-labelledby="hero-title">
-      <div className="hero-notch">
-        <LiveNotch />
-      </div>
+      {!wide && (
+        <div className="hero-notch">
+          <LiveNotch />
+        </div>
+      )}
       <Nav />
       <div className="hero-copy">
         <PixelReveal>
-          <h1 id="hero-title" className="hero-title">A notch for your screen.</h1>
+          <h1 id="hero-title" className="hero-title">Your desktop, rebuilt.</h1>
         </PixelReveal>
         <motion.div className="hero-side" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}>
-          <p className="lead">
-            Crest is a free, open source Dynamic Island for Windows and macOS, and on Windows it can take the place of the taskbar too. The notch at the top of this page is the real app: point at it, or tap it on a phone, and use every tool.
-          </p>
+          <div className="hero-words">
+            <p className="lead">
+              Crest puts a notch at the edge of your screen with thirty tools, from your music to your PC's hardware, and on Windows a taskbar of its own, with widgets, live previews and Liquid Glass. Free and open source, for Windows and macOS.
+            </p>
+            <p className="hero-meta">
+              Windows 11 and 10, macOS 12 or later as a preview.{" "}
+              <a href="/whats-new/">New in {RELEASE}: Liquid Glass +, folders on the bar, Material</a>
+            </p>
+            <Live />
+          </div>
           <div className="actions">
             <a className="btn" href="/try/">Try it in your browser</a>
             <a className="btn btn-ghost" href="#install">Get Crest {RELEASE}</a>
           </div>
         </motion.div>
       </div>
+      <Desk live={wide} />
+    </section>
+  );
+}
+
+/** Windows' own taskbar, done again: the desktop large, then what the bar does, beside the folder picture. */
+const BAR_FACTS: [string, string][] = [
+  ["Your apps in the middle", "Windows' Start, pinned apps and open windows, with live previews of each window, jump lists and badges, on every monitor."],
+  ["Widgets around them", "Weather, clocks, hardware, the timer, Now Playing, batteries, disk space, currencies, Screen Time and more, each in the version you pick, dragged anywhere along the bar."],
+  ["Folders", "Hold a pinned app over another for half a second and both go into a folder that opens over the bar."],
+  ["Four shapes", "Docked along the whole edge, floating, a capsule as wide as its buttons, or tiles, at the height and icon size you like."],
+  ["Liquid Glass +", "A strong lens along the bar's edge over a live copy of the screen, on Windows 11 24H2 and later."],
+  ["Status", "Network, volume and battery as one button, with a quick panel for Wi-Fi, Bluetooth and brightness."],
+];
+
+function Bar() {
+  return (
+    <section id="bar" className="sec bar-sec" aria-labelledby="bar-title">
+      <div className="bar-head">
+        <Rise><h2 id="bar-title">A taskbar of its own</h2></Rise>
+        <Rise i={1}>
+          <p className="lead">On Windows, Crest can take the place of the taskbar. Turn it off, or quit Crest, and Windows' own comes back. Off by default, and not in the Microsoft Store version for now.</p>
+        </Rise>
+      </div>
+      <Rise className="bar-strip">
+        <img src="/img/bar.webp" width={1440} height={64} alt="Crest's taskbar: CPU, memory and GPU, the weather and the AI quota rings on the left, Start and the apps in the middle, the timer, the tray, Wi-Fi, volume and the battery charging at 64 percent, and the clock on the right" loading="lazy" decoding="async" />
+      </Rise>
+      <div className="bar-body">
+        <Rise className="bar-folder">
+          <img src="/img/folder-1.3.2.webp" width={640} height={184} alt="A folder called Creative open over the bar, with four apps" loading="lazy" decoding="async" />
+        </Rise>
+        <dl className="bar-facts">
+          {BAR_FACTS.map(([k, v], i) => (
+            <Rise key={k} i={i % 2}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </Rise>
+          ))}
+        </dl>
+      </div>
+      <Rise>
+        <a className="textlink" href={DEMO_FULL}>Try the bar in your browser, on a computer <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
+      </Rise>
+    </section>
+  );
+}
+
+/** The close: the title's promise once more, and the two ways in. */
+function Closing() {
+  return (
+    <section className="sec closing" aria-labelledby="closing-title">
+      <Rise><h2 id="closing-title">Rebuild yours in a minute.</h2></Rise>
+      <Rise i={1} className="actions">
+        <a className="btn" href="#install">Get Crest {RELEASE}</a>
+        <a className="btn btn-ghost" href="/try/">Try it first</a>
+      </Rise>
     </section>
   );
 }
@@ -209,16 +331,12 @@ function Story() {
   const Icon = TOOLS[s.tool].icon;
 
   return (
-    <section ref={ref} className="story" style={{ height: `${STEPS.length * 70}svh` }} aria-labelledby="story-title">
+    <section ref={ref} id="notch" className="story" style={{ height: `${STEPS.length * 70}svh` }} aria-labelledby="story-title">
       <div className="story-pin" style={{ color: "#000" }}>
         <Wash color={hue} />
         <h2 id="story-title" className="sr-only">What Crest opens into</h2>
         <div className="story-stage" ref={stage}>
-          {s.plain ? (
-            <motion.img key={s.tool} className="story-plain" src={s.shot.src} alt={s.shot.alt} width={s.shot.w} height={s.shot.h} style={{ width: `min(100%, ${s.shot.w * 2}px)` }} initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} />
-          ) : (
-            <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
-          )}
+          <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
         </div>
         <AnimatePresence initial={false}>
           <motion.div key={s.tool} className="story-icon" aria-hidden="true" initial={{ opacity: 0, scale: 0.6, rotate: -18 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 1.2, rotate: 12 }} transition={{ type: "spring", visualDuration: 0.5, bounce: 0.3 }}>
@@ -265,10 +383,22 @@ function Custom() {
   const { scrollYProgress } = useScroll({ target: band, offset: ["start end", "end start"] });
   const x = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["6%", "-46%"]);
   return (
-    <section className="custom" aria-labelledby="custom-title">
+    <section id="look" className="custom" aria-labelledby="custom-title">
       <div className="custom-head">
         <Rise><h2 id="custom-title">Make it yours</h2></Rise>
-        <Rise i={1}><p className="lead">Dozens of choices in Settings, from the colours to the shape of the notch, all saved on your PC. Every picture here is the app with one of them changed.</p></Rise>
+        <Rise i={1}><p className="lead">Two styles for the whole app, fifteen themes, Liquid Glass on Windows and dozens of choices in Settings, from the colours to the shape of the notch, all saved on your PC. Every picture here is the app with one of them changed.</p></Rise>
+      </div>
+
+      <div className="custom-material">
+        <Rise className="custom-material-pic">
+          <img src="/img/settings-material.webp" width={800} height={524} alt="The settings window in the Material style, open on Themes: the Crest and Material styles and the fifteen themes" loading="lazy" decoding="async" />
+        </Rise>
+        <div className="custom-material-words">
+          <Rise><h3>Crest or Material</h3></Rise>
+          <Rise i={1}>
+            <p className="body">Crest is the black look the notch was born with. Material takes its colours from your theme and rounds every shape, in the notch, the bar and the settings window, and can keep a dark theme's background pure black.</p>
+          </Rise>
+        </div>
       </div>
 
       <div className="custom-themes" ref={band}>
@@ -357,13 +487,16 @@ export default function Home() {
         <Hero />
         <ToolBand />
         <Story />
-        <Custom />
         <Closed />
+        <Bar />
+        <Custom />
+        <Catalog />
         <News release={RELEASE} />
         <Make />
         <Privacy />
         <Install />
         <Faq />
+        <Closing />
       </main>
       <Footer />
     </div>

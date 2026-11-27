@@ -16,6 +16,9 @@ export const sample = showcase || demo;
 /** `?bare` in the demo: no fake desktop, so the host page draws the stage behind the notch. */
 export const bare = demo && new URLSearchParams(location.search).has("bare");
 
+/** `?framed` in the demo: the whole desktop with Crest's bar, inside the home page's screen, which brings its own words and way back. */
+export const framed = demo && new URLSearchParams(location.search).has("framed");
+
 export function cover(a: string, b: string, c: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <defs>

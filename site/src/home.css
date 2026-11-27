@@ -1,17 +1,8 @@
 /*
- * The home page: a yellow first screen with the real notch hanging from its top edge, a band of every tool that slides
- * with the scroll, and a pinned story where the notch opens on one tool after another and the page takes its colour.
+ * The home page: a purple first screen with the headline over the whole desktop, notch and taskbar, a band of every tool that
+ * slides with the scroll, and a pinned story where the notch opens on one tool after another and the page takes its colour.
  * Transform and opacity only, except the notch's own size, which springs like the app's.
  */
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 
 /* ---------- The notch ---------- */
 
@@ -354,13 +345,6 @@ div.notch {
   }
 }
 
-@media (min-width: 1000px) {
-  /* The open notch takes the middle of the bar: the home keeps only its two buttons up there. */
-  .hero .nav nav a.nav-link {
-    display: none;
-  }
-}
-
 @media (max-width: 999px) {
   .hero .nav {
     order: -1;
@@ -548,4 +532,387 @@ div.notch {
 .sticky-get {
   background: #7b61ff;
   color: #000;
+}
+
+/* ---------- First screen: the words and the desktop ---------- */
+
+.hero-words {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hero-meta {
+  font-size: var(--step-small);
+  font-weight: 550;
+}
+.hero-meta a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+.desk {
+  margin: 0;
+  padding: 0 var(--m) clamp(40px, 6vw, 88px);
+}
+.desk-screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #000;
+  border: clamp(6px, 0.8vw, 12px) solid #000;
+  border-radius: clamp(10px, 1.4vw, 22px);
+}
+.desk-screen iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  transform-origin: 0 0;
+  color-scheme: normal;
+}
+.desk-screen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.desk figcaption {
+  margin-top: 16px;
+  font-size: var(--step-small);
+  font-weight: 550;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+}
+
+/* ---------- The taskbar ---------- */
+
+.bar-sec {
+  background: #4fa8ff;
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(32px, 4vw, 56px);
+}
+.bar-head {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bar-head h2 {
+  font-size: var(--step-display);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+}
+.bar-strip img,
+.bar-folder img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.bar-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(32px, 4vw, 64px) var(--m);
+  align-items: start;
+}
+.bar-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px var(--m);
+}
+.bar-facts dt {
+  font-size: var(--step-lead);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.bar-facts dd {
+  font-size: var(--step-body);
+  line-height: 1.5;
+}
+
+/* ---------- Crest or Material ---------- */
+
+.custom-material {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px var(--m);
+  align-items: end;
+  padding: clamp(48px, 6vw, 96px) var(--m) 0;
+}
+.custom-material img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.custom-material-words {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 30em;
+}
+
+/* ---------- Everything it does ---------- */
+
+.catalog {
+  background: #fff;
+  color: #000;
+}
+.cat-head {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: clamp(36px, 5vw, 72px);
+}
+.cat-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--m);
+  align-items: start;
+}
+.cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.cat-group-name {
+  font-size: var(--step-small) !important;
+  font-weight: 800;
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.cat-group-name::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--hue);
+}
+.cat-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease);
+}
+.cat-name:hover {
+  background: #f0f0f0;
+}
+.cat-name[aria-pressed="true"] {
+  background: #000;
+  color: #fff;
+}
+.cat-fresh {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0a7d3b;
+}
+.cat-name[aria-pressed="true"] .cat-fresh {
+  color: #7dffb0;
+}
+.cat-inline {
+  padding: 16px 0 24px;
+}
+.cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.cat-card h3 {
+  font-size: var(--step-sub);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-top: 12px;
+}
+.cat-card p {
+  font-size: var(--step-body);
+  line-height: 1.55;
+  max-width: 36em;
+}
+.cat-notes {
+  font-weight: 650;
+}
+.cat-notes:empty {
+  display: none;
+}
+.cat-pic {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  color: #000;
+  padding: clamp(12px, 2vw, 32px);
+}
+.cat-pic img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.cat-word {
+  font-size: clamp(32px, 4vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  text-align: center;
+}
+
+/* ---------- Install: one tab per system ---------- */
+
+.os-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.os-tabs button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #222;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease);
+}
+.os-tabs button:hover {
+  background: #333;
+}
+.os-tabs button[aria-selected="true"] {
+  background: #fff;
+  color: #000;
+}
+.os-steps {
+  margin: 0 0 36px;
+  padding-left: 1.4em;
+  list-style: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: var(--step-body);
+  line-height: 1.5;
+}
+.os-steps li::marker {
+  font-weight: 800;
+}
+
+/* ---------- The close ---------- */
+
+.closing {
+  background: #7b61ff;
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+.closing h2 {
+  font-size: var(--step-display);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+  max-width: 12em;
+}
+
+@media (min-width: 1000px) {
+  .hero-copy .hero-side {
+    align-items: flex-end;
+  }
+  .bar-body {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  .bar-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .custom-material {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+  .cat-body {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  }
+  .cat-panel {
+    position: sticky;
+    top: 88px;
+  }
+}
+
+@media (min-width: 1000px) {
+  /* A wide touch screen keeps the hanging notch, which takes the middle of the bar: only the two buttons stay up there. */
+  .hero:has(.hero-notch) .nav nav a.nav-link {
+    display: none;
+  }
+}
+
+/* Today's count under the words of the first screen */
+.hero-live {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  font-size: var(--step-small);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: transform 150ms var(--ease);
+}
+.hero-live:hover {
+  transform: translateY(-2px);
+}
+.hero-live strong {
+  font-weight: 800;
+}
+.hero-live-then {
+  color: var(--label-2);
+}
+@media (max-width: 480px) {
+  .hero-live-then {
+    display: none;
+  }
+}
+.hero-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00c26a;
+  animation: live 2s ease-in-out infinite;
+}
+@keyframes live {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-live-dot {
+    animation: none;
+  }
+}
+/* The sheet's rows are flex; its numbered steps stay list items, so they keep their numbers */
+.sheet .os-steps li {
+  display: list-item;
 }
