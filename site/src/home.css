@@ -785,10 +785,11 @@ div.notch {
   display: list-item;
 }
 
-/* The framed desktop fits a window's height on a computer: 16:10 under the bar and the caption */
+/* The framed desktop fits a window's height on a computer, its taskbar in view: 16:10 under the black bar that stays at the top
+   (64 px) and over the caption, with room to spare, and never wider than 1180 px */
 @media (min-width: 1000px) {
   .desk-screen {
-    width: min(100%, calc((100svh - 150px) * 1.6));
+    width: min(100%, 1180px, calc((100svh - 230px) * 1.6));
     margin: 0 auto;
   }
   .desk figcaption {
