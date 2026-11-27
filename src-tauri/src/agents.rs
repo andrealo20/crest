@@ -148,7 +148,7 @@ impl Running {
 }
 
 #[cfg(windows)]
-mod job {
+pub(crate) mod job {
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 
     use windows::Win32::Foundation::HANDLE;

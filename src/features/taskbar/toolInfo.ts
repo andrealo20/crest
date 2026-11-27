@@ -14,6 +14,7 @@ import {
   Cpu,
   Drop,
   Eyedropper,
+  Files,
   Gauge,
   GlobeHemisphereWest,
   ImageSquare,
@@ -63,5 +64,6 @@ export const toolInfo: Record<string, { label: string; icon: Icon; hue?: Hue }> 
   agents: { label: "Agents", icon: Robot, hue: "indigo" },
   calc: { label: "Rechner", icon: Calculator, hue: "indigo" },
   wallpapers: { label: "Hintergründe", icon: ImageSquare, hue: "sky" },
+  files: { label: "Dateien", icon: Files, hue: "lime" },
   find: { label: "Auf dem Bildschirm suchen", icon: MagnifyingGlass },
 };

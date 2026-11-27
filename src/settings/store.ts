@@ -179,6 +179,8 @@ export interface Settings {
   screenTime: { on: boolean };
   /** The Wallpapers tool: its source, its folder, the fit and the automatic change (src/features/wallpapers). */
   wallpapers: WallpaperSettings;
+  /** The Files tool (Windows): the folder its results go to, "" for beside the originals (src/features/files). */
+  files: { outDir: string };
 }
 
 const defaults: Settings = {
@@ -248,6 +250,7 @@ const defaults: Settings = {
   taskbar: TASKBAR_DEFAULTS,
   screenTime: { on: false },
   wallpapers: WALLPAPER_DEFAULTS,
+  files: { outDir: "" },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -384,6 +387,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     // Only an explicit true records: the switch is the consent.
     screenTime: { on: s.screenTime?.on === true },
     wallpapers: normalizeWallpapers(s.wallpapers),
+    files: { outDir: typeof s.files?.outDir === "string" ? s.files.outDir : "" },
   });
 }
 

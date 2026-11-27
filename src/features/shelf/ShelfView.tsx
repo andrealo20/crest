@@ -62,6 +62,9 @@ export function addToShelf(paths: string[]) {
   void probeFiles(paths).then(({ files }) => shelf.set((list) => addFiles(list, files, Date.now())));
 }
 
+/** The paths of the files on the Shelf, newest first (the Files tool takes them). */
+export const shelfFiles = (): string[] => shelf.get().flatMap((i) => (isText(i) ? [] : [i.path]));
+
 /** Thumbnails by file and size: the shelf is rebuilt on every opening, decoding a photo each time is slow. */
 const previews = new Map<string, Promise<string | null>>();
 const PREVIEWS_AT_ONCE = 2;

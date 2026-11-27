@@ -63,6 +63,8 @@ mod notify_wire;
 mod osd;
 mod picker;
 mod plugins;
+#[cfg(windows)]
+mod pomelo_engine;
 pub mod portable;
 mod ports;
 #[cfg(windows)]
@@ -562,6 +564,24 @@ pub fn run() {
             translate::translate_download,
             translate::translate_remove,
             translate::translate_file,
+            #[cfg(windows)]
+            pomelo_engine::files_engine_status,
+            #[cfg(windows)]
+            pomelo_engine::files_engine_download,
+            #[cfg(windows)]
+            pomelo_engine::files_engine_remove,
+            #[cfg(windows)]
+            pomelo_engine::files_catalog,
+            #[cfg(windows)]
+            pomelo_engine::files_run,
+            #[cfg(windows)]
+            pomelo_engine::files_cancel,
+            #[cfg(windows)]
+            pomelo_engine::files_license,
+            #[cfg(windows)]
+            pomelo_engine::files_pick_folder,
+            #[cfg(windows)]
+            pomelo_engine::files_buy,
             phone_share::phone_share_start,
             phone_share::phone_share_stop,
             timer_window::timer_window_open,
