@@ -41,9 +41,10 @@ const COMMON: Record<string, string[]> = {
 /**
  * The language of a song from its lines, or null when unclear. Scripts decide for Japanese (any kana), Korean, Chinese
  * and Russian; songs in Latin letters go to the language whose common words are most of the text. A song mostly in
- * English with a few words of another counts as English, so it is not translated.
+ * English with a few words of another counts as English, so it is not translated. `minWords` is how many common words a
+ * Latin text needs; the Translate tool asks for fewer, since a sentence there is shorter than a song.
  */
-export function detectLanguage(texts: string[]): string | null {
+export function detectLanguage(texts: string[], minWords = 5): string | null {
   const all = texts.join("\n");
   const count = (re: RegExp) => all.match(re)?.length ?? 0;
   const kana = count(/[぀-ヿ]/g), hangul = count(/[가-힯]/g), han = count(/[一-鿿]/g);
@@ -59,7 +60,7 @@ export function detectLanguage(texts: string[]): string | null {
   scores.sort((a, b) => b[1] - a[1]);
   const [best, second] = scores;
   // Too few known words, or two languages too close to call.
-  if (best[1] < 5 || best[1] < second[1] * 1.3) return null;
+  if (best[1] < minWords || best[1] < second[1] * 1.3) return null;
   return best[0];
 }
 

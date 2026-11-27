@@ -295,6 +295,7 @@ export const REGULAR = [
   "TextAa",
   "Thermometer",
   "Timer",
+  "Translate",
   "Tray",
   "VideoCamera",
   "Watch",

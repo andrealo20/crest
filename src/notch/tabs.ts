@@ -82,6 +82,8 @@ import { AgentsView } from "../features/agents/AgentsView";
 import { CalcView } from "../features/calc/CalcView";
 import { ScreenTimeView } from "../features/screentime/ScreenTimeView";
 import { WallpapersView } from "../features/wallpapers/WallpapersView";
+import { Translate } from "../ui/iconset";
+import { TranslateView } from "../features/translate/TranslateView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -155,6 +157,7 @@ export const tabs: NotchTab[] = ([
   { id: "calc", hue: "indigo", label: "Rechner", icon: Calculator, size: { w: 600, h: 320 }, View: CalcView },
   { id: "screentime", hue: "purple", label: "Bildschirmzeit", icon: Hourglass, size: { w: 600, h: 340 }, View: ScreenTimeView },
   { id: "wallpapers", hue: "sky", label: "Hintergründe", icon: ImageSquare, size: { w: 620, h: 440 }, View: WallpapersView },
+  { id: "translate", hue: "cyan", label: "Übersetzen", icon: Translate, size: { w: 640, h: 340 }, View: TranslateView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 /** Settings: reached via the gear, not in the tool bar. */

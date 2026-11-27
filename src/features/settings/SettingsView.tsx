@@ -107,6 +107,7 @@ import { HideFromSharingRow } from "../meeting/HideFromSharingRow";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
 import { HUE_PILL } from "../themes/themes";
 import { ClipboardSettings } from "../clipboard/ClipboardSettings";
+import { TranslateSettings } from "../translate/TranslateSettings";
 import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
 import { WidgetsPage } from "../taskbar/WidgetsPage";
 import { demoBarOffered } from "../taskbar/store";
@@ -160,6 +161,7 @@ const sectionPage: Record<string, PageId> = {
   design: "themes",
   system: "tools",
   launcher: "tools",
+  translate: "tools",
   github: "accounts",
   leetcode: "accounts",
   calendar: "accounts",
@@ -699,6 +701,7 @@ function PageContent({ page }: { page: PageId }) {
           {findTab("terminal") && <TerminalSettings />}
           {findTab("launcher") && <LauncherSettings />}
           <ClipboardSettings />
+          <TranslateSettings />
         </>
       )}
       {page === "timer" && (
