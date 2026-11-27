@@ -36,7 +36,7 @@ export const CATALOG: Group[] = [
       { name: "Live previews and jump lists", text: "Rest the pointer on an app and its windows show as live previews, as in Windows 11. A right click brings the app's jump list, with its tasks and recent files.", img: "/img/cat/bar-preview.webp", w: 760, h: 250, alt: "Two live previews of File Explorer windows over Crest's taskbar", win: true, noStore: true },
       { name: "Shapes, transparency and glass", text: "Docked along the whole edge, floating, a capsule as wide as its buttons, or tiles, at the height and icon size you like, as opaque or as clear as you want. Liquid Glass + draws a strong lens along the edge over a live copy of the screen, on Windows 11 24H2 and later on x64.", img: "/img/cat/bar-right.webp", w: 720, h: 140, alt: "The right end of Crest's taskbar over a blue wallpaper, the picture showing through it, with the battery charging and the clock", win: true, noStore: true },
       { name: "Status", text: "The network, the volume and the battery as one button, drawn as on an iPhone, with a quick panel for Wi-Fi, Bluetooth, volume and brightness.", img: "/img/cat/bar-status.webp", w: 560, h: 460, alt: "The quick panel over the taskbar: Wi-Fi, Bluetooth, volume, brightness and quick switches", win: true, noStore: true },
-      { name: "Search or open", text: "Apps, tools, settings with a value, widgets, files from Windows' index and quick answers, from the bar's search box or a shortcut. With Ask, a sentence becomes an action.", tool: "ask", win: true, noStore: true, fresh: "1.4" },
+      { name: "Search or open", text: "Apps, tools, settings with a value, widgets, files from Windows' index and quick answers, from the bar's search box or a shortcut. With Ask, a sentence becomes an action.", img: "/img/cat/search.webp", w: 460, h: 530, alt: "The bar's search panel open over the desktop, with Calculator found for calc and the search box on the bar under it", win: true, noStore: true, fresh: "1.4" },
     ],
   },
   {
@@ -83,8 +83,8 @@ export const CATALOG: Group[] = [
     name: "Pomelo",
     hue: "#ff8a3d",
     entries: [
-      { name: "Files", text: "Convert and edit images, PDFs, audio and video with Pomelo's conversions and tools. The originals never change; the results land beside them or on the Shelf. 20 files free, then a key for US$4.99 once.", tool: "shelf", win: true, fresh: "1.4" },
-      { name: "Pomelo wheel", text: "Drag files in File Explorer, hold Shift, Ctrl or Alt, and Pomelo's wheel of conversions appears. Off until you turn it on in the Pomelo page of the settings.", win: true, fresh: "1.4" },
+      { name: "Files", text: "Convert and edit images, PDFs, audio and video with Pomelo's conversions and tools. The originals never change; the results land beside them or on the Shelf. 20 files free, then a key for US$4.99 once.", img: "/img/cat/files.webp", w: 767, h: 348, alt: "The Files tool with four sample files from the Shelf and its actions", win: true, fresh: "1.4" },
+      { name: "Pomelo wheel", text: "Drag files in File Explorer, hold Shift, Ctrl or Alt, and Pomelo's wheel of conversions appears. Off until you turn it on in the Pomelo page of the settings.", img: "/img/cat/pomelo.webp", w: 767, h: 468, alt: "The Pomelo page of the settings, with the switch for the Pomelo wheel", win: true, fresh: "1.4" },
     ],
   },
   {
