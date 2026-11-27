@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /** Where the embedded app lives: the app's own dev server while developing, the built copy in ./demo/ otherwise. */
 export const DEMO_ORIGIN = import.meta.env.DEV ? "http://localhost:1420/" : "/demo/";
 export const DEMO_SRC = `${DEMO_ORIGIN}?demo&bare&open&tool=overview`;
-export const DEMO_FULL = `${DEMO_ORIGIN}?demo`;
+export const DEMO_FULL = `${DEMO_ORIGIN}?demo&wall=/img/wallpaper-try.webp&glassLive=0`;
 const DEMO_HOST = new URL(DEMO_ORIGIN, location.href).origin;
 
 export type DemoMessage =

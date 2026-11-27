@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
-import { ArrowUpRight, GithubLogo } from "./icons";
+import { ArrowUpRight, DownloadSimple, GithubLogo } from "./icons";
 import { News } from "./News";
 import { PixelReveal } from "./PixelReveal";
 import { Catalog } from "./Catalog";
@@ -91,8 +91,8 @@ function StickyBar() {
         <span>Crest</span>
       </a>
       <div className="sticky-actions">
-        <a className="btn btn-small btn-light" href={DEMO_FULL}>Try it</a>
-        <a className="btn btn-small sticky-get" href="#install">Get Crest</a>
+        <a className="btn btn-small btn-light btn-shine" href={DEMO_FULL}>Try it</a>
+        <a className="btn btn-small btn-pixel" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest</a>
       </div>
     </motion.div>
   );
@@ -234,8 +234,8 @@ function Hero() {
             </div>
           </div>
           <div className="actions">
-            <a className="btn" href={DEMO_FULL}>Try it in your browser</a>
-            <a className="btn btn-ghost" href="#install">Get Crest {RELEASE}</a>
+            <a className="btn btn-shine" href={DEMO_FULL}>Try it in your browser</a>
+            <a className="btn btn-pixel" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
           </div>
         </motion.div>
       </div>
@@ -292,7 +292,7 @@ function Closing() {
     <section className="sec closing" aria-labelledby="closing-title">
       <Rise><h2 id="closing-title">Rebuild yours in a minute.</h2></Rise>
       <Rise i={1} className="actions">
-        <a className="btn" href="#install">Get Crest {RELEASE}</a>
+        <a className="btn btn-pixel" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
         <a className="btn btn-ghost" href={DEMO_FULL}>Try it first</a>
       </Rise>
     </section>

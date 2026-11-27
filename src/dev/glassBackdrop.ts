@@ -1,5 +1,5 @@
 import type { GlassZone } from "../platform/native";
-import { demo, showcase } from "./showcase-data";
+import { demo, showcase, wall } from "./showcase-data";
 
 /*
  * Browser only: the screen behind the window for the glass (src/notch/glass/snapshot.ts), which the browser cannot copy. WebGL does not
@@ -11,9 +11,13 @@ import { demo, showcase } from "./showcase-data";
 
 let last: { key: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
 
+/** The desktop's picture (`&wall=`), drawn in the copy as DesktopMock shows it; the gradient until it has loaded. */
+const picture = wall ? Object.assign(new Image(), { src: wall }) : null;
+const pictureReady = () => !!picture?.complete && picture.naturalWidth > 0;
+
 /** The fake copy, `w` by `h` device pixels of the page; kept for the next peek of the same size and kind. */
 export function fakeBackdrop(w: number, h: number, kind: string | null): Uint8Array<ArrayBuffer> {
-  const key = `${w}x${h}|${kind}`;
+  const key = `${w}x${h}|${kind}|${pictureReady()}`;
   if (last?.key === key) return last.bytes;
   const canvas = document.createElement("canvas");
   canvas.width = w;
@@ -81,7 +85,11 @@ export function fakeLive(receive: (meta: unknown, data: ArrayBuffer) => void) {
 
 /** DesktopMock's dark desktop in CSS px of the page; the showcase and the demo have its clean one, without the window. */
 function desktop(ctx: CanvasRenderingContext2D, W: number, H: number) {
-  if (showcase || demo) {
+  if (picture && pictureReady()) {
+    // background-size: cover, centred
+    const k = Math.max(W / picture.naturalWidth, H / picture.naturalHeight), pw = picture.naturalWidth * k, ph = picture.naturalHeight * k;
+    ctx.drawImage(picture, (W - pw) / 2, (H - ph) / 2, pw, ph);
+  } else if (showcase || demo) {
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, "#2a3c9e");
     sky.addColorStop(0.55, "#121a5c");

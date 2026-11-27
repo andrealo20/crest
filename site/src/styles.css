@@ -1064,3 +1064,87 @@ details p {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Try it: a light sweeps across it and a ring pulses out of it, again and again, to invite the click. Still under reduced motion. */
+.btn-shine {
+  position: relative;
+  isolation: isolate;
+}
+.btn-shine::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px rgb(123 97 255 / 0.9), 0 0 22px 4px rgb(123 97 255 / 0.55);
+  opacity: 0;
+  pointer-events: none;
+  animation: shine-ring 2.6s ease-out infinite;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.5) 50%, transparent 65%) 150% 0 / 250% 100% no-repeat;
+  pointer-events: none;
+  animation: shine-sweep 2.6s ease-in-out infinite;
+}
+.btn-light.btn-shine::after {
+  background-image: linear-gradient(110deg, transparent 35%, rgb(123 97 255 / 0.4) 50%, transparent 65%);
+}
+@keyframes shine-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.97);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+}
+@keyframes shine-sweep {
+  0%,
+  35% {
+    background-position: 150% 0;
+  }
+  75%,
+  100% {
+    background-position: -50% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-shine::before,
+  .btn-shine::after {
+    animation: none;
+  }
+}
+
+/* Get Crest, pixelated like the logo: stepped corners and the whole button in small squares of the logo's colours. */
+.btn-pixel {
+  position: relative;
+  isolation: isolate;
+  border-radius: 0;
+  /* The gaps between the squares, the same colours fainter, so the words read on any page behind. */
+  background: linear-gradient(90deg, rgb(255 199 95 / 0.5), rgb(255 154 77 / 0.5), rgb(255 107 107 / 0.5), rgb(224 85 158 / 0.5), rgb(123 97 255 / 0.5));
+  color: #0f1015;
+  font-weight: 800;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 8px, 4px 8px, 4px 4px, 8px 4px);
+}
+.btn-pixel::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(90deg, #ffc75f, #ff9a4d, #ff6b6b, #e0559e, #7b61ff);
+  -webkit-mask:
+    repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px),
+    repeating-linear-gradient(0deg, #000 0 6px, transparent 6px 8px);
+  -webkit-mask-composite: source-in;
+  mask:
+    repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px),
+    repeating-linear-gradient(0deg, #000 0 6px, transparent 6px 8px);
+  mask-composite: intersect;
+}

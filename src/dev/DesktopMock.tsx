@@ -191,6 +191,7 @@ interface Quick {
 const QUICK: Quick[] = [
   { name: "Style", choices: [["Crest", "crest"], ["Material", "material"]], now: (s) => s.themes.design, set: (v) => (s) => ({ themes: { ...s.themes, design: v as Settings["themes"]["design"] } }) },
   { name: "Theme", choices: [["Dark", "dark"], ["Light", "light"], ["Dracula", "dracula"], ["Nord", "nord"]], now: (s) => s.themes.id, set: (v) => (s) => ({ themes: { ...s.themes, id: v } }) },
+  { name: "Notch glass", choices: [["Off", "off"], ["Liquid Glass", "on"]], now: (s) => (s.themes.glass ? "on" : "off"), set: (v) => (s) => ({ themes: { ...s.themes, glass: v === "on" } }) },
   { name: "Closed notch", choices: [["Notch", "notch"], ["Capsule", "capsule"], ["Line", "line"]], now: (s) => s.display.idleStyle, set: (v) => (s) => ({ display: { ...s.display, idleStyle: v as Settings["display"]["idleStyle"] } }) },
   { name: "Bar shape", choices: [["Docked", "docked"], ["Floating", "floating"], ["Capsule", "capsule"], ["Tiles", "tiles"]], now: (s) => s.taskbar.shape, set: (v) => (s) => ({ taskbar: { ...s.taskbar, shape: v as Settings["taskbar"]["shape"] } }) },
   {
