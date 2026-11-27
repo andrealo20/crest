@@ -15,7 +15,7 @@ use windows::Win32::System::Registry::{RegGetValueW, HKEY, HKEY_CLASSES_ROOT, HK
 
 /// A registry command line split as Windows reads it: words apart on spaces outside quotes, the quotes dropped.
 #[cfg(windows)]
-fn split_command(command: &str) -> Vec<String> {
+pub(crate) fn split_command(command: &str) -> Vec<String> {
     let mut words = Vec::new();
     let (mut word, mut quoted, mut any) = (String::new(), false, false);
     for c in command.chars() {
@@ -90,7 +90,7 @@ fn search_args(command: &str, query: &str) -> Option<Launch> {
 
 /// A string value from the registry, environment variables expanded; None when missing.
 #[cfg(windows)]
-fn reg_string(root: HKEY, path: &str, name: Option<&str>) -> Option<String> {
+pub(crate) fn reg_string(root: HKEY, path: &str, name: Option<&str>) -> Option<String> {
     let mut buf = [0u16; 2048];
     let mut size = (buf.len() * 2) as u32;
     let name = name.map(HSTRING::from);

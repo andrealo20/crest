@@ -2486,12 +2486,17 @@ export const filesEngine = {
   buy: (): Promise<void> => (isNative ? invoke("files_buy") : Promise.resolve()),
   /** Opens pomeloapp.net's page that sends a bought key again. */
   recover: (): Promise<void> => (isNative ? invoke("files_recover") : Promise.resolve()),
-  /** The key of a `crest://license` link, once; null without one, and always in the Store build and on a Mac, which have no links. */
-  linkKey: (): Promise<string | null> => (isNative ? invoke<string | null>("files_link_key").catch(() => null) : filesSample().then((m) => m.linkKey())),
-  /** A link brought a key while a licence panel is open: ask `linkKey`. */
+  /**
+   * The key of a `crest://license` link, once, when `take` (only the settings window's Pomelo licence panel takes it); null
+   * without one, and always in the Store build and on a Mac, which have no links. Any licence panel asks, so a copy can register
+   * the scheme.
+   */
+  linkKey: (take: boolean): Promise<string | null> =>
+    isNative ? invoke<string | null>("files_link_key", { take }).catch(() => null) : take ? filesSample().then((m) => m.linkKey()) : Promise.resolve(null),
+  /** A link brought a key while the settings window is open: ask `linkKey`. Heard in that window only. */
   onLinkKey(handler: () => void): () => void {
     if (!isNative) return () => {};
-    const off = listen("licence://key", handler);
+    const off = getCurrentWebviewWindow().listen("licence://key", handler);
     return () => void off.then((f) => f());
   },
 };

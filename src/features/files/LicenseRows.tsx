@@ -27,9 +27,9 @@ function activationError(a: Activation | string): string {
  * The licence's rows, the same under Settings > Tools > Files and in the Pomelo scope: one key and one count of free files for
  * the Files tool and the wheel, kept by the engine. `installed`: the package is there to ask; `refresh` changes ask again.
  * Buying is on Stripe, from the page the engine names; the key comes from Pomelo's service, by hand or by a `crest://license`
- * link, which only fills the field: the user activates it.
+ * link, which only fills the field of the panel it opens (`takesLink`): the user activates it.
  */
-export function LicenseRows({ installed, refresh = 0 }: { installed: boolean; refresh?: number }) {
+export function LicenseRows({ installed, refresh = 0, takesLink = false }: { installed: boolean; refresh?: number; takesLink?: boolean }) {
   const [license, setLicense] = useState<License | null>(null);
   const [key, setKey] = useState("");
   const [linked, setLinked] = useState(false);
@@ -41,15 +41,15 @@ export function LicenseRows({ installed, refresh = 0 }: { installed: boolean; re
   // A link's key, when the panel opens and while it stays open. Kept without the package, for once its download is done.
   useEffect(() => {
     const take = () =>
-      void filesEngine.linkKey().then((k) => {
+      void filesEngine.linkKey(takesLink).then((k) => {
         if (!k) return;
         setKey(k);
         setLinked(true);
         setNote(null);
       });
     take();
-    return filesEngine.onLinkKey(take);
-  }, []);
+    return takesLink ? filesEngine.onLinkKey(take) : undefined;
+  }, [takesLink]);
 
   const act = (work: Promise<unknown>) => {
     setBusy(true);

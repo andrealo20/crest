@@ -2,13 +2,18 @@
 //! the Pomelo scope, where only the user's click on Activate sends it to the engine. Never in the Store build.
 //!
 //! The installer registers the scheme (tauri.windows.conf.json, plugins.deep-link). A portable or test copy points it at its
-//! own exe for the current user (HKCU) the first time a licence panel opens in it. A link starts Crest with the link as its
-//! argument; a second start hands its arguments to the running one (single-instance), which comes here.
+//! own exe for the current user (HKCU) the first time a licence panel opens in it, but only while no other program that still
+//! exists holds it (an installed Crest keeps it). A link starts Crest with the link as its argument; a second start hands its
+//! arguments to the running one (single-instance), which comes here.
 
+use std::path::Path;
 use std::sync::{Mutex, Once};
 
 use tauri::{AppHandle, Emitter, Url};
 use tauri_plugin_deep_link::DeepLinkExt;
+use windows::Win32::System::Registry::HKEY_CLASSES_ROOT;
+
+use crate::browser_search::{reg_string, split_command};
 
 const SCHEME: &str = "crest";
 /// The keys' alphabet as the licence service makes them (no 0/O, 1/I/L), in four groups of five: `XXXXX-XXXXX-XXXXX-XXXXX`.
@@ -16,7 +21,7 @@ const ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 /// Far above any real link; a longer argument is not read.
 const MAX_LINK: usize = 256;
 
-/// The key of the last link, until a licence panel takes it.
+/// The key of the last link, until the settings window's Pomelo licence panel takes it.
 static PENDING: Mutex<Option<String>> = Mutex::new(None);
 
 /// A key in its one form: upper case, spaces taken out, then exactly the four groups of ALPHABET.
@@ -59,33 +64,79 @@ pub fn handle(app: &AppHandle, args: impl IntoIterator<Item = String>) -> bool {
         return true;
     };
     *PENDING.lock().unwrap() = Some(key);
-    // A panel already open takes it now; one that opens with the page takes it as it loads.
-    let _ = app.emit("licence://key", ());
+    // The settings window's panel takes it now if open, or as its page loads; never a panel elsewhere.
+    let _ = app.emit_to("settings", "licence://key", ());
     // The Pomelo scope is offered wherever links are (Windows, not the Store). Without the package its panel keeps the key
     // until the download beside it is done.
     crate::settings_window::open_settings(app, Some("pomelo-license".into()));
     true
 }
 
-/// The key of the last link, once, for the licence panel that asks. The first ask also points the scheme at this exe for the
-/// current user, if it does not already.
+/// Who answers the scheme now, from its command in HKCR (the user's over the machine's).
+#[derive(Debug, PartialEq)]
+enum Holder {
+    /// No one, or a program that is gone: this copy may take it.
+    Free,
+    Me,
+    /// Another program that exists, an installed Crest included: left as it is.
+    Other(String),
+}
+
+fn holder(command: Option<&str>, me: &Path, exists: impl Fn(&Path) -> bool) -> Holder {
+    let Some(exe) = command.and_then(|c| split_command(c).into_iter().next()).filter(|e| !e.is_empty()) else {
+        return Holder::Free;
+    };
+    let plain = |p: &str| p.trim_start_matches(r"\\?\").to_lowercase();
+    if plain(&exe) == plain(&me.to_string_lossy()) {
+        Holder::Me
+    } else if exists(Path::new(&exe)) {
+        Holder::Other(exe)
+    } else {
+        Holder::Free
+    }
+}
+
+/// The key of the last link, once, when `take` (the settings window's Pomelo licence panel). Every licence panel asks, and the
+/// first ask points the scheme at this exe for the current user when it is free.
 #[tauri::command]
-pub fn files_link_key(app: AppHandle) -> Option<String> {
+pub fn files_link_key(app: AppHandle, take: bool) -> Option<String> {
     static REGISTER: Once = Once::new();
     REGISTER.call_once(|| {
-        let links = app.deep_link();
-        if !links.is_registered(SCHEME).unwrap_or(false) {
-            if let Err(e) = links.register(SCHEME) {
-                eprintln!("licence link: could not register {SCHEME}: {e}");
+        let Ok(me) = std::env::current_exe() else { return };
+        match holder(reg_string(HKEY_CLASSES_ROOT, r"crest\shell\open\command", None).as_deref(), &me, |p| p.is_file()) {
+            Holder::Me => {}
+            Holder::Other(exe) => eprintln!("licence link: {SCHEME}: belongs to {exe}, left as it is"),
+            Holder::Free => {
+                if let Err(e) = app.deep_link().register(SCHEME) {
+                    eprintln!("licence link: could not register {SCHEME}: {e}");
+                }
             }
         }
     });
-    PENDING.lock().unwrap().take()
+    if take {
+        PENDING.lock().unwrap().take()
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_scheme_is_taken_only_when_free_or_its_program_is_gone() {
+        let me = Path::new(r"D:\Crest portable\Crest.exe");
+        let there = |p: &Path| p.to_string_lossy().starts_with(r"C:\Program Files");
+        assert_eq!(holder(None, me, there), Holder::Free);
+        assert_eq!(holder(Some(""), me, there), Holder::Free);
+        assert_eq!(holder(Some(r#""D:\crest PORTABLE\crest.exe" "%1""#), me, there), Holder::Me);
+        assert_eq!(holder(Some(r#""\\?\D:\Crest portable\Crest.exe" "%1""#), me, there), Holder::Me);
+        // An installed Crest, or any other program that is there, keeps it.
+        assert_eq!(holder(Some(r#""C:\Program Files\Crest\Crest.exe" "%1""#), me, there), Holder::Other(r"C:\Program Files\Crest\Crest.exe".into()));
+        // A portable or test copy since deleted gives it up.
+        assert_eq!(holder(Some(r#""E:\old copy\Crest.exe" "%1""#), me, there), Holder::Free);
+    }
 
     const KEY: &str = "ABCDE-FGHJK-MNPQR-STUV2";
 
