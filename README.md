@@ -104,8 +104,6 @@ The [1.3.2 release](https://github.com/andrealo20/crest/releases/tag/v1.3.2) has
 
 ## What's new in 1.3.0
 
-<p align="center"><img src="docs/media/features/crest-1.3.gif" alt="Crest 1.3.0: a window slides under the taskbar's Liquid Glass + and bends through it, holding the pointer on an app shows live previews of its windows, the Crest menu opens with Task Manager, a widget is dragged along the bar, and the settings window in the Material style has contour lines moving behind its pages" width="760" /></p>
-
 - **A taskbar of its own**: Settings → Taskbar puts Crest's bar in place of the Windows taskbar, in four shapes (Docked, Floating, Capsule and Tiles), with your pinned apps and open windows, the Notification area and a quick panel for Wi-Fi, Bluetooth and the volume. On Windows, off by default, not in the Microsoft Store version for now.
 - **Live previews** of an app's windows above its button, and a Crest menu with Task Manager, Add widget and Auto-hide.
 - **Widgets from your tools** on the bar: Weather, Clock, Hardware and Timer, each in the version you pick, and buttons for the other tools. Drag them along the bar to move them.
