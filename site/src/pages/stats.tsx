@@ -144,7 +144,7 @@ function StatsPage() {
           Cloudflare, which serves this site, tells the counter which country a request came from. The address itself is not stored or logged. Each day's countries, systems and versions are deleted just after midnight UTC; only that day's total stays, for the line of the last 30 days.
         </p>
         <p>
-          To leave the count, turn it off in Crest's Settings. The code of the counter is in the repository, in <a href={`${REPO}/tree/main/site/stats-worker`}>site/stats-worker</a>.
+          To leave the count, turn off Count this install in Crest's Settings, General, Updates. The code of the counter is in the repository, in <a href={`${REPO}/tree/main/site/stats-worker`}>site/stats-worker</a>.
         </p>
       </section>
     </Page>

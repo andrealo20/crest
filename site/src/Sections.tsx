@@ -109,7 +109,7 @@ export function Make() {
 
 const FACTS: [string, string][] = [
   ["Accounts", "None. Crest has no server of its own and no account to sign in to."],
-  ["Tracking", "No analytics and no tracking. Once a day Crest counts itself for the public stats page: its version, Windows or Mac and where it was installed from, with no ID. A switch in Settings turns it off."],
+  ["Tracking", "No analytics and no tracking. Once a day Crest counts itself for the public stats page: its version, Windows or Mac and where it was installed from, with no ID. Count this install, in Settings, General, turns it off."],
   ["Your keys", "In the Windows Credential Manager (the Keychain on a Mac), never in a plain file."],
   ["The vault", "Encrypted with Windows DPAPI under your account, and sealed again with a key from your PC's security chip when Windows Hello is on."],
   ["The clipboard", "History is kept in memory only. Password managers are left out on purpose."],
