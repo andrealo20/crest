@@ -975,9 +975,11 @@ export interface QuickState {
   dark: boolean;
   /** The default microphone is muted; null when the PC has no microphone (mic.rs). */
   micMuted: boolean | null;
+  /** Hibernation is on in Windows, so Overview shows its button (#103); always false on a Mac. */
+  hibernate: boolean;
 }
-export type PowerAction = "lock" | "sleep" | "restart" | "shutdown";
-const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true, micMuted: false };
+export type PowerAction = "lock" | "sleep" | "hibernate" | "restart" | "shutdown";
+const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true, micMuted: false, hibernate: true };
 /** The quick panel's Wi-Fi page in the dev server: one network of each kind. */
 const SAMPLE_WIFI: WifiList = {
   state: "allowed",
@@ -1594,7 +1596,7 @@ export const taskbar = {
   /** Tells the notch the tool the bar's panel shows, or null once it closes or shows the tray, the apps or the quick panel. */
   panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
   /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
-  autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
+  autoHide: (on: boolean, activeOnly: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on, activeOnly }) : Promise.resolve()),
   /** How many bars cannot slide away: their work area ends above the monitor's bottom edge, or another monitor lies below. 0 while the bar is off. The settings only. */
   slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
   /** Whether a docked bar with auto-hide off can reserve its strip: false while another program stands in for Windows' taskbar. The settings only. */
