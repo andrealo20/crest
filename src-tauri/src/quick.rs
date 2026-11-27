@@ -23,6 +23,8 @@ pub struct Quick {
     dark: bool,
     /// The default microphone is muted; None: no microphone (mic.rs).
     mic_muted: Option<bool>,
+    /// Hibernation is on, so Overview shows its button (#103).
+    hibernate: bool,
 }
 
 fn kind_of(name: &str) -> Option<RadioKind> {
@@ -71,7 +73,7 @@ pub async fn quick_get() -> Result<Quick, String> {
     blocking(|| {
         // One read of the list for both radios.
         let list = radios().unwrap_or_default();
-        Quick { wifi: radio_on(&list, RadioKind::WiFi), bluetooth: radio_on(&list, RadioKind::Bluetooth), dark: dark(), mic_muted: crate::mic::muted() }
+        Quick { wifi: radio_on(&list, RadioKind::WiFi), bluetooth: radio_on(&list, RadioKind::Bluetooth), dark: dark(), mic_muted: crate::mic::muted(), hibernate: unsafe { windows::Win32::System::Power::IsPwrHibernateAllowed() } }
     })
     .await
 }
@@ -117,7 +119,7 @@ pub fn quick_dark(on: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// "lock", "sleep", "restart" or "shutdown". The frontend asks for a second click before the last three.
+/// "lock", "sleep", "hibernate", "restart" or "shutdown". The frontend asks for a second click before all but lock.
 #[tauri::command(async)]
 pub fn quick_power(action: String) -> Result<(), String> {
     use windows::Win32::System::Power::SetSuspendState;
@@ -126,6 +128,7 @@ pub fn quick_power(action: String) -> Result<(), String> {
         "lock" => unsafe { LockWorkStation() }.map_err(|e| e.to_string()),
         // Not hibernate, not forced, wake events kept.
         "sleep" => unsafe { SetSuspendState(false, false, false) }.then_some(()).ok_or_else(|| "failed".to_string()),
+        "hibernate" => unsafe { SetSuspendState(true, false, false) }.then_some(()).ok_or_else(|| "failed".to_string()),
         "restart" | "shutdown" => {
             use std::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;

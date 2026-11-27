@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowClockwise, Bed, Lock, Microphone, MicrophoneSlash, Power, MoonStars, type Icon } from "../../ui/iconset";
+import { ArrowClockwise, Bed, HardDrives, Lock, Microphone, MicrophoneSlash, Power, MoonStars, type Icon } from "../../ui/iconset";
 import { springs } from "../../design/motion";
 import { systemControls, type PowerAction, type QuickState } from "../../platform/services";
 import type { Hue } from "../themes/hues";
@@ -87,6 +87,7 @@ export function QuickControls({ state, reload }: { state: QuickState; reload: ()
       </span>
       <PowerButton icon={Lock} label={t("Sperren")} action="lock" onError={job.fail} />
       <PowerButton icon={Bed} label={t("Energie sparen")} action="sleep" confirm onError={job.fail} />
+      {state.hibernate && <PowerButton icon={HardDrives} label={t("Ruhezustand")} action="hibernate" confirm onError={job.fail} />}
       <PowerButton icon={ArrowClockwise} label={t("Neu starten")} action="restart" confirm onError={job.fail} />
       <PowerButton icon={Power} label={t("Herunterfahren")} action="shutdown" confirm onError={job.fail} />
     </div>

@@ -13,6 +13,8 @@ pub struct Quick {
     bluetooth: Option<bool>,
     dark: bool,
     mic_muted: Option<bool>,
+    /// No hibernate button on a Mac.
+    hibernate: bool,
 }
 
 fn output(cmd: &str, args: &[&str]) -> Option<String> {
@@ -53,6 +55,7 @@ pub async fn quick_get() -> Result<Quick, String> {
         // Unset in light mode: `defaults` then fails.
         dark: output("/usr/bin/defaults", &["read", "-g", "AppleInterfaceStyle"]).is_some_and(|s| s.trim() == "Dark"),
         mic_muted: crate::mic::muted(),
+        hibernate: false,
     })
     .await
     .map_err(|e| e.to_string())
