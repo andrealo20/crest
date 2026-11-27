@@ -4,9 +4,7 @@ import { design } from "../../../design/design";
 import { t } from "../../../i18n";
 import { HeaderButton } from "../../../notch/header";
 import { isNative } from "../../../platform/native";
-import { Segmented } from "../../../ui/controls";
-import { useTaskbarShown } from "../../taskbar/TaskbarSettings";
-import { savedPage, SettingsView } from "../SettingsView";
+import { ScopeSwitch, SettingsView, useScopes } from "../SettingsView";
 
 const close = () => isNative && void getCurrentWindow().close();
 
@@ -16,26 +14,16 @@ const drag = (e: React.MouseEvent) => {
 
 /**
  * The settings window: a title row to drag the window by and to close it, then the settings as the notch shows them. Where the
- * Taskbar settings show, the title gives way to the switch between the Notch's pages and the Taskbar's, which opens the last
- * page used on that side. Under Material the settings draw that row's actions in their own page header.
+ * Taskbar's or Pomelo's settings show, the title gives way to the switch between the Notch's pages, the Taskbar's and Pomelo's,
+ * which opens the last page used on that side. Under Material the settings draw that row's actions in their own page header.
  * No data-tauri-drag-region: its double click asks for a maximize the window cannot do.
  */
 export function SettingsWindow() {
-  const taskbarShown = useTaskbarShown();
-  const { scope } = savedPage.use();
+  const scopes = useScopes();
   const material = design.use() === "material";
-  const scopeSwitch = taskbarShown && (
-    <Segmented
-      id="settings-scope"
-      label={t("Einstellungen")}
-      value={scope}
-      onChange={(next) => savedPage.set((s) => ({ ...s, scope: next }))}
-      options={[
-        { value: "notch", label: t("Notch") },
-        { value: "taskbar", label: t("Taskleiste") },
-      ]}
-    />
-  );
+  // Only with more than the notch's scope: the Taskbar's where the bar can run, Pomelo's on Windows outside the Store.
+  const taskbarShown = scopes.length > 1;
+  const scopeSwitch = taskbarShown && <ScopeSwitch scopes={scopes} />;
   if (material)
     return (
       <div className="flex h-full flex-col bg-notch">

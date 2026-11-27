@@ -345,6 +345,15 @@ Details: [themes.md](themes.md).
 - The first files are free; after that a key costs US$4.99 once and works in every version of Crest that has the tool. The key is entered under **Settings → Tools → Files**, with **Activate** and **Deactivate**. The free count and the key are checked by the program, not by Crest.
 - Network: Crest itself connects only for the download you ask for. Activating or checking a key is done by the program, which sends the key and a name for this PC to the shop's licence service; files are converted on the PC and never sent anywhere.
 
+## Pomelo wheel
+
+The **Pomelo** scope of the settings window (beside **Notch** and **Taskbar**, Windows only, not in the Microsoft Store version) runs Pomelo's wheel: drag files in File Explorer and hold Shift, Ctrl or Alt, and a wheel with Pomelo's conversions and tools appears.
+
+- The wheel is `Pomelo.exe`, a separate, closed-source program in the same download as the Files tool's program (package 1.1.0 or later; an older one offers **Update the program**). It is not part of Crest and not under its GPL-3.0; Crest only starts it, and `src-tauri/src/pomelo_engine/wheel.rs` is the bridge.
+- The **Pomelo wheel** switch is off by default, and nothing runs while it is off. On, Crest starts the wheel with itself and ends it when it quits, starts it again if it crashes (at most three times in five minutes, then the page says so), and shows whether it is listening. Pomelo from the Microsoft Store takes the same drag, so while it runs the wheel here does not start, and the page warns when it is installed.
+- The free files and the key are the Files tool's: one count for both, 20 free files and then 2 a day, US$4.99 once for no limit. The other pages of the scope are Pomelo's own settings, drawn by Crest from the list the program gives and checked by the program at every change.
+- Network: Crest connects only for the download you ask for. The wheel itself goes online only for the key, as the Files tool's program does; files are converted on the PC and never sent anywhere.
+
 ## Taskbar
 
 **Settings → Taskbar → Appearance** sets the look of Crest's own taskbar (Windows):

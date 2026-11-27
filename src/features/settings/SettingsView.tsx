@@ -5,9 +5,14 @@ import {
   ArrowsInLineHorizontal,
   BellSimple,
   CheckCircle,
+  CircleNotch,
   Columns,
   DotsSixVertical,
+  Files,
+  Folder,
+  GearSix,
   Keyboard,
+  Leaf,
   LockSimple,
   MagnifyingGlass,
   Monitor,
@@ -55,7 +60,7 @@ import { Contours } from "./Contours.tsx";
 import { brandOf, styledPoints } from "../system/hero";
 import { MorphPath } from "../system/Morph";
 import { diagnosticsText } from "./diagnostics";
-import { cascades, shellLayout, showsHeaderTitle } from "./shell";
+import { cascades, scopeOptions, shellLayout, showsHeaderTitle } from "./shell";
 import { cascadeDelay } from "../../ui/cascade";
 import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
@@ -100,7 +105,7 @@ import { SizeSettings } from "../../notch/SizeSettings";
 import { PortableNote } from "../portable/PortableNote";
 import { between, changelog, markSeen, useUnseen } from "../../lib/changelog";
 import { privacy, togglePresentation, usePresenting } from "../privacy/store";
-import { english, LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting } from "../../i18n";
+import { english, language, LANGUAGE_NAMES, LANGUAGES, t, tBackend, type LanguageSetting } from "../../i18n";
 import { ChangelogList } from "../whatsnew/ChangelogList";
 import { isMac } from "../../platform/native";
 import { ThemeSettings } from "../themes/ThemeSettings";
@@ -112,10 +117,35 @@ import { TranslateSettings } from "../translate/TranslateSettings";
 import { TaskbarApps, TaskbarGeneral, TaskbarItems, TaskbarLook, useTaskbarShown } from "../taskbar/TaskbarSettings";
 import { WidgetsPage } from "../taskbar/WidgetsPage";
 import { demoBarOffered } from "../taskbar/store";
+import { PomeloMain, PomeloSchemaPage } from "../pomelo/PomeloSettings";
+import { loadSchema, pomeloOffered, schema } from "../pomelo/store";
+import { engine, loadEngine } from "../files/store";
 
-type PageId = "general" | "display" | "window" | "tools" | "timer" | "ai" | "accounts" | "themes" | "notices" | "plugins" | "taskbar" | "taskbar-items" | "taskbar-widgets" | "taskbar-apps" | "taskbar-look";
+type PageId =
+  | "general"
+  | "display"
+  | "window"
+  | "tools"
+  | "timer"
+  | "ai"
+  | "accounts"
+  | "themes"
+  | "notices"
+  | "plugins"
+  | "taskbar"
+  | "taskbar-items"
+  | "taskbar-widgets"
+  | "taskbar-apps"
+  | "taskbar-look"
+  | "pomelo"
+  // The pages of Pomelo's settings schema, by their id.
+  | `pomelo-${string}`;
 
-const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
+/** A page of the navigation; `raw`: its label is already in the interface language (the Pomelo schema's titles). */
+type NavPage = { id: PageId; label: string; icon: Icon; hue: Hue; raw?: boolean };
+const pageName = (p: NavPage) => (p.raw ? p.label : t(p.label));
+
+const allPages: NavPage[] = [
   { id: "general", label: "Allgemein", icon: SlidersHorizontal, hue: "slate" },
   { id: "display", label: "Darstellung", icon: Monitor, hue: "blue" },
   { id: "window", label: "Fenster", icon: AppWindow, hue: "indigo" },
@@ -133,9 +163,50 @@ const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
   { id: "taskbar-look", label: "Aussehen", icon: PaintBrush, hue: "pink" },
 ];
 
-/** The settings window's switch shows one scope's pages: the notch's, with those of the whole app, or the taskbar's. */
-type Scope = "notch" | "taskbar";
-const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : "notch");
+/** The settings window's switch shows one scope's pages: the notch's, with those of the whole app, the taskbar's, or Pomelo's. */
+type Scope = "notch" | "taskbar" | "pomelo";
+const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : page.startsWith("pomelo") ? "pomelo" : "notch");
+
+const POMELO_MAIN: NavPage = { id: "pomelo", label: "Pomelo", icon: Leaf, hue: "lime" };
+/** The schema's icons, generic names, as Crest's; any other is a gear. */
+const POMELO_ICONS: Record<string, Icon> = {
+  general: SlidersHorizontal,
+  wheel: CircleNotch,
+  appearance: PaintBrush,
+  files: Files,
+  folders: Folder,
+  recipes: Sparkle,
+  keyboard: Keyboard,
+  notifications: BellSimple,
+};
+
+/** Pomelo's pages where the scope is offered: its first page, then the schema's once loaded. */
+function usePomeloPages(): NavPage[] {
+  const loaded = schema.use();
+  if (!pomeloOffered) return [];
+  const own = (loaded?.pages ?? []).map((p): NavPage => ({ id: `pomelo-${p.id}`, label: p.title, icon: POMELO_ICONS[p.icon ?? ""] ?? GearSix, hue: "lime", raw: true }));
+  return [POMELO_MAIN, ...own];
+}
+
+/** The switch between the scopes, in the window's title row (or the demo's panel). */
+export function ScopeSwitch({ scopes }: { scopes: Scope[] }) {
+  const { scope } = savedPage.use();
+  const label: Record<Scope, string> = { notch: t("Notch"), taskbar: t("Taskleiste"), pomelo: t("Pomelo") };
+  return (
+    <Segmented
+      id="settings-scope"
+      label={t("Einstellungen")}
+      value={scope}
+      onChange={(next) => savedPage.set((s) => ({ ...s, scope: next }))}
+      options={scopes.map((value) => ({ value, label: label[value] }))}
+    />
+  );
+}
+
+/** The scopes this window offers. */
+export function useScopes(): Scope[] {
+  return scopeOptions(useTaskbarShown(), pomeloOffered);
+}
 
 /** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. Every page's own id opens it too, at its top. */
 const sectionPage: Record<string, PageId> = {
@@ -174,13 +245,17 @@ const sectionPage: Record<string, PageId> = {
   "taskbar-widgets": "taskbar-widgets",
   "taskbar-apps": "taskbar-apps",
   "taskbar-look": "taskbar-look",
+  pomelo: "pomelo",
 };
+
+/** The page of a section: one of the list, or a page of Pomelo's schema (`pomelo-<id>`, which Pomelo asks for itself). */
+const pageOfSection = (section: string): PageId | undefined => sectionPage[section] ?? (/^pomelo-[a-z0-9-]+$/.test(section) ? (section as PageId) : undefined);
 
 /**
  * The open scope and the last page of each, which the settings window's switch reads and sets. They survive closing/opening the
  * notch (the component is rebuilt).
  */
-export const savedPage = createStore<{ scope: Scope } & Record<Scope, PageId>>({ scope: "notch", notch: "general", taskbar: "taskbar" });
+export const savedPage = createStore<{ scope: Scope } & Record<Scope, PageId>>({ scope: "notch", notch: "general", taskbar: "taskbar", pomelo: "pomelo" });
 
 /** Opens a page, which becomes the last one of its scope. */
 function openPage(page: PageId) {
@@ -191,7 +266,7 @@ function openPage(page: PageId) {
 // A section asked for opens its page as it comes, so a view built after it shows that page from its first frame (the settings
 // window gets its first section while it loads). The view scrolls to the section.
 nav.subscribe(() => {
-  const page = sectionPage[nav.get().section ?? ""];
+  const page = pageOfSection(nav.get().section ?? "");
   if (!page) return;
   linkedPage = page;
   openPage(page);
@@ -244,11 +319,13 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const demoBar = demoBarOffered.use();
   const material = design.use() === "material";
   const reduced = useReducedMotion() === true;
+  const pomeloPages = usePomeloPages();
   // Plugin pages are served over http://crestplugin.localhost, which only works on Windows, and live notices have no Mac
   // version (the tool is in WINDOWS_ONLY, src/notch/tabs.ts). The Taskbar's pages show only where the bar can run.
-  const pages = allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(isMac && (p.id === "plugins" || p.id === "notices"))));
-  // A page the list does not show (the Taskbar's, once they hide) falls back to General.
-  const page = pages.some((p) => p.id === saved[saved.scope]) ? saved[saved.scope] : "general";
+  const pages = [...allPages.filter((p) => (scopeOf(p.id) === "taskbar" ? taskbarShown : !(isMac && (p.id === "plugins" || p.id === "notices")))), ...pomeloPages];
+  // A page the list does not show (the Taskbar's, once they hide; a schema page not loaded yet) falls back to its scope's first, then General.
+  const page = pages.some((p) => p.id === saved[saved.scope]) ? saved[saved.scope] : (pages.find((p) => scopeOf(p.id) === saved.scope)?.id ?? "general");
+  const info = pages.find((p) => p.id === page) ?? allPages[0];
   const iconColors = useIconColors();
   const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -261,6 +338,15 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const hidden = useRef<HTMLDivElement>(null);
   const searching = query.trim() !== "";
   const results = searching ? searchSettings(rows, query) : [];
+  // Pomelo's schema is asked for only once its scope is opened or a search would look into it: nothing runs for the others.
+  const lang = language.use();
+  const wheelPackage = engine.use()?.wheel;
+  const wantsSchema = pomeloOffered && (scopeOf(page) === "pomelo" || searching);
+  useEffect(() => {
+    if (!wantsSchema) return;
+    if (wheelPackage === undefined) void loadEngine();
+    else loadSchema(lang);
+  }, [wantsSchema, wheelPackage, lang]);
   // Text the bar's search sent: into the field, once.
   const asked = settingsQuery.use();
   useEffect(() => {
@@ -403,18 +489,8 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   const scopePages = pages.filter((p) => scopeOf(p.id) === scopeOf(page));
   // The site's full-screen demo shows the settings in the notch's panel (src/dev/demoBar.tsx): the Notch | Taskbar switch the app's
   // settings window draws in its title row goes over the page there. Never in the app, whose window has its own.
-  const scopeSwitch = demoBar && taskbarShown && (
-    <Segmented
-      id="settings-scope"
-      label={t("Einstellungen")}
-      value={saved.scope}
-      onChange={(next) => savedPage.set((s) => ({ ...s, scope: next }))}
-      options={[
-        { value: "notch", label: t("Notch") },
-        { value: "taskbar", label: t("Taskleiste") },
-      ]}
-    />
-  );
+  const scopes = scopeOptions(taskbarShown, pomeloOffered);
+  const scopeSwitch = demoBar && scopes.length > 1 && <ScopeSwitch scopes={scopes} />;
   // Material's items: pills with their name in the list, round icons in the rail and the row on top.
   const item = compact ? "size-10 shrink-0 justify-center" : "h-12 shrink gap-3 px-3 text-start text-body font-medium";
   const materialNav = (
@@ -430,7 +506,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
       )}
       {scopePages.map((p) => {
         const active = p.id === page && !searching;
-        const name = t(p.label);
+        const name = pageName(p);
         return (
           <button
             key={p.id}
@@ -472,7 +548,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
     <header className="relative flex h-14 shrink-0 items-center gap-2 ps-4 pe-2" onMouseDown={chrome.onDrag}>
       {compact && fieldShown
         ? searchPill("min-w-0 flex-1")
-        : showsHeaderTitle(width, !!chrome.center) && <h2 className="truncate text-display font-medium text-label">{t(allPages.find((p) => p.id === page)!.label)}</h2>}
+        : showsHeaderTitle(width, !!chrome.center) && <h2 className="truncate text-display font-medium text-label">{pageName(info)}</h2>}
       {chrome.center && !(compact && fieldShown) && <div className="absolute left-1/2 -translate-x-1/2">{chrome.center}</div>}
       <button
         aria-label={t("Schließen")}
@@ -495,13 +571,13 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
           className="absolute inset-0 flex flex-col gap-4 overflow-y-auto pb-6 [scrollbar-width:none] roomy:gap-3"
           // The rows' icon circles take the page's hue from here (Row in controls.tsx).
           data-row-hues={iconColors || undefined}
-          style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)", "--row-hue": hueVar(allPages.find((p) => p.id === page)!.hue) } as MotionStyle}
+          style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 28px), transparent)", "--row-hue": hueVar(info.hue) } as MotionStyle}
           {...(view.cascade
             ? { initial: "hidden", animate: "shown", variants: PAGE_CASCADE }
             : { initial: { opacity: 0 }, animate: { opacity: 1, transition: content.enter } })}
           exit={{ opacity: 0, transition: content.exit }}
         >
-          {searching ? <SearchResults hits={results} onOpen={openHit} /> : <PageContent page={page} />}
+          {searching ? <SearchResults hits={results} pages={pages} onOpen={openHit} /> : <PageContent page={page} />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -602,7 +678,7 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
                 {active && <motion.span layoutId="settings-page" className="absolute inset-0 rounded-[8px] bg-fill-2" transition={springs.snappy} />}
                 <p.icon size={15} weight={active ? "fill" : "bold"} className="relative shrink-0" style={iconColors ? { color: hueVar(p.hue) } : undefined} />
                 {/* Wraps like the bug report below: "Apps und Fenster" is longer than the column in most languages. */}
-                <span className="relative leading-tight">{t(p.label)}</span>
+                <span className="relative leading-tight">{pageName(p)}</span>
               </button>
             );
           })}
@@ -631,14 +707,16 @@ export function SettingsView({ chrome }: { chrome?: Chrome }) {
   );
 }
 
-function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void }) {
+function SearchResults({ hits, pages, onOpen }: { hits: Hit[]; pages: NavPage[]; onOpen: (h: Hit) => void }) {
   if (!hits.length) return <div className="px-3 pt-2 text-caption text-label-3">{t("Nichts gefunden")}</div>;
   return (
     <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-[12px] bg-fill-1 material:divide-y-0 material:rounded-[24px] material:p-2">
       {hits.map((h) => {
-        const pageName = t(allPages.find((p) => p.id === h.page)!.label);
+        const found = pages.find((p) => p.id === h.page);
+        const name = found ? pageName(found) : "";
         // The Taskbar's General and the Notch's would read alike.
-        const scopeName = scopeOf(h.page) === "taskbar" ? t("Taskleiste") : "";
+        const scope = scopeOf(h.page);
+        const scopeName = scope === "taskbar" ? t("Taskleiste") : scope === "pomelo" && h.page !== "pomelo" ? t("Pomelo") : "";
         return (
           <button
             key={`${h.page}|${h.groupId}|${h.label}`}
@@ -647,7 +725,7 @@ function SearchResults({ hits, onOpen }: { hits: Hit[]; onOpen: (h: Hit) => void
           >
             <span className="flex items-baseline justify-between gap-3">
               <span className="truncate text-body text-label">{h.label}</span>
-              <span className="shrink-0 text-caption text-label-4 material:text-label-2">{[...new Set([scopeName, pageName, h.group])].filter(Boolean).join(" · ")}</span>
+              <span className="shrink-0 text-caption text-label-4 material:text-label-2">{[...new Set([scopeName, name, h.group])].filter(Boolean).join(" · ")}</span>
             </span>
             {h.hint && <span className="text-caption text-label-3">{h.hint}</span>}
           </button>
@@ -741,6 +819,8 @@ function PageContent({ page }: { page: PageId }) {
       {page === "taskbar-widgets" && <WidgetsPage />}
       {page === "taskbar-apps" && <TaskbarApps />}
       {page === "taskbar-look" && <TaskbarLook />}
+      {page === "pomelo" && <PomeloMain />}
+      {page.startsWith("pomelo-") && <PomeloSchemaPage id={page.slice("pomelo-".length)} />}
     </>
   );
 }

@@ -1,0 +1,220 @@
+import { useEffect, useState } from "react";
+import { formatBytes } from "../../lib/format";
+import { isNative } from "../../platform/native";
+import { filesEngine, pomeloWheel } from "../../platform/services";
+import { settings, updateSettings } from "../../settings/store";
+import { Button, Group, Row, Segmented, Select, Slider, Switch, TextField } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
+import { language, t } from "../../i18n";
+import { engineLang } from "../files/model";
+import { LicenseRows } from "../files/LicenseRows";
+import { cancelDownload, download, downloadFailed, downloading, engine, loadEngine } from "../files/store";
+import { listText, packageNeed, parseList, parseWhole, shownRows, valueOf, type Control, type RowType, type SchemaRow, type WheelState } from "./model";
+import { followWheel, forgetSchema, pomeloValues, schema, setPomeloValue, wheelState } from "./store";
+
+/*
+ * The Pomelo scope of the settings window: its first page (the wheel, the package, the licence), then the pages of Pomelo's own
+ * settings as the engine's schema gives them, drawn with Crest's controls. Every change goes through the engine, which checks it.
+ */
+
+type Need = ReturnType<typeof packageNeed>;
+
+function stateText(s: WheelState, on: boolean, need: Need | null): string {
+  if (!on) return t("Aus");
+  if (need !== "ready" || s.phase === "missing") return t("Diesem Paket fehlt das Rad: Programm aktualisieren");
+  if (s.phase === "conflict") return t("Pomelo aus dem Microsoft Store läuft schon. Schließe es und versuche es noch einmal.");
+  if (s.phase === "crashed") return t("Mehrmals abgestürzt. Versuche es noch einmal.");
+  if (s.phase === "ready") return s.locked ? t("Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr") : t("Läuft und wartet auf gezogene Dateien");
+  return t("Startet …");
+}
+
+/** The scope's first page. */
+export function PomeloMain() {
+  const status = engine.use();
+  const wheel = wheelState.use();
+  const on = settings.use().pomelo.wheel;
+  const lang = language.use();
+  const progress = downloading.use();
+  const failed = downloadFailed.use();
+  const [store, setStore] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    void loadEngine();
+    followWheel();
+    void pomeloWheel.storeInstalled().then(setStore, () => {});
+  }, []);
+
+  const need = status ? packageNeed(status) : null;
+  const setOn = (wheel: boolean) => {
+    updateSettings((s) => ({ pomelo: { ...s.pomelo, wheel } }));
+    // In the app the notch sends the switch (store.ts startPomeloWheel); the browser has no notch behind this page.
+    if (!isNative) void pomeloWheel.set(wheel, engineLang(lang));
+  };
+  const retry = on && need === "ready" && (wheel.phase === "conflict" || wheel.phase === "crashed" || wheel.phase === "missing");
+  const remove = () => {
+    setBusy(true);
+    setNote(null);
+    filesEngine
+      .remove()
+      .then(forgetSchema)
+      .catch((e) => setNote(String(e) === "wheel" ? t("Zuerst das Pomelo-Rad ausschalten") : t("Fehlgeschlagen")))
+      .finally(() => {
+        setBusy(false);
+        void loadEngine();
+      });
+  };
+  const packageHint = progress
+    ? progress.total
+      ? `${formatBytes(progress.done)} / ${formatBytes(progress.total)}`
+      : formatBytes(progress.done)
+    : (note ??
+      failed ??
+      (need === "ready"
+        ? t("Version {v}", { v: status?.version ?? "" })
+        : !status?.available
+          ? t("Das Programm ist noch nicht verfügbar")
+          : need === "update"
+            ? t("Diese Version hat das Rad noch nicht")
+            : status.size > 0
+              ? t("Download: {size}", { size: formatBytes(status.size) })
+              : t("Nicht heruntergeladen")));
+
+  return (
+    <>
+      <Group title={t("Pomelo-Rad")} id="settings-pomelo">
+        <Row
+          icon="touch_app"
+          label={t("Pomelo-Rad")}
+          hint={t("Zieh Dateien im Explorer und halte Umschalt, Strg oder Alt: Ein Rad mit den Umwandlungen und Werkzeugen von Pomelo erscheint.")}
+        >
+          {(need === "ready" || on) && <Switch label={t("Pomelo-Rad")} checked={on} onChange={setOn} />}
+        </Row>
+        <Row icon="info" label={t("Status")} hint={stateText(wheel, on, need)}>
+          {retry && <Button onClick={() => void pomeloWheel.set(true, engineLang(lang))}>{t("Erneut versuchen")}</Button>}
+        </Row>
+        {store && <Row icon="warning" label={t("Pomelo aus dem Microsoft Store")} hint={t("Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.")} />}
+      </Group>
+      <Group title={t("Programm")} id="settings-pomelo-package">
+        <Row
+          icon="download_done"
+          label={t("Pomelo")}
+          hint={t("Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.")}
+        />
+        <Row icon="download" label={t("Programm")} hint={packageHint}>
+          {progress ? (
+            <Button onClick={cancelDownload}>{t("Abbrechen")}</Button>
+          ) : (
+            <>
+              {need !== "ready" && (
+                <Button primary disabled={!status?.available} onClick={download}>
+                  {need === "update" ? t("Programm aktualisieren") : t("Programm herunterladen")}
+                </Button>
+              )}
+              {status?.version && (
+                <Button disabled={busy} onClick={remove}>
+                  {t("Entfernen")}
+                </Button>
+              )}
+            </>
+          )}
+        </Row>
+      </Group>
+      <Group title={t("Lizenz")} id="settings-pomelo-license">
+        <LicenseRows installed={!!status?.version} buy={!!status?.buy} refresh={wheel.locked ? 1 : 0} />
+        <Row icon="receipt_long" label={t("Gratis-Dateien")} hint={t("Die ersten 20 Dateien sind gratis, danach 2 pro Tag. Das Rad und das Tool Dateien zählen zusammen.")} />
+      </Group>
+    </>
+  );
+}
+
+const ROW_ICON: Record<RowType, RowSymbol> = {
+  bool: "check_circle",
+  int: "tune",
+  choice: "category",
+  text: "edit_note",
+  keys: "keyboard",
+  list: "label",
+  custom: "open_in_full",
+};
+
+/** One page of Pomelo's settings, as the schema gives it. */
+export function PomeloSchemaPage({ id }: { id: string }) {
+  const loaded = schema.use();
+  const values = pomeloValues.use();
+  const ready = wheelState.use().phase === "ready";
+  useEffect(followWheel, []);
+  if (!loaded) return <div className="px-3 pt-2 text-caption text-label-3">{t("Wird geladen …")}</div>;
+  const page = loaded.pages.find((p) => p.id === id);
+  if (!page) return <div className="px-3 pt-2 text-caption text-label-3">{t("Fehlgeschlagen")}</div>;
+  return (
+    <>
+      {page.groups.map((group, i) => (
+        <Group key={i} title={group.title} id={i === 0 ? `settings-pomelo-${id}` : undefined}>
+          {shownRows(group, values, loaded.defaults).map(({ row, control }) => (
+            <SchemaRowView key={row.key} row={row} control={control} value={valueOf(row, values)} ready={ready} />
+          ))}
+        </Group>
+      ))}
+    </>
+  );
+}
+
+function SchemaRowView({ row, control, value, ready }: { row: SchemaRow; control: Control; value: unknown; ready: boolean }) {
+  const lang = language.use();
+  const [error, setError] = useState<string | null>(null);
+  // A text being typed, and a slider being dragged: written once, when done.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [live, setLive] = useState<number | null>(null);
+  const save = (v: unknown) => {
+    setError(null);
+    void setPomeloValue(row.key, v).then(setError);
+  };
+  const shown = control === "list" ? listText(value) : value == null ? "" : String(value);
+  const commit = () => {
+    if (draft === null || draft === shown) return setDraft(null);
+    const v = control === "number" ? parseWhole(row, draft) : control === "list" ? parseList(draft) : draft;
+    setDraft(null);
+    if (v === undefined) setError(t("Wird nicht angenommen"));
+    else save(v);
+  };
+  const choices = (row.choices ?? []).map((c) => ({ value: c.id, label: c.label }));
+  const number = typeof value === "number" ? value : (row.min ?? 0);
+
+  let field: React.ReactNode;
+  if (control === "switch") field = <Switch label={row.label} checked={value === true} onChange={save} />;
+  else if (control === "slider")
+    field = (
+      <>
+        <span className="tabular w-10 shrink-0 text-end text-caption text-label-3">{live ?? number}</span>
+        <Slider
+          label={row.label}
+          value={live ?? number}
+          min={row.min!}
+          max={row.max!}
+          step={row.step}
+          onChange={setLive}
+          onRelease={() => {
+            if (live !== null && live !== value) save(live);
+            setLive(null);
+          }}
+        />
+      </>
+    );
+  else if (control === "segmented") field = <Segmented id={`pomelo-${row.key}`} label={row.label} value={String(value)} options={choices} onChange={save} />;
+  else if (control === "select") field = <Select value={String(value)} options={choices} onChange={save} />;
+  else if (control === "button")
+    field = (
+      <Button disabled={!ready} onClick={() => void pomeloWheel.open(row.action ?? row.key, engineLang(lang)).catch(() => setError(t("Fehlgeschlagen")))}>
+        {t("Öffnen")}
+      </Button>
+    );
+  else field = <TextField value={draft ?? shown} onChange={setDraft} onSubmit={commit} onBlur={commit} invalid={!!error} width="w-40" />;
+
+  const hint = error ? <span className="text-red">{error}</span> : control === "button" && !ready ? t("Wenn das Pomelo-Rad läuft") : row.hint;
+  return (
+    <Row icon={ROW_ICON[row.type]} label={row.label} hint={hint}>
+      {field}
+    </Row>
+  );
+}

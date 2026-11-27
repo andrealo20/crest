@@ -1,6 +1,7 @@
 import { askNotch } from "../lib/tauriTransport";
 import { isNotchWindow, isTaskbarWindow } from "../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
+import type { WheelState } from "../features/pomelo/model";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -2445,6 +2446,10 @@ export function fetchLeetcode(
 export interface EngineStatus {
   /** The installed version, null without one. */
   version: string | null;
+  /** The installed package has the Pomelo wheel's program. */
+  wheel: boolean;
+  /** Only an older package (without the wheel) is installed: a download updates it. */
+  outdated: boolean;
   /** This build knows an archive to download. */
   available: boolean;
   /** The download's size in bytes, 0 when unknown. */
@@ -2479,4 +2484,33 @@ export const filesEngine = {
     isNative ? invoke<T>("files_license", { action, key: key ?? null }) : filesSample().then((m) => m.license(action, key) as T),
   pickFolder: (): Promise<string | null> => (isNative ? invoke<string | null>("files_pick_folder") : Promise.resolve("C:\\Users\\demo\\Desktop")),
   buy: (): Promise<void> => (isNative ? invoke("files_buy") : Promise.resolve()),
+};
+
+// ---------- The Pomelo wheel: Pomelo.exe from the same package, hosted (src-tauri/src/pomelo_engine/wheel.rs) ----------
+
+/** In the browser a made-up wheel and schema answer (src/dev/pomelo-sample.ts). */
+const pomeloSample = () => import("../dev/pomelo-sample");
+
+export const pomeloWheel = {
+  state: (): Promise<WheelState> => (isNative ? invoke<WheelState>("pomelo_wheel_state") : pomeloSample().then((m) => m.state())),
+  /** Every change of the wheel's state, in any window. */
+  onState: (handler: (s: WheelState) => void): (() => void) => {
+    if (!isNative) {
+      let off = () => {};
+      void pomeloSample().then((m) => (off = m.onState(handler)));
+      return () => off();
+    }
+    const off = listen<WheelState>("pomelo-wheel://state", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** On starts it unless it runs (again after a conflict or a crash), off stops it. */
+  set: (on: boolean, lang: string): Promise<void> => (isNative ? invoke("pomelo_wheel_set", { on, lang }) : pomeloSample().then((m) => m.set(on))),
+  /** One of Pomelo's own settings windows, through the running wheel. */
+  open: (page: string, lang: string): Promise<void> => (isNative ? invoke("pomelo_wheel_open", { page, lang }) : Promise.resolve()),
+  storeInstalled: (): Promise<boolean> => (isNative ? invoke<boolean>("pomelo_store_installed") : Promise.resolve(true)),
+  /** `settings schema|get|set` of the engine: its answer as it gives it. */
+  settings: (action: "schema" | "get" | "set", args: { key?: string; value?: unknown; lang?: string } = {}): Promise<unknown> =>
+    isNative
+      ? invoke("pomelo_settings", { action, key: args.key ?? null, value: args.value ?? null, lang: args.lang ?? null })
+      : pomeloSample().then((m) => m.settings(action, args)),
 };

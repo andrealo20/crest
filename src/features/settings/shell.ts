@@ -15,3 +15,8 @@ export function showsHeaderTitle(width: number, scopeSwitch: boolean): boolean {
 export function cascades(c: { material: boolean; reduced: boolean; searching: boolean; target: boolean }): boolean {
   return c.material && !c.reduced && !c.searching && !c.target;
 }
+
+/** The settings window's scopes, in the switch's order: the Taskbar's where the bar can run, Pomelo's on Windows outside the Store. */
+export function scopeOptions(taskbar: boolean, pomelo: boolean): ("notch" | "taskbar" | "pomelo")[] {
+  return ["notch", ...(taskbar ? ["taskbar" as const] : []), ...(pomelo ? ["pomelo" as const] : [])];
+}

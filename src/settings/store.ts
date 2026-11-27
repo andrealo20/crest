@@ -183,6 +183,8 @@ export interface Settings {
   wallpapers: WallpaperSettings;
   /** The Files tool (Windows): the folder its results go to, "" for beside the originals (src/features/files). */
   files: { outDir: string };
+  /** The Pomelo wheel (Windows, not in the Store build): a separate program Crest starts while this is on (src/features/pomelo). */
+  pomelo: { wheel: boolean };
 }
 
 const defaults: Settings = {
@@ -254,6 +256,7 @@ const defaults: Settings = {
   screenTime: { on: false },
   wallpapers: WALLPAPER_DEFAULTS,
   files: { outDir: "" },
+  pomelo: { wheel: false },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -393,6 +396,8 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     screenTime: { on: s.screenTime?.on === true },
     wallpapers: normalizeWallpapers(s.wallpapers),
     files: { outDir: typeof s.files?.outDir === "string" ? s.files.outDir : "" },
+    // Only an explicit true starts a process.
+    pomelo: { wheel: s.pomelo?.wheel === true },
   });
 }
 

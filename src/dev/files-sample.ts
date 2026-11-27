@@ -12,7 +12,7 @@ let stop: (() => void) | null = null;
 const SIZE = 52 * 1024 * 1024;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const status = async () => ({ version: installed ? "1.0.0" : null, available: true, size: SIZE, buy: false });
+export const status = async () => ({ version: installed ? "1.1.0" : null, wheel: installed, outdated: false, available: true, size: SIZE, buy: false });
 
 let stopDownload = false;
 
@@ -24,7 +24,7 @@ export async function download(onProgress: (p: { done: number; total: number }) 
     await wait(80);
   }
   installed = true;
-  return "1.0.0";
+  return "1.1.0";
 }
 
 export async function downloadCancel() {
