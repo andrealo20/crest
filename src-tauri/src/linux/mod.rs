@@ -51,6 +51,30 @@ pub fn raise(window: &WebviewWindow) {
     let _ = window.set_always_on_top(true);
 }
 
+/// The notch does not take the keyboard by itself: a click or a hover would otherwise make it the active window, and it is
+/// transparent and mostly invisible, so what the user types after it closes would go nowhere. Only what needs the keyboard asks
+/// (a shortcut, a text field: `keyboardFocus(true)` on the page), and closing gives it back.
+pub fn refuse_keyboard(window: &WebviewWindow) {
+    let _ = window.set_focusable(false);
+}
+
+pub fn take_keyboard(window: &WebviewWindow) {
+    let _ = window.set_focusable(true);
+}
+
+/// Closing the notch: it stops accepting the keyboard, and when it had it, the window is unmapped and mapped again, which makes the
+/// compositor give the keyboard to the window that had it before. There is no compositor-neutral way to name that window. A window
+/// mapped again is placed by the compositor, so true says the caller has to put it back (place, workspaces, stacking).
+pub fn give_keyboard_back(window: &WebviewWindow) -> bool {
+    let had = window.is_focused().unwrap_or(false);
+    let _ = window.set_focusable(false);
+    if had {
+        let _ = window.hide();
+        let _ = window.show();
+    }
+    had
+}
+
 /// The app that has the keyboard (lib.rs keyboard_focus): no compositor-neutral way to read it, so none is remembered.
 pub fn frontmost_pid() -> i32 {
     0

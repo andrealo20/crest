@@ -3,7 +3,7 @@ import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMoti
 import { GearSix, PushPin } from "../ui/iconset";
 import { content, fade as nameFade, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
-import { isMac, noWinApis, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow, setPassthrough } from "../platform/native";
+import { isLinux, isMac, noWinApis, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow, setPassthrough } from "../platform/native";
 import { PrivacyDots, usePrivacyDots } from "../features/privacy/PrivacyDots";
 import { privacy, usePresenting } from "../features/privacy/store";
 import { fullscreen, useGamingLive } from "../features/system/gaming";
@@ -1387,6 +1387,8 @@ function useNativeBridge(
     let typing = false;
     const onFocusIn = (e: FocusEvent) => {
       if (isTextField(e.target) && !typing) holdOpen((typing = true));
+      // On Linux the notch only takes the keyboard when asked (linux/mod.rs refuse_keyboard), and a text field asks.
+      if (isLinux && isTextField(e.target)) keyboardFocus(true);
     };
     const onFocusOut = (e: FocusEvent) => {
       if (typing && !isTextField(e.relatedTarget)) holdOpen((typing = false));

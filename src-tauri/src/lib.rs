@@ -955,6 +955,9 @@ pub fn run() {
                 display::keep_below(&window);
             }
             display::place(&window, &app.state::<display::DisplayState>())?;
+            // Before show(): a window that is shown first takes the keyboard, and then has to be unmapped to give it up.
+            #[cfg(target_os = "linux")]
+            linux::refuse_keyboard(&window);
             window.show()?;
             // On every workspace, like the Mac's CanJoinAllSpaces.
             #[cfg(target_os = "linux")]
@@ -1087,8 +1090,17 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
         } else if settings_window::focused() {
             *previous = SETTINGS_KEYBOARD;
         }
+        #[cfg(target_os = "linux")]
+        linux::take_keyboard(&window);
         let _ = window.set_focus();
         return;
+    }
+    #[cfg(target_os = "linux")]
+    if linux::give_keyboard_back(&window) {
+        // Mapped again, the window is where the compositor chose: back to its place, on every workspace, on top.
+        let _ = display::place(&window, &window.app_handle().state::<display::DisplayState>());
+        let _ = window.set_visible_on_all_workspaces(true);
+        native::raise(&window);
     }
     if foreground == own {
         match std::mem::take(&mut *previous) {
