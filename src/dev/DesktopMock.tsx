@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { media, useNowPlaying } from "../platform/media";
 import { demoOpen } from "../platform/native";
 import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
-import { settings } from "../settings/store";
+import { settings, updateSettings, type Settings } from "../settings/store";
 import { demoBarOffered } from "../features/taskbar/store";
 import { bare, demo, framed, showcase, wall } from "./showcase-data";
 
@@ -156,7 +156,8 @@ function Tips() {
       </button>
     );
   return (
-    <section aria-labelledby="tips-title" className="absolute top-10 left-4 w-[320px] rounded-2xl bg-black/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
+    <>
+    <section aria-labelledby="tips-title" className="absolute top-10 left-4 max-h-[calc(100vh-7rem)] w-[320px] overflow-y-auto rounded-2xl bg-black/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
       <div className="mb-3 flex items-center justify-between">
         <h2 id="tips-title" className="text-[15px] font-semibold">Things to try</h2>
         <button onClick={() => fold(true)} className="rounded-md px-2 py-0.5 text-xs text-white/70 hover:bg-white/10 hover:text-white">Hide</button>
@@ -172,6 +173,64 @@ function Tips() {
         ))}
       </ol>
       <button onClick={() => demoOpen(null)} className="mt-4 w-full rounded-lg bg-white/15 py-2 text-sm font-medium hover:bg-white/25">Open the notch</button>
+    </section>
+    <QuickChanges />
+    </>
+  );
+}
+
+/** One quick change: its name, its choices as [label, value], the value now, and what a choice writes to the settings. */
+interface Quick {
+  name: string;
+  choices: [string, string][];
+  now: (s: Settings) => string;
+  set: (v: string) => (s: Settings) => Partial<Settings>;
+}
+
+/** Looks and settings worth seeing, a click each, without the settings window; each is the same setting the window changes. */
+const QUICK: Quick[] = [
+  { name: "Style", choices: [["Crest", "crest"], ["Material", "material"]], now: (s) => s.themes.design, set: (v) => (s) => ({ themes: { ...s.themes, design: v as Settings["themes"]["design"] } }) },
+  { name: "Theme", choices: [["Dark", "dark"], ["Light", "light"], ["Dracula", "dracula"], ["Nord", "nord"]], now: (s) => s.themes.id, set: (v) => (s) => ({ themes: { ...s.themes, id: v } }) },
+  { name: "Closed notch", choices: [["Notch", "notch"], ["Capsule", "capsule"], ["Line", "line"]], now: (s) => s.display.idleStyle, set: (v) => (s) => ({ display: { ...s.display, idleStyle: v as Settings["display"]["idleStyle"] } }) },
+  { name: "Bar shape", choices: [["Docked", "docked"], ["Floating", "floating"], ["Capsule", "capsule"], ["Tiles", "tiles"]], now: (s) => s.taskbar.shape, set: (v) => (s) => ({ taskbar: { ...s.taskbar, shape: v as Settings["taskbar"]["shape"] } }) },
+  {
+    name: "Bar glass",
+    choices: [["Off", "off"], ["Glass", "crest"], ["Liquid Glass +", "plus"]],
+    now: (s) => (s.taskbar.glass ? s.taskbar.glassLook : "off"),
+    set: (v) => (s) => ({ taskbar: { ...s.taskbar, glass: v !== "off", glassLook: v === "off" ? s.taskbar.glassLook : (v as Settings["taskbar"]["glassLook"]) } }),
+  },
+  { name: "Pet", choices: [["None", ""], ["Cat", "cat"]], now: (s) => s.closed.pet.id ?? "", set: (v) => (s) => ({ closed: { ...s.closed, pet: { ...s.closed.pet, id: (v || null) as Settings["closed"]["pet"]["id"] } } }) },
+];
+
+/** The quick changes, a card on the right of the desktop: a row of choices for each, the one in use lit. */
+function QuickChanges() {
+  const s = settings.use();
+  return (
+    <section aria-labelledby="quick-title" className="absolute top-10 right-4 max-h-[calc(100vh-7rem)] w-[280px] overflow-y-auto rounded-2xl bg-black/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
+      <h2 id="quick-title" className="mb-3 text-[15px] font-semibold">Quick changes</h2>
+      <div className="space-y-2">
+        {QUICK.map((q) => (
+          <div key={q.name} role="radiogroup" aria-label={q.name}>
+            <p className="mb-1 text-[11px] text-white/60">{q.name}</p>
+            <div className="flex flex-wrap gap-1">
+              {q.choices.map(([label, value]) => {
+                const on = q.now(s) === value;
+                return (
+                  <button
+                    key={value}
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => updateSettings(q.set(value))}
+                    className={`rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${on ? "bg-white text-black" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
