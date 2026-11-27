@@ -338,11 +338,11 @@ Details: [themes.md](themes.md).
 
 ## Files
 
-**Files** (Windows only, off until you turn it on under **Settings → Tools**) converts and edits images, PDFs, audio and video, with the conversions and tools of Pomelo, Andrea Loroni's file app for Windows. The originals are never changed.
+**Files** (Windows only, off until you turn it on under **Settings → Tools**) converts and edits images, PDFs, audio and video, with the conversions and tools of Pomelo, Andrea Loroni's file app for Windows. The originals are never changed. The Microsoft Store version does not have the tool for now.
 
 - The work is done by `pomelo-engine.exe`, a separate program. It is closed source, not part of Crest and not under Crest's GPL-3.0; this repository holds only the bridge that starts it (`src-tauri/src/pomelo_engine`). Crest does not ship it: the first opening of the tool explains it and offers **Download the program**, and only that click fetches it. Crest checks the download against the version and SHA-256 written in its own code, so a changed file is never installed, and keeps it in `pomelo-engine` in Crest's local data folder (beside Crest.exe in the portable build). **Remove**, under **Settings → Tools → Files**, deletes it.
 - Drop files on the open tool, or take them from the Shelf with **From the Shelf**. While the tool is open, files dropped on the notch go to it and not to the Shelf. It offers the operations that take all of them, under **Convert**, **Tools** and **Actions**, with their options. Each file shows its progress, then **Show in folder**, or the text an operation such as a checksum gives back; **Add to Shelf** puts the results on the Shelf. They are saved beside the originals (in `Downloads\Pomelo` where that folder cannot be written), or in the **Output folder** you pick.
-- The first files are free; after that a key costs US$4.99 once and works in every version of Crest (installer, portable and Store). The key is entered under **Settings → Tools → Files**, with **Activate** and **Deactivate**. The free count and the key are checked by the program, not by Crest.
+- The first files are free; after that a key costs US$4.99 once and works in every version of Crest that has the tool. The key is entered under **Settings → Tools → Files**, with **Activate** and **Deactivate**. The free count and the key are checked by the program, not by Crest.
 - Network: Crest itself connects only for the download you ask for. Activating or checking a key is done by the program, which sends the key and a name for this PC to the shop's licence service; files are converted on the PC and never sent anywhere.
 
 ## Taskbar

@@ -25,6 +25,7 @@ export interface Op {
   extensions: string[];
   output: string | null;
   options: OpOption[];
+  /** Joins all its files into one result (a merge, a ZIP); without it each file gives its own. */
   multi: boolean;
   /** Asks for a password. */
   secret: boolean;
@@ -55,10 +56,13 @@ export function extOf(path: string): string {
   return dot > 0 ? name.slice(dot).toLowerCase() : "";
 }
 
-/** The operations that take all of `paths`: each file's extension, and one file unless the operation takes several. */
+/**
+ * The operations that take all of `paths`, by each file's extension. Every operation takes several files, done one by one;
+ * `multi` only means it joins them into one result.
+ */
 export function compatible(ops: Op[], paths: string[]): Op[] {
   if (!paths.length) return [];
-  return ops.filter((op) => (op.multi || paths.length === 1) && (!op.extensions.length || paths.every((p) => op.extensions.some((x) => x.toLowerCase() === extOf(p)))));
+  return ops.filter((op) => !op.extensions.length || paths.every((p) => op.extensions.some((x) => x.toLowerCase() === extOf(p))));
 }
 
 /** The tabs that have an operation, in Convert, Tools, Actions order. */

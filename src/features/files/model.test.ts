@@ -4,16 +4,17 @@ import { compatible, defaultValues, engineLang, extOf, outputsOf, startRun, step
 
 const op = (id: string, patch: Partial<Op> = {}): Op => ({ id, tab: "convert", name: id, kinds: [], extensions: [], output: null, options: [], multi: true, secret: false, ...patch });
 
-test("only operations that take every file are offered, one file for those that take one", () => {
+test("only operations that take every file are offered, by extension, however many files", () => {
+  // As the engine's catalog has them: conversions give one result per file (multi false), a merge joins them (multi true).
   const ops = [
-    op("png", { extensions: [".jpg", ".PNG"] }),
+    op("png", { extensions: [".jpg", ".PNG"], multi: false }),
     op("merge", { tab: "tools", extensions: [".pdf"] }),
     op("lock", { tab: "actions", extensions: [".pdf"], multi: false }),
     op("any", { tab: "actions" }),
   ];
-  assert.deepEqual(compatible(ops, ["C:\\a\\x.JPG", "C:\\a\\y.png"]).map((o) => o.id), ["png", "any"]);
+  assert.deepEqual(compatible(ops, ["C:\\a\\x.JPG", "C:\\a\\y.png", "C:\\a\\z.jpg"]).map((o) => o.id), ["png", "any"]);
   assert.deepEqual(compatible(ops, ["C:\\a\\x.pdf"]).map((o) => o.id), ["merge", "lock", "any"]);
-  assert.deepEqual(compatible(ops, ["C:\\a\\x.pdf", "C:\\b.c\\y.pdf"]).map((o) => o.id), ["merge", "any"]);
+  assert.deepEqual(compatible(ops, ["C:\\a\\x.pdf", "C:\\b.c\\y.pdf"]).map((o) => o.id), ["merge", "lock", "any"]);
   assert.deepEqual(compatible(ops, []), []);
   assert.deepEqual(tabsOf(compatible(ops, ["C:\\a\\x.pdf"])), ["tools", "actions"]);
   assert.equal(extOf("C:\\a.b\\noext"), "");

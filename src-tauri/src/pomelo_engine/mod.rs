@@ -33,8 +33,11 @@ const PROTOCOL: u64 = 1;
 /// from the real archive with each new engine. While the hash is all zeros the download answers "unavailable" and sends nothing.
 const ARCHIVE_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 const ARCHIVE_SIZE: u64 = 0;
-/// The manifest published beside the archive's parts, which must come from the same host.
-const MANIFEST_URL: &str = "https://pomeloapp.net/engine/manifest.json";
+/// The manifest of `VERSION`, published beside the archive's parts, which must come from the same host. One folder per
+/// version, so an older Crest keeps downloading the engine it knows.
+fn manifest_url() -> String {
+    format!("https://pomeloapp.net/engine/{VERSION}/manifest.json")
+}
 const EXE: &str = "pomelo-engine.exe";
 /// The licence's checkout page, opened in the browser by Buy; empty hides the button until the shop exists.
 const CHECKOUT_URL: &str = "";
@@ -137,7 +140,7 @@ fn check_manifest(m: &Manifest, version: &str, sha: &str, size: u64) -> Result<u
         && !m.parts.is_empty()
         && total <= MAX_ARCHIVE
         && (size == 0 || total == size)
-        && m.parts.iter().all(|p| available(&p.sha256) && host(&p.url).is_some() && host(&p.url) == host(MANIFEST_URL));
+        && m.parts.iter().all(|p| available(&p.sha256) && host(&p.url).is_some() && host(&p.url) == host(&manifest_url()));
     if ok {
         Ok(total)
     } else {
@@ -151,27 +154,56 @@ fn matches(h: Sha256, n: u64, size: u64, sha: &str) -> bool {
 }
 
 static DOWNLOADING: AtomicBool = AtomicBool::new(false);
+/// Set by `files_engine_download_cancel`; the download stops at its next chunk.
+static STOP_DOWNLOAD: AtomicBool = AtomicBool::new(false);
+
+/// Holds `DOWNLOADING` while a download runs and lets it go on every way out, an error or a panic included.
+struct Downloading;
+
+impl Downloading {
+    fn start() -> Option<Downloading> {
+        (!DOWNLOADING.swap(true, Ordering::SeqCst)).then(|| {
+            STOP_DOWNLOAD.store(false, Ordering::SeqCst);
+            Downloading
+        })
+    }
+}
+
+impl Drop for Downloading {
+    fn drop(&mut self) {
+        DOWNLOADING.store(false, Ordering::SeqCst);
+    }
+}
 
 /// Downloads, checks and installs the engine, reporting the bytes so far; returns the installed version.
 #[tauri::command]
 pub async fn files_engine_download(app: AppHandle, on_progress: Channel<Progress>) -> Result<String, String> {
-    if !available(ARCHIVE_SHA256) {
+    // The Microsoft Store forbids code downloaded after install (policy 10.2.2): its build never fetches the engine.
+    if cfg!(feature = "store") || !available(ARCHIVE_SHA256) {
         return Err("unavailable".into());
     }
-    if DOWNLOADING.swap(true, Ordering::SeqCst) {
-        return Err("busy".into());
-    }
-    let result = download(&app, &on_progress).await;
-    DOWNLOADING.store(false, Ordering::SeqCst);
-    result.map(|_| VERSION.to_string())
+    let Some(_held) = Downloading::start() else { return Err("busy".into()) };
+    download(&app, &on_progress).await.map(|_| VERSION.to_string())
+}
+
+/// Stops a running download; nothing of it is kept.
+#[tauri::command]
+pub fn files_engine_download_cancel() {
+    STOP_DOWNLOAD.store(true, Ordering::SeqCst);
 }
 
 async fn download(app: &AppHandle, progress: &Channel<Progress>) -> Result<(), String> {
     let dir = engine_dir(app)?;
     std::fs::create_dir_all(&dir).map_err(|_| "app-data")?;
-    let client = reqwest::Client::builder().connect_timeout(Duration::from_secs(15)).user_agent("Crest").build().map_err(|_| "offline")?;
+    // A connection that stalls (no byte for a minute) fails instead of hanging the download for good.
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(60))
+        .user_agent("Crest")
+        .build()
+        .map_err(|_| "offline")?;
     let manifest: Manifest = client
-        .get(MANIFEST_URL)
+        .get(manifest_url())
         .timeout(Duration::from_secs(30))
         .send()
         .await
@@ -204,6 +236,9 @@ async fn fetch_parts(client: &reqwest::Client, m: &Manifest, archive: &Path, tot
         let mut res = client.get(&part.url).send().await.map_err(|_| "offline")?.error_for_status().map_err(|_| "unavailable")?;
         let (mut h, mut n) = (Sha256::new(), 0u64);
         while let Some(chunk) = res.chunk().await.map_err(|_| "offline")? {
+            if STOP_DOWNLOAD.load(Ordering::SeqCst) {
+                return Err("cancelled".into());
+            }
             n += chunk.len() as u64;
             if n > part.size {
                 return Err("checksum".into());
@@ -298,6 +333,7 @@ pub struct Op {
     output: Option<String>,
     #[serde(default)]
     options: Vec<Opt>,
+    /// Joins all its files into one result (a merge, a ZIP); without it each file gives its own.
     #[serde(default)]
     multi: bool,
     /// Asks for a password, which goes to the engine's stdin.
@@ -454,7 +490,8 @@ fn value_ok(opt: &Opt, v: &str) -> bool {
 /// The arguments of `run`, after checking every input against the operation: files that exist and that it takes (one unless
 /// `multi`), an output folder that exists or "same" (beside the originals), and options it has with values of their type.
 fn run_args(data: &Path, lang: Option<&str>, op: &Op, out: Option<&str>, options: &[(String, String)], files: &[String]) -> Result<Vec<OsString>, String> {
-    if files.is_empty() || (files.len() > 1 && !op.multi) {
+    // Every operation takes several files, done one by one; `multi` only says it joins them into one result.
+    if files.is_empty() {
         return Err("files".into());
     }
     for f in files {
@@ -596,7 +633,7 @@ pub fn files_license(app: AppHandle, action: String, key: Option<String>) -> Res
         _ => return Err("action".into()),
     }
     // Activating goes to the shop over the network, from the engine.
-    let timeout = Duration::from_secs(if action == "activate" { 60 } else { 20 });
+    let timeout = Duration::from_secs(if action == "activate" { 60 } else { 45 });
     match once(command(&exe, &args), timeout)? {
         (Some(v), _) => Ok(v),
         (None, code) => exit_error(code).map_or(Ok(Value::Null), |e| Err(e.into())),
@@ -718,8 +755,9 @@ mod tests {
         let txt = dir.join("c.txt");
         std::fs::write(&txt, b"x").unwrap();
         assert_eq!(bad(None, &[], &[txt.to_string_lossy().into_owned()]), "files");
-        let single = Op { multi: false, ..png.clone() };
-        assert_eq!(run_args(data, None, &single, None, &[], &files).unwrap_err(), "files");
+        // One result per file: several files still go, one by one.
+        let each = Op { multi: false, ..png.clone() };
+        assert_eq!(run_args(data, None, &each, None, &[], &files).unwrap().len(), want.len() - 8);
 
         let text = op(serde_json::json!({ "id": "t", "tab": "tools", "name": "T", "options": [{ "id": "name", "type": "text" }] }));
         assert!(run_args(data, None, &text, None, &opts(&[("name", "a b = c")]), &files[..1]).is_ok());
@@ -793,6 +831,21 @@ mod tests {
         assert!(start.elapsed() < GRACE + Duration::from_secs(5), "{:?}", start.elapsed());
         assert!(lock(&RUN).is_none());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_download_lets_go_of_its_flag_on_every_way_out() {
+        {
+            let _held = Downloading::start().unwrap();
+            assert!(Downloading::start().is_none());
+        }
+        let panicked = std::panic::catch_unwind(|| {
+            let _held = Downloading::start().unwrap();
+            panic!("mid-download");
+        });
+        assert!(panicked.is_err());
+        assert!(Downloading::start().is_some());
+        assert!(manifest_url().ends_with(&format!("/engine/{VERSION}/manifest.json")));
     }
 
     #[test]

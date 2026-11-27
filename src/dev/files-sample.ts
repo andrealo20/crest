@@ -14,13 +14,21 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const status = async () => ({ version: installed ? "1.0.0" : null, available: true, size: SIZE, buy: false });
 
+let stopDownload = false;
+
 export async function download(onProgress: (p: { done: number; total: number }) => void): Promise<string> {
-  for (let done = 0; done <= SIZE; done += SIZE / 20) {
+  stopDownload = false;
+  for (let done = 0; done <= SIZE; done += SIZE / 40) {
+    if (stopDownload) throw "cancelled";
     onProgress({ done, total: SIZE });
     await wait(80);
   }
   installed = true;
   return "1.0.0";
+}
+
+export async function downloadCancel() {
+  stopDownload = true;
 }
 
 export async function remove() {
@@ -39,7 +47,7 @@ export async function catalog(): Promise<Op[]> {
     extensions,
     output: null,
     options: [],
-    multi: true,
+    multi: false,
     secret: false,
     ...patch,
   });
@@ -56,8 +64,8 @@ export async function catalog(): Promise<Op[]> {
       ],
     }),
     op("image.strip", "tools", "Remove metadata", images),
-    op("pdf.merge", "tools", "Merge", [".pdf"]),
-    op("pdf.protect", "actions", "Add a password", [".pdf"], { multi: false, secret: true }),
+    op("pdf.merge", "tools", "Merge", [".pdf"], { multi: true }),
+    op("pdf.protect", "actions", "Add a password", [".pdf"], { secret: true }),
     op("files.rename", "actions", "Rename", [], { options: [{ id: "pattern", type: "text", label: "Name", default: "{name} {n}", choices: [] }] }),
   ];
 }

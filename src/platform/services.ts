@@ -2464,6 +2464,7 @@ export const filesEngine = {
     channel.onmessage = onProgress;
     return invoke<string>("files_engine_download", { onProgress: channel });
   },
+  downloadCancel: (): Promise<void> => (isNative ? invoke("files_engine_download_cancel") : filesSample().then((m) => m.downloadCancel())),
   remove: (): Promise<void> => (isNative ? invoke("files_engine_remove") : filesSample().then((m) => m.remove())),
   catalog: (lang: string): Promise<Op[]> => (isNative ? invoke<Op[]>("files_catalog", { lang }) : filesSample().then((m) => m.catalog())),
   /** `options` as (id, value) pairs; resolves when the engine is done, rejects with its reason ("locked", "cancelled", ...). */
