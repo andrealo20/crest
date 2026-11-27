@@ -19,7 +19,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
-use super::{command, data_dir, exit_error, id_ok, installed, lang_ok, lock, once, wheel_path, GRACE, MAX_ANSWER};
+use super::{command, data_dir, exit_error, id_ok, installed, lang_ok, lock, once, wheel_path, GRACE};
 use crate::agents::job::Job;
 
 const EVENT: &str = "pomelo-wheel://state";
@@ -34,6 +34,8 @@ const WINDOW: Duration = Duration::from_secs(300);
 const STORE_FAMILY: &str = "andrealo.Pomelo_1treqmb6a3p46";
 /// A setting's value larger than this is refused before it reaches the engine.
 const MAX_VALUE: usize = 16 * 1024;
+/// A line of the wheel longer than this is none of the contract's, and is skipped.
+const MAX_LINE: usize = 64 * 1024;
 
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "kebab-case")]
@@ -86,17 +88,51 @@ struct Wheel {
     stdin: Option<ChildStdin>,
     /// Tied: dropping it ends whatever still runs.
     job: Option<Job>,
-    /// A `Pomelo.exe` of this wheel is running, until its exit is seen.
-    alive: bool,
+    /// The `Pomelo.exe --hosted` processes still running, of any generation, until their exit is seen.
+    live: u32,
     /// The language it was started in, for a start after an update.
     lang: Option<String>,
 }
 
-static WHEEL: Mutex<Wheel> = Mutex::new(Wheel { generation: 0, state: OFF, stdin: None, job: None, alive: false, lang: None });
+static WHEEL: Mutex<Wheel> = Mutex::new(Wheel { generation: 0, state: OFF, stdin: None, job: None, live: 0, lang: None });
 
-/// Whether the wheel runs (or is being started), which holds the package's files.
+/// Whether the wheel runs, is being started, or has not ended yet after a stop: the package's files are in use.
 pub fn running() -> bool {
-    matches!(lock(&WHEEL).state.phase, Phase::Starting | Phase::Ready)
+    let wheel = lock(&WHEEL);
+    wheel.live > 0 || matches!(wheel.state.phase, Phase::Starting | Phase::Ready)
+}
+
+/// Waits up to `limit` until no `Pomelo.exe --hosted` of Crest runs; whether none does.
+fn wait_exited(limit: Duration) -> bool {
+    let start = Instant::now();
+    while lock(&WHEEL).live > 0 {
+        if start.elapsed() > limit {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    true
+}
+
+/// The next line of the wheel's output, at most `MAX_LINE` bytes: None at the end (or a broken pipe), Some(None) for a longer
+/// line, which is skipped. A limit per line, not for the whole output of a wheel that runs for weeks.
+fn next_line(reader: &mut impl BufRead) -> Option<Option<String>> {
+    let mut buf = Vec::new();
+    let mut read = |buf: &mut Vec<u8>| reader.by_ref().take(MAX_LINE as u64).read_until(b'\n', buf).ok();
+    let n = read(&mut buf)?;
+    if n == 0 {
+        return None;
+    }
+    if n == MAX_LINE && buf.last() != Some(&b'\n') {
+        loop {
+            buf.clear();
+            let n = read(&mut buf)?;
+            if n == 0 || buf.last() == Some(&b'\n') {
+                return Some(None);
+            }
+        }
+    }
+    Some(String::from_utf8(buf).ok())
 }
 
 /// A line of the wheel that Crest acts on.
@@ -219,43 +255,45 @@ fn begin_stop(app: &AppHandle) -> Option<Job> {
     job
 }
 
-/// Before an update replaces the package: stops a running wheel and waits for its exit (ending it after `GRACE`), so no file of
-/// the package is in use. Returns the language to start it again in, None when it was not running; Err when it would not end.
-pub fn stop_for_update(app: &AppHandle) -> Result<Option<Option<String>>, String> {
-    if !lock(&WHEEL).alive {
-        return Ok(None);
-    }
-    let lang = lock(&WHEEL).lang.clone();
-    let job = begin_stop(app);
-    let ended = |limit: Duration| {
-        let start = Instant::now();
-        while lock(&WHEEL).alive {
-            if start.elapsed() > limit {
-                return false;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        true
+/// What an update stopped: the language to start the wheel again in, when its switch was on.
+pub struct Paused(Option<Option<String>>);
+
+/// Before an update replaces the package: a wheel whose switch is on, in any phase (listening, waiting to restart, missing its
+/// program), is stopped, and the update waits for every `Pomelo.exe` to end (ended after `GRACE`). Also whether none runs now:
+/// only then may the package's folder go.
+pub fn pause_for_update(app: &AppHandle) -> (Paused, bool) {
+    let (on, lang, live) = {
+        let wheel = lock(&WHEEL);
+        (wheel.state.phase != Phase::Off, wheel.lang.clone(), wheel.live > 0)
     };
-    if !ended(GRACE) {
-        drop(job);
-        if !ended(Duration::from_secs(5)) {
-            return Err("busy".into());
-        }
+    if !on && !live {
+        return (Paused(None), true);
     }
-    Ok(Some(lang))
+    let job = begin_stop(app);
+    let mut unused = wait_exited(GRACE);
+    if !unused {
+        drop(job);
+        unused = wait_exited(Duration::from_secs(5));
+    }
+    (Paused(on.then_some(lang)), unused)
 }
 
-/// After an update: the wheel starts again if `stop_for_update` stopped it.
-pub fn resume_after_update(app: &AppHandle, stopped: Option<Option<String>>) {
-    if let Some(lang) = stopped {
+/// After an update, done or refused: the wheel starts again if its switch was on, from the new package.
+pub fn resume_after_update(app: &AppHandle, paused: Paused) {
+    if let Some(lang) = paused.0 {
         start(app.clone(), lang);
     }
 }
 
 fn supervise(app: &AppHandle, generation: u64, lang: Option<&str>) {
+    // A wheel switched off a moment ago still holds Pomelo's one-wheel lock until it ends (at most `GRACE`, then its job ends it):
+    // started before that, the new one would only find a conflict with it.
+    wait_exited(GRACE + Duration::from_secs(2));
     let mut falls = Vec::new();
     loop {
+        if lock(&WHEEL).generation != generation {
+            return;
+        }
         let (Some(exe), Ok(data)) = (wheel_exe(app), data_dir(app)) else {
             return update(app, generation, |s| s.phase = Phase::Missing);
         };
@@ -288,11 +326,12 @@ fn run(app: &AppHandle, generation: u64, mut cmd: Command) -> Option<(i32, bool)
         }
         wheel.stdin = child.stdin.take();
         wheel.job = job;
-        wheel.alive = true;
+        wheel.live += 1;
     }
     let mut conflict = false;
-    for line in stdout.into_iter().flat_map(|out| BufReader::new(out.take(MAX_ANSWER)).lines()) {
-        let Ok(line) = line else { break };
+    let mut reader = stdout.map(BufReader::new);
+    while let Some(line) = reader.as_mut().and_then(next_line) {
+        let Some(line) = line else { continue };
         match parse_line(&line) {
             Some(Line::Ready) => update(app, generation, |s| s.phase = Phase::Ready),
             Some(Line::Conflict(with)) => {
@@ -313,7 +352,7 @@ fn run(app: &AppHandle, generation: u64, mut cmd: Command) -> Option<(i32, bool)
     }
     let code = child.wait().ok().and_then(|s| s.code()).unwrap_or(-1);
     let mut wheel = lock(&WHEEL);
-    wheel.alive = false;
+    wheel.live -= 1;
     if wheel.generation != generation {
         return None;
     }
@@ -349,7 +388,12 @@ pub fn pomelo_wheel_open(app: AppHandle, page: String, lang: Option<String>) -> 
     let exe = wheel_exe(&app).ok_or("not-installed")?;
     let mut args = hosted_args(&data_dir(&app)?, lang.as_deref());
     args.extend(["--open-settings".into(), page.into()]);
-    once(command(&exe, &args), Duration::from_secs(15)).map(|_| ())
+    // 0: handed to the running wheel; otherwise (5 when the hand-over failed) nothing opened.
+    match once(command(&exe, &args), Duration::from_secs(15))? {
+        (_, 0) => Ok(()),
+        (_, CONFLICT_EXIT) => Err("conflict".into()),
+        _ => Err("failed".into()),
+    }
 }
 
 /// Whether Pomelo from the Microsoft Store is installed for this user (it then takes the drag while it runs).
@@ -466,6 +510,17 @@ mod tests {
         assert_eq!(set("big", serde_json::json!("x".repeat(MAX_VALUE))).unwrap_err(), "value");
         assert_eq!(settings_args(data, "set", Some("a"), None, None).unwrap_err(), "value");
         assert_eq!(settings_args(data, "reset", None, None, None).unwrap_err(), "action");
+    }
+
+    #[test]
+    fn reads_lines_and_skips_one_too_long() {
+        let long = "x".repeat(MAX_LINE * 2 + 5);
+        let text = format!("{{\"type\":\"ready\"}}\r\n{long}\nlast");
+        let mut reader = std::io::Cursor::new(text.into_bytes());
+        assert_eq!(next_line(&mut reader), Some(Some("{\"type\":\"ready\"}\r\n".into())));
+        assert_eq!(next_line(&mut reader), Some(None));
+        assert_eq!(next_line(&mut reader), Some(Some("last".into())));
+        assert_eq!(next_line(&mut reader), None);
     }
 
     #[test]

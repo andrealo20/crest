@@ -223,12 +223,12 @@ fn install_unused(app: &AppHandle, dir: &Path, archive: &Path) -> Result<(), Str
         return Err("busy".into());
     }
     #[cfg(not(feature = "store"))]
-    let stopped = wheel::stop_for_update(app)?;
+    let (paused, unused) = wheel::pause_for_update(app);
     #[cfg(feature = "store")]
-    let _ = app;
-    let result = install(dir, archive);
+    let (unused, _) = (true, app);
+    let result = if unused { install(dir, archive) } else { Err("busy".into()) };
     #[cfg(not(feature = "store"))]
-    wheel::resume_after_update(app, stopped);
+    wheel::resume_after_update(app, paused);
     result
 }
 
