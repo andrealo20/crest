@@ -83,11 +83,15 @@ function Days({ days }: { days: Stats["days"] }) {
 function Today() {
   const s = useStats();
   if (s === undefined) return <p className="lead">Reading today's count…</p>;
+  // No counter answering, or nobody counted in 30 days: the live figure still shows, at zero, with when it starts
   if (s === null || s.days.every((d) => d.n === 0))
     return (
-      <p className="lead">
-        Nothing counted yet. The count starts with the version of Crest that brings it, and the numbers show here once the first computers have counted themselves.
-      </p>
+      <div className="today">
+        <p className="today-n">0</p>
+        <p className="today-what">
+          computers counted today. Counting starts with the next release of Crest, the first to send the daily count, and this number then follows it live.
+        </p>
+      </div>
     );
   const t = s.today;
   return (
@@ -109,29 +113,35 @@ function Today() {
   );
 }
 
-function Downloads() {
+/** The two figures in the page's green head: today's live count (zero until anyone is counted) and the README's download total. */
+function HeadFigures() {
+  const s = useStats();
   const d = __SITE_DOWNLOADS__;
-  if (!d) return <p className="lead">The download total could not be read from GitHub when this page was built.</p>;
   return (
-    <div className="today">
-      <p className="today-n">{num(d.total)}</p>
-      <p className="today-what">downloads from GitHub, every file of every release, as of {new Date(d.read).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.</p>
-    </div>
+    <>
+      <span className="head-fig">
+        <strong>{s === undefined ? "…" : num(s?.today.total ?? 0)}</strong> computers run Crest today, live
+      </span>
+      {d && (
+        <span className="head-fig">
+          <strong>{num(d.total)}</strong> downloads from GitHub
+        </span>
+      )}
+    </>
   );
 }
 
 function StatsPage() {
   return (
-    <Page color="#bfe03a" title="Stats" lead="How many computers run Crest today, where and on which version, live from the daily count.">
+    <Page color="#bfe03a" title="Stats" lead={<HeadFigures />}>
       <section className="sec stats" aria-labelledby="today-title">
         <Rise><h2 id="today-title">Today</h2></Rise>
         <Today />
       </section>
       <section className="sec stats" aria-labelledby="downloads-title">
         <Rise><h2 id="downloads-title">Downloads</h2></Rise>
-        <Downloads />
         <p className="body stats-note">
-          The same total as the README's badge, updates included. The Microsoft Store keeps its own figures, which are not public.{" "}
+          The figure at the top is every file of every release on GitHub, the same total as the README's badge, updates included. The Microsoft Store keeps its own figures, which are not public.{" "}
           <a className="textlink" href={`${REPO}/releases`}>Every release <ArrowUpRight size={16} weight="bold" aria-hidden="true" /></a>
         </p>
       </section>

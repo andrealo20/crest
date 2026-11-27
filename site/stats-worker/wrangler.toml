@@ -1,6 +1,6 @@
 # The Worker behind the daily count: the app's ping and the site's /stats/ page. Deploy from this folder.
 # Once, before the first deploy:
-#   npx wrangler d1 create crest-stats                          then put the id it prints in database_id below
+#   npx wrangler d1 create crest-stats                          (done: its id is in database_id below)
 #   npx wrangler d1 execute crest-stats --remote --file schema.sql
 # Then: npx wrangler deploy
 name = "crest-stats"
@@ -19,7 +19,7 @@ preview_urls = false
 [[d1_databases]]
 binding = "DB"
 database_name = "crest-stats"
-database_id = "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create"
+database_id = "b6195127-be3e-4a56-957b-96559e55a483"
 
 # Just after midnight UTC, yesterday's breakdowns are deleted; the daily totals stay
 [triggers]

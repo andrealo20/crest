@@ -62,7 +62,7 @@ export function Catalog() {
     </AnimatePresence>
   );
   return (
-    <section id="features" className="sec catalog" aria-labelledby="features-title">
+    <section id="features" className="sec catalog" style={{ background: chosen.hue }} aria-labelledby="features-title">
       <div className="cat-head">
         <Rise><h2 id="features-title">Everything it does</h2></Rise>
         <Rise i={1}>

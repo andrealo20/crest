@@ -19,6 +19,10 @@ export const bare = demo && new URLSearchParams(location.search).has("bare");
 /** `?framed` in the demo: the whole desktop with Crest's bar, inside the home page's screen, which brings its own words and way back. */
 export const framed = demo && new URLSearchParams(location.search).has("framed");
 
+/** `&wall=/img/x.webp` with ?framed: the desktop's picture, a path on the page's own address only. */
+const wallParam = new URLSearchParams(location.search).get("wall");
+export const wall = framed && wallParam && /^\/[^/\\]/.test(wallParam) ? wallParam : null;
+
 export function cover(a: string, b: string, c: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <defs>
@@ -40,13 +44,14 @@ export const showcaseTracks = [
 ];
 
 /**
- * The demo's tracks. The first is a real song, shown with its label's permission: the cover is served by the website
- * (site/public/covers, one folder up from /demo/), and its lyrics come only from a file the owner adds (src/dev/demo-data.ts).
- * The others are made up, so their lyrics are our own.
+ * The demo's tracks. The first is made up and has lyrics timed word by word, so Lyrics shows something from the start. The second
+ * is a real song, shown with its label's permission: the cover is served by the website (site/public/covers, one folder up from
+ * /demo/), and its lyrics come only from a file the owner adds (src/dev/demo-data.ts). The others are made up, so their lyrics are
+ * our own.
  */
 export const demoTracks = [
-  { title: "Let It Happen", artist: "Tame Impala", artwork: "../covers/let-it-happen.webp", accent: "#c58bff", duration: 467 },
   { title: "Neon Harbour", artist: "Lumen Drift", artwork: cover("#ff8ad8", "#7b3fe4", "#140833"), accent: "#d58bff", duration: 214 },
+  { title: "Let It Happen", artist: "Tame Impala", artwork: "../covers/let-it-happen.webp", accent: "#c58bff", duration: 467 },
   { title: "Slow Orange", artist: "Marlo Vey", artwork: cover("#ffd27a", "#e8642c", "#3a1206"), accent: "#ff9f5a", duration: 187 },
   { title: "Papel y Luz", artist: "Kita Moru", artwork: cover("#7affd8", "#1f8fa8", "#04202a"), accent: "#5ce1e6", duration: 232 },
 ];

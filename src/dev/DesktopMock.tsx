@@ -4,7 +4,7 @@ import { demoOpen } from "../platform/native";
 import { mockApps, mockDiscord, mockPrivacy, mockStatus } from "../platform/services";
 import { settings } from "../settings/store";
 import { demoBarOffered } from "../features/taskbar/store";
-import { bare, demo, framed, showcase } from "./showcase-data";
+import { bare, demo, framed, showcase, wall } from "./showcase-data";
 
 /** Mixer: the playing app moves to the next one in the list (tests the reorder). */
 function switchSource() {
@@ -33,7 +33,9 @@ export function DesktopMock() {
       className="fixed inset-0"
       style={{
         // Showcase: brighter at the top so the black notch reads clearly in captures.
-        background: clean
+        background: wall
+          ? `#080c2a url("${wall}") center / cover`
+          : clean
           ? "radial-gradient(60% 55% at 50% 0%, #6d8cff 0%, rgb(109 140 255 / 0) 72%), radial-gradient(70% 70% at 88% 105%, #8a4dff 0%, rgb(138 77 255 / 0) 62%), linear-gradient(180deg, #2a3c9e 0%, #121a5c 55%, #080c2a 100%)"
           : light
           ? "radial-gradient(120% 90% at 70% 110%, #9fc3ff 0%, #dbe7ff 45%, #f3f6fb 80%)"

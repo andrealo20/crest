@@ -1,97 +1,8 @@
 /*
  * The home page: a purple first screen with the headline over the whole desktop, notch and taskbar, a band of every tool that
- * slides with the scroll, and a pinned story where the notch opens on one tool after another and the page takes its colour.
+ * slides with the scroll, then every feature as a list of names beside the one picked.
  * Transform and opacity only, except the notch's own size, which springs like the app's.
  */
-
-/* ---------- The notch ---------- */
-
-.notch-wrap {
-  position: relative;
-  display: inline-block;
-}
-.notch {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  background: #000;
-  color: #fff;
-  cursor: pointer;
-}
-div.notch {
-  cursor: default;
-}
-.ear {
-  position: absolute;
-  top: 0;
-  z-index: 1;
-}
-.ear-left {
-  left: -14px;
-}
-.ear-right {
-  right: -14px;
-}
-.notch-shot {
-  display: block;
-  max-width: none;
-  align-self: start;
-  grid-area: 1 / 1;
-}
-.notch-row {
-  grid-area: 1 / 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  width: 100%;
-}
-.notch-cover {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: var(--p);
-}
-.notch-time {
-  font-size: 14px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  margin-right: auto;
-}
-.notch-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-}
-.notch-bars i {
-  width: 3px;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--p);
-  transform-origin: bottom;
-  animation: bar 900ms ease-in-out infinite alternate;
-}
-.notch-bars i:nth-child(2) {
-  animation-duration: 640ms;
-}
-.notch-bars i:nth-child(3) {
-  animation-duration: 1100ms;
-}
-.notch-bars i:nth-child(4) {
-  animation-duration: 760ms;
-}
-@keyframes bar {
-  from {
-    transform: scaleY(0.25);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}
 
 /* ---------- First screen ---------- */
 
@@ -202,71 +113,6 @@ div.notch {
   white-space: nowrap;
 }
 
-/* ---------- The pinned story ---------- */
-
-.story {
-  position: relative;
-}
-.story-pin {
-  grid-template-columns: minmax(0, 1fr);
-  position: sticky;
-  top: 0;
-  height: 100svh;
-  overflow: hidden;
-  isolation: isolate;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-/* The notch hangs from the bottom of the black bar that stays at the top (.sticky-bar, 64 px), not from under it. */
-.story-stage {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 64px 16px 0;
-}
-.story-plain {
-  display: block;
-  height: auto;
-}
-.story-copy {
-  grid-area: 3 / 1;
-  align-self: end;
-  padding: 0 var(--m) clamp(40px, 6vh, 72px);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  max-width: 40em;
-}
-.story-copy h3 {
-  font-size: var(--step-display);
-  line-height: 0.95;
-  letter-spacing: -0.045em;
-  font-weight: 800;
-  margin-bottom: 14px;
-  max-width: 11em;
-}
-.story-icon {
-  grid-area: 2 / 1;
-  align-self: center;
-  padding-left: var(--m);
-  color: #000;
-  line-height: 0;
-}
-.story-icon svg {
-  width: clamp(96px, 28vw, 150px);
-  height: auto;
-}
-.story-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 8px;
-  background: #000;
-  transform-origin: left;
-}
-
 /* ---------- The closed row ---------- */
 
 .closed-sec {
@@ -318,31 +164,6 @@ div.notch {
     justify-content: space-between;
     gap: var(--m);
   }
-  .story-icon {
-    padding: 0;
-    position: absolute;
-    right: var(--m);
-    bottom: clamp(32px, 6vh, 64px);
-    color: #000;
-    line-height: 0;
-    z-index: -1;
-    opacity: 0.9;
-  }
-  .story-icon svg {
-    width: clamp(180px, 22vw, 330px);
-    height: auto;
-  }
-  .story-pin {
-    grid-template-rows: 100svh;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  }
-  .story-stage {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .story-copy {
-    grid-area: 1 / 1;
-  }
 }
 
 @media (max-width: 999px) {
@@ -351,12 +172,6 @@ div.notch {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .notch-bars i {
-    animation: none;
-    transform: scaleY(0.6);
-  }
-}
 
 /* ---------- Make it yours ---------- */
 
@@ -656,9 +471,11 @@ div.notch {
 
 /* ---------- Everything it does ---------- */
 
+/* The section takes the colour of the chosen entry's group (features.ts), as the page changes colour from section to section */
 .catalog {
-  background: #fff;
+  background: #4fa8ff;
   color: #000;
+  transition: background-color 400ms var(--ease);
 }
 .cat-head {
   display: flex;
@@ -692,6 +509,7 @@ div.notch {
   height: 14px;
   border-radius: 4px;
   background: var(--hue);
+  box-shadow: inset 0 0 0 2px #000;
 }
 .cat-name {
   display: flex;
@@ -713,7 +531,7 @@ div.notch {
   transition: background-color 150ms var(--ease);
 }
 .cat-name:hover {
-  background: #f0f0f0;
+  background: rgb(0 0 0 / 0.1);
 }
 .cat-name[aria-pressed="true"] {
   background: #000;
@@ -721,11 +539,11 @@ div.notch {
 }
 .cat-fresh {
   font-size: 14px;
-  font-weight: 700;
-  color: #0a7d3b;
+  font-weight: 800;
+  color: #000;
 }
 .cat-name[aria-pressed="true"] .cat-fresh {
-  color: #7dffb0;
+  color: #fff;
 }
 .cat-inline {
   padding: 16px 0 24px;
@@ -836,6 +654,13 @@ div.notch {
 }
 
 @media (min-width: 1000px) {
+  .cat-body {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  }
+  .cat-panel {
+    position: sticky;
+    top: 88px;
+  }
   .hero-copy .hero-side {
     align-items: flex-end;
   }
@@ -847,13 +672,6 @@ div.notch {
   }
   .custom-material {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  }
-  .cat-body {
-    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-  }
-  .cat-panel {
-    position: sticky;
-    top: 88px;
   }
 }
 
@@ -915,4 +733,49 @@ div.notch {
 /* The sheet's rows are flex; its numbered steps stay list items, so they keep their numbers */
 .sheet .os-steps li {
   display: list-item;
+}
+
+/* The framed desktop fits a window's height on a computer, its taskbar in view: 16:10 under the black bar that stays at the top
+   (64 px) and over the caption, and never wider than 1480 px */
+@media (min-width: 1000px) {
+  .desk-screen {
+    width: min(100%, 1480px, calc((100svh - 170px) * 1.6));
+    margin: 0 auto;
+  }
+  .desk figcaption {
+    justify-content: center;
+  }
+}
+
+/* Arrows from under the notch's sides up to it, over the screen; clicks go through to the app */
+.desk-hint {
+  position: absolute;
+  z-index: 2;
+  top: 7%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(8px, 1.4vw, 20px);
+  pointer-events: none;
+  color: #fff;
+}
+.desk-hint p {
+  margin-top: clamp(28px, 3.6vw, 56px);
+  font-size: clamp(15px, 1.5vw, 22px);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.45);
+  white-space: nowrap;
+}
+.desk-arrow {
+  width: clamp(56px, 7vw, 110px);
+  height: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 6px rgb(0 0 0 / 0.4));
 }

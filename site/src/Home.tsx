@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { ArrowUpRight } from "./icons";
 import { News } from "./News";
-import { Notch, type Shot } from "./Notch";
 import { PixelReveal } from "./PixelReveal";
 import { Catalog } from "./Catalog";
 import { DEMO_FULL, DEMO_ORIGIN } from "./demo";
@@ -12,37 +11,9 @@ import { useWide } from "./wide";
 import { RELEASE } from "./release";
 import { Faq, Footer, Install, Make, Mark, Nav, Privacy, Rise } from "./Sections";
 import { springs } from "../../src/design/motion";
-import { Wash } from "./Stage";
 
 // The demo's own panels, captured at 2x from the build (the closed row at 3x), so they stay sharp at any size the page shows them.
 const files = import.meta.glob("./shots/*.png", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
-const shot = (name: string, w: number, h: number, alt: string): Shot => ({ src: files[`./shots/${name}.png`], w, h, alt });
-
-/** The scroll story: each step opens the notch on one tool and turns the page its colour. */
-const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot }[] = [
-  { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Crest open on Now Playing, with the cover, the progress bar and the controls") },
-  { tool: "overview", chapter: "overview", title: "The day at a glance", text: "The time, the weather, the song, focus, keep awake, volume and the brightness of this screen, in one panel.", shot: shot("overview", 520, 356, "Overview with the time, the weather and quick controls") },
-  { tool: "timer", chapter: "focus", title: "Focus, then a break", text: "A focus timer with break presets, rain or noise behind it and a countdown that stays in the closed notch.", shot: shot("timer", 520, 192, "The Timer counting down a focus session") },
-  { tool: "todos", chapter: "focus", title: "To-dos that ring", text: "Projects, due times and a reminder when one is due. Notes, a water log and a scratchpad sit next to them.", shot: shot("todos", 600, 276, "To-dos with projects and due times") },
-  { tool: "clipboard", chapter: "clipboard", title: "Everything you copied", text: "Text, links, images and files, kept in memory only, with password managers left out on purpose.", shot: shot("clipboard", 600, 236, "The clipboard history") },
-  { tool: "shelf", chapter: "clipboard", title: "Files to your phone", text: "Drop files on the Shelf and send them to your phone with a QR code, over your own Wi-Fi and nobody else's server.", shot: shot("shelf", 560, 236, "The Shelf showing a QR code to send four files to a phone") },
-  { tool: "ask", chapter: "ai", title: "Ask, with your key or none", text: "Claude, ChatGPT, OpenRouter, or a model on your own PC through LM Studio or Ollama.", shot: shot("ask", 560, 440, "Ask, a chat inside the notch") },
-  { tool: "system", chapter: "system", title: "What your PC is doing", text: "CPU, GPU, memory, network, power, temperatures and the busiest processes, with history while the notch is shut.", shot: shot("system", 720, 380, "Hardware with graphs for every part of the PC") },
-];
-
-/** Width the open notch may take: the column it sits in, less the margins. */
-function useFit(ref: React.RefObject<HTMLElement | null>, max: number) {
-  const [w, setW] = useState(max);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setW(Math.min(max, el.clientWidth - 32)));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref, max]);
-  return w;
-}
-
 /**
  * The real notch: Crest's own interface, the build of the demo, on a transparent page. It opens on hover and closes when the
  * mouse leaves, as on the PC (a tap on a phone, and a tap outside closes it). Closed, the frame is only as tall as the notch and
@@ -136,7 +107,11 @@ const DESK = { w: 1440, h: 900 };
  */
 function Desk({ live }: { live: boolean }) {
   const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
   const [w, setW] = useState(0);
+  // The arrows to the notch stay until the visitor has opened it once
+  const [tried, setTried] = useState(false);
+  const reduce = useReducedMotion();
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -144,13 +119,41 @@ function Desk({ live }: { live: boolean }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  useEffect(() => {
+    const host = new URL(DEMO_ORIGIN, location.href).origin;
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow || e.origin !== host) return;
+      const d = e.data as { crest?: string; event?: string; open?: boolean };
+      if (d?.crest === "demo" && d.event === "open" && d.open) setTried(true);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
   return (
     <figure className="desk">
       <div className="desk-screen" ref={box}>
+        {live && (
+          <AnimatePresence>
+            {!tried && (
+              <motion.div className="desk-hint" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, delay: tried ? 0 : 1.2 }}>
+                <motion.svg className="desk-arrow desk-arrow-left" viewBox="0 0 120 80" animate={reduce ? undefined : { x: [0, 6, 0], y: [0, -6, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
+                  <path d="M6 74 C 30 70, 70 50, 104 12" />
+                  <path d="M86 14 L 106 10 L 102 30" />
+                </motion.svg>
+                <p>Click the notch to try it</p>
+                <motion.svg className="desk-arrow desk-arrow-right" viewBox="0 0 120 80" animate={reduce ? undefined : { x: [0, -6, 0], y: [0, -6, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
+                  <path d="M114 74 C 90 70, 50 50, 16 12" />
+                  <path d="M34 14 L 14 10 L 18 30" />
+                </motion.svg>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
         {live ? (
           w > 0 && (
             <iframe
-              src={`${DEMO_ORIGIN}?demo&framed`}
+              ref={frame}
+              src={`${DEMO_ORIGIN}?demo&framed&wall=/img/wallpaper.webp`}
               title="Crest on a Windows desktop, the real app: point at the notch, open Start, try the widgets"
               width={DESK.w}
               height={DESK.h}
@@ -310,56 +313,6 @@ function ToolBand() {
   );
 }
 
-/** The pinned story: the page holds still while scrolling opens the notch on one tool after another. */
-function Story() {
-  const ref = useRef<HTMLElement>(null);
-  const stage = useRef<HTMLDivElement>(null);
-  const fit = useFit(stage, 640);
-  // The panel keeps clear of the tool's large icon below it and of the top bar (home.css).
-  const [maxH, setMaxH] = useState(() => window.innerHeight * 0.5 - 64);
-  useEffect(() => {
-    const onResize = () => setMaxH(window.innerHeight * 0.5 - 64);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  const [step, setStep] = useState(0);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  useMotionValueEvent(scrollYProgress, "change", (p) => setStep(Math.min(STEPS.length - 1, Math.max(0, Math.floor(p * STEPS.length)))));
-  const bar = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  const s = STEPS[step];
-  const hue = HUE[TOOLS[s.tool].hue];
-  const Icon = TOOLS[s.tool].icon;
-
-  return (
-    <section ref={ref} id="notch" className="story" style={{ height: `${STEPS.length * 70}svh` }} aria-labelledby="story-title">
-      <div className="story-pin" style={{ color: "#000" }}>
-        <Wash color={hue} />
-        <h2 id="story-title" className="sr-only">What Crest opens into</h2>
-        <div className="story-stage" ref={stage}>
-          <Notch shot={s.shot} open maxW={fit} maxH={maxH} />
-        </div>
-        <AnimatePresence initial={false}>
-          <motion.div key={s.tool} className="story-icon" aria-hidden="true" initial={{ opacity: 0, scale: 0.6, rotate: -18 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 1.2, rotate: 12 }} transition={{ type: "spring", visualDuration: 0.5, bounce: 0.3 }}>
-            <Icon size={320} weight="bold" aria-hidden="true" />
-          </motion.div>
-        </AnimatePresence>
-        <div className="story-copy" aria-live="polite">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={s.tool} initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
-              <h3>{s.title}</h3>
-              <p className="lead">{s.text}</p>
-            </motion.div>
-          </AnimatePresence>
-          <a className="textlink" href={`/try/#${s.chapter}`}>
-            Try {TOOLS[s.tool].label} in the browser <ArrowUpRight size={18} weight="bold" aria-hidden="true" />
-          </a>
-        </div>
-        <motion.div className="story-bar" style={{ scaleX: bar }} aria-hidden="true" />
-      </div>
-    </section>
-  );
-}
-
 /** The looks, as the demo draws them: themes on a band that slides with the scroll, then timer looks and closed looks. */
 const THEME_SHOTS: [string, string][] = [["dark", "Dark"], ["light", "Light"], ["dracula", "Dracula"], ["nord", "Nord"], ["catppuccin-latte", "Catppuccin Latte"], ["gruvbox-dark", "Gruvbox Dark"]];
 const LOOK_SHOTS: [string, string][] = [["pixel", "Pixel"], ["flip", "Flip"], ["nixie", "Nixie"], ["lcd", "LCD"], ["analog", "Analog"], ["ring", "Ring"]];
@@ -486,11 +439,10 @@ export default function Home() {
       <main>
         <Hero />
         <ToolBand />
-        <Story />
+        <Catalog />
         <Closed />
         <Bar />
         <Custom />
-        <Catalog />
         <News release={RELEASE} />
         <Make />
         <Privacy />
