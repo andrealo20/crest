@@ -62,7 +62,7 @@ export function DesktopMock() {
       </div>}
 
       {/* Dev panel */}
-      {!clean && <div className="fixed right-4 bottom-16 z-10 flex gap-2 rounded-xl bg-black/60 p-2 text-xs text-white backdrop-blur">
+      {!clean && <div className="fixed right-4 bottom-16 z-10 flex gap-2 rounded-xl bg-[#000]/60 p-2 text-xs text-white backdrop-blur">
         <DevButton onClick={media.toggle}>{np?.isPlaying ? "Pause" : "Play"}</DevButton>
         <DevButton onClick={media.next}>Next song</DevButton>
         <DevButton onClick={switchSource}>Switch source</DevButton>
@@ -151,13 +151,13 @@ function Tips() {
   };
   if (hidden)
     return (
-      <button onClick={() => fold(false)} className="absolute top-10 left-4 rounded-full bg-black/55 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/10 backdrop-blur-xl hover:bg-black/70">
+      <button onClick={() => fold(false)} className="absolute top-10 left-4 rounded-full bg-[#000]/55 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/10 backdrop-blur-xl hover:bg-[#000]/70">
         Things to try
       </button>
     );
   return (
     <>
-    <section aria-labelledby="tips-title" className="absolute top-10 left-4 max-h-[calc(100vh-7rem)] w-[320px] overflow-y-auto rounded-2xl bg-black/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
+    <section aria-labelledby="tips-title" className="absolute top-10 left-4 max-h-[calc(100vh-7rem)] w-[320px] overflow-y-auto rounded-2xl bg-[#000]/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
       <div className="mb-3 flex items-center justify-between">
         <h2 id="tips-title" className="text-[15px] font-semibold">Things to try</h2>
         <button onClick={() => fold(true)} className="rounded-md px-2 py-0.5 text-xs text-white/70 hover:bg-white/10 hover:text-white">Hide</button>
@@ -208,7 +208,7 @@ const QUICK: Quick[] = [
 function QuickChanges() {
   const s = settings.use();
   return (
-    <section aria-labelledby="quick-title" className="absolute top-10 right-4 max-h-[calc(100vh-7rem)] w-[280px] overflow-y-auto rounded-2xl bg-black/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
+    <section aria-labelledby="quick-title" className="absolute top-10 right-4 max-h-[calc(100vh-7rem)] w-[280px] overflow-y-auto rounded-2xl bg-[#000]/55 p-4 text-white ring-1 ring-white/10 backdrop-blur-xl">
       <h2 id="quick-title" className="mb-3 text-[15px] font-semibold">Quick changes</h2>
       <div className="space-y-2">
         {QUICK.map((q) => (
@@ -223,7 +223,7 @@ function QuickChanges() {
                     role="radio"
                     aria-checked={on}
                     onClick={() => updateSettings(q.set(value))}
-                    className={`rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${on ? "bg-white text-black" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
+                    className={`rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${on ? "bg-[#fff] text-[#000]" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
                   >
                     {label}
                   </button>

@@ -465,6 +465,21 @@ tbody tr + tr td {
 .days .day.on {
   fill: var(--y);
 }
+/* Today's countries above the shares (stats.tsx WorldMap) */
+.world {
+  margin: 0 0 clamp(28px, 4vw, 48px);
+}
+.world svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.world-off {
+  fill: rgb(255 255 255 / 0.1);
+}
+.world-on {
+  fill: var(--y);
+}
 .share-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

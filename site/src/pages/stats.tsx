@@ -3,6 +3,7 @@ import { num, type Stats, useStats } from "../live";
 import { mount, Page } from "../Page";
 import { REPO, Rise } from "../Sections";
 import { ArrowUpRight } from "../icons";
+import { MAP_HEIGHT, WORLD } from "../worldMap";
 
 const PLATFORMS: Record<string, string> = { windows: "Windows", macos: "macOS" };
 const CHANNELS: Record<string, string> = { store: "Microsoft Store", github: "Installer from GitHub", portable: "Portable zip" };
@@ -15,6 +16,25 @@ const pct = (n: number, of: number) => {
   return `${p >= 1 ? Math.round(p) : p.toFixed(1)}%`;
 };
 const dayName = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+/** Today's countries on a world map: each one counted in the site's yellow, deeper the more computers it has, the rest faint. */
+function WorldMap({ counts }: { counts: Record<string, number> }) {
+  const top = Math.max(1, ...Object.values(counts));
+  return (
+    <figure className="world">
+      <svg viewBox={`0 0 360 ${MAP_HEIGHT}`} role="img" aria-label={`Countries that ran Crest today: ${Object.keys(counts).filter((k) => k !== "XX").map(country).join(", ") || "none yet"}`}>
+        {WORLD.map(([code, d]) => {
+          const n = counts[code];
+          return (
+            <path key={code} d={d} className={n ? "world-on" : "world-off"} style={n ? { fillOpacity: 0.35 + (0.65 * n) / top } : undefined}>
+              {n ? <title>{`${country(code)}: ${num(n)}`}</title> : null}
+            </path>
+          );
+        })}
+      </svg>
+    </figure>
+  );
+}
 
 /** One measure, each row a name, its figure and a bar filled to its share of the biggest. */
 function Shares({ title, rows, total, limit }: { title: string; rows: [string, number][]; total: number; limit?: number }) {
@@ -103,6 +123,7 @@ function Today() {
         </p>
       </div>
       <Days days={s.days} />
+      <WorldMap counts={t.country} />
       <div className="share-grid">
         <Shares title="Where" rows={Object.entries(t.country).map(([k, n]) => [country(k), n])} total={t.total} limit={10} />
         <Shares title="System" rows={Object.entries(t.platform).map(([k, n]) => [PLATFORMS[k] ?? k, n])} total={t.total} />
