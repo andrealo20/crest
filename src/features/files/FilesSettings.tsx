@@ -54,7 +54,7 @@ function FilesGroup() {
       )}
       <Row icon="download_done" label={t("Programm")} hint={note ?? (installed ? t("Version {v}", { v: status.version ?? "" }) : t("Nicht heruntergeladen"))}>
         <PomeloSite />
-        {installed ? (
+        {status?.bundled ? null : installed ? (
           <Button disabled={busy} onClick={remove}>
             {t("Entfernen")}
           </Button>

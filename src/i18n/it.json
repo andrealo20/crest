@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "In questo pacchetto manca la ruota: aggiorna il programma",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "Un lavoro è stato rifiutato: non restano file gratis",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "Un programma separato che Crest scarica solo su richiesta. Non fa parte di Crest e non è open source.",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "Un programma a sé, incluso nel pacchetto di Crest dal Microsoft Store. Non fa parte di Crest e non è open source.",
  "Gratis-Dateien": "File gratis",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "È installato su questo PC. Finché è aperto, la ruota qui non parte.",
  "Läuft und wartet auf gezogene Dateien": "In esecuzione, in attesa di file trascinati",

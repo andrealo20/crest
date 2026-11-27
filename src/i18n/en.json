@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "This package lacks the wheel: update the program",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "A job was refused: no free files left",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "A separate program that Crest downloads only when you ask. It is not part of Crest and not open source.",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "A separate program that comes inside Crest's package from the Microsoft Store. It is not part of Crest and not open source.",
  "Gratis-Dateien": "Free files",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "It is installed on this PC. While it runs, the wheel here does not start.",
  "Läuft und wartet auf gezogene Dateien": "Running, waiting for dragged files",

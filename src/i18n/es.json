@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "A este paquete le falta la rueda: actualiza el programa",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "Se rechazó una tarea: no quedan archivos gratis",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "Un programa aparte que Crest solo descarga si lo pides. No forma parte de Crest ni es de código abierto.",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "Un programa aparte que viene dentro del paquete de Crest de Microsoft Store. No forma parte de Crest y no es de código abierto.",
  "Gratis-Dateien": "Archivos gratis",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "Está instalado en este PC. Mientras se ejecute, la rueda de aquí no se inicia.",
  "Läuft und wartet auf gezogene Dateien": "En marcha, esperando archivos arrastrados",

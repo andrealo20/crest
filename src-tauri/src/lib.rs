@@ -320,7 +320,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         // A second launch doesn't open a second notch; it opens the settings of this one, or hands over its crest:// link.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _| {
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             if pomelo_engine::link::handle(app, _args) {
                 return;
             }
@@ -594,17 +594,17 @@ pub fn run() {
             pomelo_engine::files_engine_download_cancel,
             #[cfg(windows)]
             pomelo_engine::files_page,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::link::files_link_key,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_wheel_set,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_wheel_state,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_wheel_open,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_store_installed,
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::wheel::pomelo_settings,
             phone_share::phone_share_start,
             phone_share::phone_share_stop,
@@ -929,7 +929,7 @@ pub fn run() {
             camera::install(&window);
             hit_test::spawn(app.handle().clone(), window.clone());
             // Started by a crest:// link.
-            #[cfg(all(windows, not(feature = "store")))]
+            #[cfg(windows)]
             pomelo_engine::link::handle(app.handle(), std::env::args().skip(1));
             #[cfg(windows)]
             display::spawn(app.handle().clone(), window);

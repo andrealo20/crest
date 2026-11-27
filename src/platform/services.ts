@@ -2455,6 +2455,8 @@ export interface EngineStatus {
   available: boolean;
   /** The download's size in bytes, 0 when unknown. */
   size: number;
+  /** The package comes inside Crest's own (the Microsoft Store build): no download, update or removal. */
+  bundled: boolean;
 }
 
 /** In the browser the made-up engine of src/dev/files-sample.ts answers, so the tool can be designed without the app. */

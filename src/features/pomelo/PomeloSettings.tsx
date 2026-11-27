@@ -118,10 +118,15 @@ export function PomeloMain() {
         <Row
           icon="download_done"
           label={t("Pomelo")}
-          hint={t("Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.")}
+          hint={
+            status?.bundled
+              ? t("Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.")
+              : t("Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.")
+          }
         />
+        {/* The Store's package carries it: nothing to download, update or remove. */}
         <Row icon="download" label={t("Programm")} hint={packageHint}>
-          {progress ? (
+          {status?.bundled ? null : progress ? (
             <Button onClick={cancelDownload}>{t("Abbrechen")}</Button>
           ) : (
             <>

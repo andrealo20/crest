@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "В этом пакете нет колеса: обновите программу",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "Задание отклонено: бесплатных файлов не осталось",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "Отдельная программа, которую Crest скачивает только по вашей просьбе. Она не входит в Crest и не является открытой.",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "Отдельная программа, которая входит в пакет Crest из Microsoft Store. Она не часть Crest и не открытая.",
  "Gratis-Dateien": "Бесплатные файлы",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "Установлен на этом ПК. Пока он работает, колесо здесь не запускается.",
  "Läuft und wartet auf gezogene Dateien": "Работает и ждёт перетаскиваемые файлы",

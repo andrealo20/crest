@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "هذه الحزمة لا تتضمن العجلة: حدّث البرنامج",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "رُفضت مهمة: لم تبقَ ملفات مجانية",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "برنامج منفصل لا يُنزّله Crest إلا عند طلبك. ليس جزءًا من Crest وليس مفتوح المصدر.",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "برنامج منفصل يأتي داخل حزمة Crest من Microsoft Store. ليس جزءًا من Crest وليس مفتوح المصدر.",
  "Gratis-Dateien": "الملفات المجانية",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "مثبّت على هذا الكمبيوتر. ما دام يعمل، لا تبدأ العجلة هنا.",
  "Läuft und wartet auf gezogene Dateien": "يعمل، بانتظار الملفات المسحوبة",

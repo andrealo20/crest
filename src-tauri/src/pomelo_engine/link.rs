@@ -1,19 +1,16 @@
 //! `crest://license?key=<key>`, the link of pomeloapp.net's thanks page after a purchase: the key lands in the licence field of
 //! the Pomelo scope, where only the user's click on Activate sends it to the engine. Never in the Store build.
 //!
-//! The installer registers the scheme (tauri.windows.conf.json, plugins.deep-link). A portable or test copy points it at its
-//! own exe for the current user (HKCU) the first time a licence panel opens in it, but only while no other program that still
-//! exists holds it (an installed Crest keeps it). A link starts Crest with the link as its argument; a second start hands its
+//! The installer registers the scheme (tauri.windows.conf.json, plugins.deep-link), and the Store package declares it in its
+//! manifest (packaging/store/AppxManifest.xml, windows.protocol). A portable or test copy points it at its own exe for the
+//! current user (HKCU) the first time a licence panel opens in it, but only while no other program that still exists holds
+//! it (an installed Crest keeps it). A link starts Crest with the link as its argument; a second start hands its
 //! arguments to the running one (single-instance), which comes here.
 
 use std::path::Path;
-use std::sync::{Mutex, Once};
+use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Url};
-use tauri_plugin_deep_link::DeepLinkExt;
-use windows::Win32::System::Registry::HKEY_CLASSES_ROOT;
-
-use crate::browser_search::{reg_string, split_command};
 
 const SCHEME: &str = "crest";
 /// The keys' alphabet as the licence service makes them (no 0/O, 1/I/L), in four groups of five: `XXXXX-XXXXX-XXXXX-XXXXX`.
@@ -73,6 +70,7 @@ pub fn handle(app: &AppHandle, args: impl IntoIterator<Item = String>) -> bool {
 }
 
 /// Who answers the scheme now, from its command in HKCR (the user's over the machine's).
+#[cfg_attr(feature = "store", allow(dead_code))]
 #[derive(Debug, PartialEq)]
 enum Holder {
     /// No one, or a program that is gone: this copy may take it.
@@ -82,8 +80,9 @@ enum Holder {
     Other(String),
 }
 
+#[cfg_attr(feature = "store", allow(dead_code))]
 fn holder(command: Option<&str>, me: &Path, exists: impl Fn(&Path) -> bool) -> Holder {
-    let Some(exe) = command.and_then(|c| split_command(c).into_iter().next()).filter(|e| !e.is_empty()) else {
+    let Some(exe) = command.and_then(|c| crate::browser_search::split_command(c).into_iter().next()).filter(|e| !e.is_empty()) else {
         return Holder::Free;
     };
     let plain = |p: &str| p.trim_start_matches(r"\\?\").to_lowercase();
@@ -100,10 +99,27 @@ fn holder(command: Option<&str>, me: &Path, exists: impl Fn(&Path) -> bool) -> H
 /// first ask points the scheme at this exe for the current user when it is free.
 #[tauri::command]
 pub fn files_link_key(app: AppHandle, take: bool) -> Option<String> {
-    static REGISTER: Once = Once::new();
+    // The Store package's manifest holds the scheme.
+    #[cfg(not(feature = "store"))]
+    register(&app);
+    #[cfg(feature = "store")]
+    let _ = app;
+    if take {
+        PENDING.lock().unwrap().take()
+    } else {
+        None
+    }
+}
+
+/// Once per run: the scheme to this exe for the current user, when it is free.
+#[cfg(not(feature = "store"))]
+fn register(app: &AppHandle) {
+    use tauri_plugin_deep_link::DeepLinkExt;
+    use windows::Win32::System::Registry::HKEY_CLASSES_ROOT;
+    static REGISTER: std::sync::Once = std::sync::Once::new();
     REGISTER.call_once(|| {
         let Ok(me) = std::env::current_exe() else { return };
-        match holder(reg_string(HKEY_CLASSES_ROOT, r"crest\shell\open\command", None).as_deref(), &me, |p| p.is_file()) {
+        match holder(crate::browser_search::reg_string(HKEY_CLASSES_ROOT, r"crest\shell\open\command", None).as_deref(), &me, |p| p.is_file()) {
             Holder::Me => {}
             Holder::Other(exe) => eprintln!("licence link: {SCHEME}: belongs to {exe}, left as it is"),
             Holder::Free => {
@@ -113,11 +129,6 @@ pub fn files_link_key(app: AppHandle, take: bool) -> Option<String> {
             }
         }
     });
-    if take {
-        PENDING.lock().unwrap().take()
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]

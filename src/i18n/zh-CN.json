@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "此软件包缺少轮盘：请更新程序",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "有一项任务被拒绝：免费文件已用完",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "一个独立的程序，Crest 只在你要求时才下载。它不属于 Crest，也不开源。",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "一个独立程序，包含在 Microsoft Store 版 Crest 的安装包中。它不属于 Crest，也不开源。",
  "Gratis-Dateien": "免费文件",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "已安装在此电脑上。它运行时，这里的轮盘不会启动。",
  "Läuft und wartet auf gezogene Dateien": "正在运行，等待拖入的文件",

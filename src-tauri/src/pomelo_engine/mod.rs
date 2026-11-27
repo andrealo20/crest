@@ -1,7 +1,10 @@
 //! The Files tool (src/features/files): conversions and file tools run by a separate program, `pomelo-engine.exe`, made from
 //! Pomelo (a closed Windows app by Crest's author). It is not part of Crest and not under its licence: Crest holds only this bridge.
 //!
-//! - The program is downloaded only when the user asks for it: a manifest, then the archive's parts, each checked against the
+//! - The Microsoft Store build carries the package inside its MSIX, beside crest.exe in `pomelo-engine\<version>\`
+//!   (scripts/store-package.ps1 checks the archive against `ARCHIVE_SHA256` before it unpacks it there), and never downloads,
+//!   updates or removes it: the Store's policy 10.2.2 allows no code fetched after install.
+//! - Elsewhere the program is downloaded only when the user asks for it: a manifest, then the archive's parts, each checked against the
 //!   manifest and the whole archive against `VERSION` and `ARCHIVE_SHA256` here, which a manifest cannot change. It is unpacked
 //!   into a temporary folder and renamed to `<local data>\pomelo-engine\<version>\`, so a broken download never looks installed.
 //! - It runs without a window and answers on stdout in JSON lines (`catalog`, `run`, `license`), keeping its licence, free
@@ -27,22 +30,20 @@ use tauri::{AppHandle, WebviewWindow};
 
 use crate::agents::job::Job;
 
-/// The wheel, `Pomelo.exe --hosted`: never in the Store build, which cannot run downloaded code (policy 10.2.2).
-#[cfg(not(feature = "store"))]
+/// The wheel, `Pomelo.exe --hosted`.
 pub mod wheel;
 
-/// `crest://license?key=`: a bought key into the licence field. Never in the Store build, like the wheel.
-#[cfg(not(feature = "store"))]
+/// `crest://license?key=`: a bought key into the licence field.
 pub mod link;
 
 /// The package Crest runs (the engine, and from 1.1.0 the wheel's `Pomelo.exe` beside it), numbered as the Pomelo it is made
 /// from, and the protocol of its lines.
 const VERSION: &str = "1.7.0";
 const PROTOCOL: u64 = 1;
-/// SHA-256 and size in bytes of the whole archive of `VERSION`. Placeholders that match no archive: set both (and `VERSION`)
-/// from the real archive with each new engine. While the hash is all zeros the download answers "unavailable" and sends nothing.
-const ARCHIVE_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-const ARCHIVE_SIZE: u64 = 0;
+/// SHA-256 and size in bytes of the whole archive of `VERSION`, set from the real archive with each new engine. The download
+/// checks against them, and so does scripts/store-package.ps1, which reads them from here. All zeros would mean none.
+const ARCHIVE_SHA256: &str = "aac069018272621be1d47cada3334584de67f4b75b443f0f3aa0f497c2a78e10";
+const ARCHIVE_SIZE: u64 = 107_446_305;
 /// The manifest of `VERSION`, published beside the archive's parts, which must come from the same host. One folder per
 /// version, so an older Crest keeps downloading the engine it knows.
 fn manifest_url() -> String {
@@ -79,7 +80,14 @@ fn base(app: &AppHandle) -> Result<PathBuf, String> {
     crate::portable::local_data_dir(app)
 }
 
+/// The package's versions: downloaded into the local data folder, or in the Store build inside the MSIX, beside crest.exe.
 fn engine_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(feature = "store")]
+    {
+        use tauri::Manager;
+        app.path().resource_dir().map(|dir| dir.join("pomelo-engine")).map_err(|_| "app-data".into())
+    }
+    #[cfg(not(feature = "store"))]
     Ok(base(app)?.join("pomelo-engine"))
 }
 
@@ -107,8 +115,10 @@ pub struct Status {
     wheel: bool,
     /// Only an older package is installed (one without the wheel): a download updates it.
     outdated: bool,
-    /// Whether a download is possible (this build knows an archive).
+    /// Whether a download is possible (this build knows an archive, and is not the Store's).
     available: bool,
+    /// The package comes inside Crest's own (the Store build): no download, update or removal.
+    bundled: bool,
     /// The download's size in bytes, 0 when unknown.
     size: u64,
 }
@@ -116,13 +126,15 @@ pub struct Status {
 #[tauri::command(async)]
 pub fn files_engine_status(app: AppHandle) -> Status {
     let exe = installed(&app).ok();
-    let outdated = exe.is_none() && engine_dir(&app).is_ok_and(|dir| older_package(&dir));
+    let bundled = cfg!(feature = "store");
+    let outdated = !bundled && exe.is_none() && engine_dir(&app).is_ok_and(|dir| older_package(&dir));
     Status {
         version: exe.as_ref().map(|_| VERSION),
         wheel: exe.as_deref().and_then(wheel_path).is_some(),
         outdated,
-        available: available(ARCHIVE_SHA256),
+        available: !bundled && available(ARCHIVE_SHA256),
         size: ARCHIVE_SIZE,
+        bundled,
     }
 }
 
@@ -251,12 +263,8 @@ fn install_unused(app: &AppHandle, dir: &Path, archive: &Path) -> Result<(), Str
     if lock(&RUN).is_some() {
         return Err("busy".into());
     }
-    #[cfg(not(feature = "store"))]
     let (paused, unused) = wheel::pause_for_update(app);
-    #[cfg(feature = "store")]
-    let (unused, _) = (true, app);
     let result = if unused { install(dir, archive) } else { Err("busy".into()) };
-    #[cfg(not(feature = "store"))]
     wheel::resume_after_update(app, paused);
     result
 }
@@ -381,11 +389,14 @@ fn extract(archive: &Path, to: &Path) -> Result<(), String> {
 
 #[tauri::command(async)]
 pub fn files_engine_remove(app: AppHandle) -> Result<(), String> {
+    // The Store's package keeps its engine: Windows removes it with Crest.
+    if cfg!(feature = "store") {
+        return Err("bundled".into());
+    }
     if lock(&RUN).is_some() || DOWNLOADING.load(Ordering::SeqCst) {
         return Err("busy".into());
     }
     // The running wheel holds its files open.
-    #[cfg(not(feature = "store"))]
     if wheel::running() {
         return Err("wheel".into());
     }
@@ -784,8 +795,9 @@ mod tests {
         assert!(!matches(hashed(b"abd"), 3, 3, abc));
         assert!(!matches(hashed(b"abc"), 3, 4, abc));
 
-        // The placeholder names no archive, so even a manifest that repeats it is refused.
-        assert!(!available(ARCHIVE_SHA256) && !available("") && !available(&"g".repeat(64)) && available(abc));
+        // All zeros names no archive, so even a manifest that repeats it is refused.
+        let zeros = "0".repeat(64);
+        assert!(available(ARCHIVE_SHA256) && !available(&zeros) && !available("") && !available(&"g".repeat(64)) && available(abc));
         let manifest = |sha: &str, url: &str, size: u64| Manifest {
             version: "1.0.0".into(),
             protocol: 1,
@@ -795,8 +807,8 @@ mod tests {
         let good = manifest(abc, "https://pomeloapp.net/engine/a", 10);
         assert_eq!(check_manifest(&good, "1.0.0", abc, 15), Ok(15));
         assert_eq!(check_manifest(&good, "1.0.0", abc, 0), Ok(15));
-        assert!(check_manifest(&good, "1.0.0", ARCHIVE_SHA256, 0).is_err());
-        assert!(check_manifest(&manifest(ARCHIVE_SHA256, "https://pomeloapp.net/a", 10), "1.0.0", ARCHIVE_SHA256, 0).is_err());
+        assert!(check_manifest(&good, "1.0.0", &zeros, 0).is_err());
+        assert!(check_manifest(&manifest(&zeros, "https://pomeloapp.net/a", 10), "1.0.0", &zeros, 0).is_err());
         assert!(check_manifest(&good, "1.0.1", abc, 0).is_err());
         assert!(check_manifest(&good, "1.0.0", abc, 16).is_err());
         assert!(check_manifest(&manifest(&abc.replace('b', "c"), "https://pomeloapp.net/a", 10), "1.0.0", abc, 0).is_err());

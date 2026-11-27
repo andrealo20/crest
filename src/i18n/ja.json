@@ -2324,6 +2324,7 @@
  "Diesem Paket fehlt das Rad: Programm aktualisieren": "このパッケージにはホイールがありません。プログラムを更新してください",
  "Ein Vorgang wurde abgelehnt: keine Gratis-Dateien mehr": "処理が拒否されました。無料のファイルが残っていません",
  "Ein eigenes Programm, das Crest erst auf Wunsch herunterlädt. Es ist nicht Teil von Crest und nicht quelloffen.": "Crest が求めに応じてのみダウンロードする別のプログラムです。Crest の一部ではなく、オープンソースでもありません。",
+ "Ein eigenes Programm, das im Paket von Crest aus dem Microsoft Store mitkommt. Es ist nicht Teil von Crest und nicht quelloffen.": "Microsoft Store 版 Crest のパッケージに含まれる別のプログラムです。Crest の一部ではなく、オープンソースでもありません。",
  "Gratis-Dateien": "無料のファイル",
  "Ist auf diesem PC installiert. Solange es läuft, startet das Rad hier nicht.": "この PC にインストールされています。実行中は、ここのホイールは起動しません。",
  "Läuft und wartet auf gezogene Dateien": "実行中。ドラッグされたファイルを待っています",
