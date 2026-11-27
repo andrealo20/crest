@@ -55,6 +55,14 @@ export function nameWidth(tools: number, room: number): number {
   return w >= NAME.min ? w : 0;
 }
 
+/**
+ * Where the selected tool's name goes over or under its icon when the bar has no room beside it (Notch.tsx DockName): its left edge,
+ * centred on the icon at `mid`, `w` wide, kept `margin` px inside the bar's `width` so the shape never cuts it.
+ */
+export function nameLabelLeft(mid: number, w: number, width: number, margin = 8): number {
+  return Math.max(margin, Math.min(mid - w / 2, width - margin - w));
+}
+
 /** Padding when open. Inner radii = r − PADDING (concentric). */
 export const PADDING = 16;
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NAME, dockWidth, nameWidth, openWidth } from "./geometry.ts";
+import { NAME, dockWidth, nameLabelLeft, nameWidth, openWidth } from "./geometry.ts";
 
 test("the tool bar at full size: 42 px per tool, 2 px between, the separator, the gear and the padding", () => {
   assert.equal(dockWidth(1), 121);
@@ -77,4 +77,12 @@ test("with no room for NAME.min the name stays hidden and the bar is as wide as 
   assert.equal(nameWidth(13, 640), 0);
   assert.equal(openWidth(520, 13, 640, nameWidth(13, 640)), 520);
   assert.equal(nameWidth(13, Number.NaN), 0);
+});
+
+test("the name over the icon is centred on it, and kept inside the panel at either end", () => {
+  assert.equal(nameLabelLeft(300, 60, 740), 270);
+  assert.equal(nameLabelLeft(20, 60, 740), 8);
+  assert.equal(nameLabelLeft(730, 60, 740), 740 - 8 - 60);
+  // Wider than the panel: from its left margin.
+  assert.equal(nameLabelLeft(100, 800, 740), 8);
 });
