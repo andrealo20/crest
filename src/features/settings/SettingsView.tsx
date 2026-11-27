@@ -1439,7 +1439,7 @@ function PetSettingsRows() {
         hint={
           line
             ? t("Braucht Notch oder Kapsel: neben der Linie ist kein Platz für das Nest")
-            : isMac
+            : noWinApis
               ? t("Neben der Notch: tanzt zur Musik, freut sich über Erledigtes und schläft, wenn nichts los ist")
               : t("Neben der Notch: tanzt zur Musik, rennt mit der CPU, freut sich über Erledigtes und schläft, wenn nichts los ist")
         }

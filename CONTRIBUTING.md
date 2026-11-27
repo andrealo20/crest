@@ -47,7 +47,7 @@ sudo apt install libwebkit2gtk-4.1-dev libasound2-dev libudev-dev libxdo-dev lib
 # Arch (names not tried):   webkit2gtk-4.1 alsa-lib systemd-libs xdotool libayatana-appindicator librsvg
 ```
 
-TLS is rustls on Linux, so there is no `libssl-dev`. `npm run tauri dev` and `cargo test --lib` run as above. At run time the mixer, equalizer and microphone use PipeWire's `wpctl`, `pw-dump` and `pw-record`, the music uses MPRIS and saved keys use the desktop's Secret Service (GNOME Keyring, KWallet or KeePassXC), each only matters for its own feature.
+TLS is rustls on Linux, so there is no `libssl-dev`. `npm run tauri dev` and `cargo test --lib` run as above. At run time the mixer and the equalizer use PipeWire's `wpctl`, `pw-dump` and `pw-record`, the music uses MPRIS and saved keys use the desktop's Secret Service (GNOME Keyring, KWallet or KeePassXC), each only matters for its own feature.
 
 A Wayland client cannot place its own window or read the pointer, so on a Wayland session Crest runs through XWayland (`GDK_BACKEND=x11`, set in `main.rs`). `CREST_WAYLAND=1` keeps native Wayland, where the notch will not stay at the screen edge. The Rust side of the port is `src-tauri/src/linux/`, which mirrors `macos/`; call sites reach either through the `native` alias in `lib.rs`. The app does not look for updates on Linux (`latest.json` has no Linux entry).
 
