@@ -135,7 +135,8 @@ function Panel({
   const ref = useRef<HTMLDivElement>(null);
   // Only the glass reads the shape's top as it springs, and the panel has no glass: it stays put.
   const top = useMotionValue(0);
-  const zoom = settings.use().behavior.scale / 100;
+  const { behavior, taskbar: barSettings } = settings.use();
+  const zoom = behavior.scale / 100;
   const edge = useBarEdge();
 
   // Read as the panel opens and on a resize.
@@ -288,7 +289,7 @@ function Panel({
           Material puts a panel above the bar at level 3; the notch's open panel stays at level 4. */}
       <div className="material:[--shadow-panel:var(--shadow-level3)]" data-theme-ink={surface.ink ? "" : undefined} style={{ zoom, ...(surface.ink && { ...surface.ink, color: "var(--color-label)" }) }}>
         <NotchShape geometry={geometry} transition={shapeSpring} elevated top={top} hangs={false}>
-          <AnimatePresence>{shown && open.content.kind === "search" && <SearchGlow key="glow" />}</AnimatePresence>
+          <AnimatePresence>{shown && open.content.kind === "search" && barSettings.searchGlow && <SearchGlow key="glow" />}</AnimatePresence>
           <motion.div
             className="absolute inset-0"
             initial={{ opacity: 0 }}

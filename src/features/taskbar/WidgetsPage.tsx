@@ -7,7 +7,7 @@ import { PART_IDS, type PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
 import { settings, type Settings } from "../../settings/store";
 import type { RowSymbol } from "../../ui/materialNames";
-import { Group, Row, Segmented, Select } from "../../ui/controls";
+import { Group, Row, Segmented, Select, Switch } from "../../ui/controls";
 import { clocks } from "../clocks/store";
 import { normalizeZones } from "../clocks/zones";
 import { liveSupport } from "../../notch/glass/live";
@@ -212,6 +212,9 @@ function SearchBoxRow({ s }: { s: Settings }) {
           <SearchBoxFace k={1} />
         </span>
       </div>
+      <Row icon="auto_awesome" label={t("Leuchtender Rand der Suche")}>
+        <Switch label={t("Leuchtender Rand der Suche")} checked={s.taskbar.searchGlow} onChange={(on) => setTaskbar({ searchGlow: on })} />
+      </Row>
     </div>
   );
 }
