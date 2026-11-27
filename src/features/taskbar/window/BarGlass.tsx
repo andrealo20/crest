@@ -57,6 +57,9 @@ interface Props { shape: BarShape; boxes: Box[]; radius: number; veil: number; d
  * runs no glass, as a hidden one. `panel` is what the panels above the bar wear: under Liquid Glass + (the look, not whether it shows)
  * the bar's ink, fill included, and a CSS rim light; otherwise nothing, and they keep the theme's colours. `look` is barLook's.
  */
+/** The browser demo's bar (src/dev/demoBar.tsx) clears its glass past the theme's clearest veil, to show the wallpaper; null in the app. */
+export const demoClearest = createStore<number | null>(null);
+
 export function useBarSurface(
   boxes: Box[],
   slid: boolean,
@@ -76,7 +79,9 @@ export function useBarSurface(
   const ink = look === "plus" ? { ...darkInk(), "--accent": darkInk()["--theme-accent"] } : surface === "notch" ? closed : undefined;
   const radius = barRadius(shape, height, look);
   const dark = ink ? true : theme.dark;
-  const veil = barVeil({ transparency, glass: glass && supported, reduced, ...themeVeils(ink ?? theme.vars) });
+  const veils = themeVeils(ink ?? theme.vars), floor = demoClearest.use();
+  if (floor !== null) veils.clearest = Math.min(veils.clearest, floor);
+  const veil = barVeil({ transparency, glass: glass && supported, reduced, ...veils });
   const on = glass && supported && !reduced && page && bar && !slid && !saving;
   const need = on ? barNeed(boxes, dpr) : null;
   const needKey = JSON.stringify(need);
