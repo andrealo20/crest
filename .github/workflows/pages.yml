@@ -29,7 +29,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run site:test
+      # The token lifts GitHub's rate limit for the download total that /stats/ reads at build time (site/vite.config.ts)
       - run: npm run site:build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       # Cloudflare's always-pass Turnstile key must never reach the live form (site/src/feedback.ts).
       - name: Refuse the Turnstile test key
         run: "! grep -rl '1x00000000000000000000AA' dist-site"
