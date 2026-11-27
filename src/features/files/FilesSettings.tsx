@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { navigate } from "../../notch/nav";
-import { filesEngine, type EngineStatus } from "../../platform/services";
+import { filesEngine } from "../../platform/services";
+import { engine, loadEngine } from "./store";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
@@ -25,22 +26,23 @@ function activationError(a: Activation | string): string {
   return (typeof a !== "string" && a.message) || t("Fehlgeschlagen");
 }
 
-/** Settings > Tools > Files: the licence, the output folder and the engine's version, with Remove. */
+/** Settings > Tools > Files, while the tool is on: the licence, the output folder and the engine's version, with Remove. */
 export function FilesSettings() {
+  const on = settings.use().tools.some((x) => x.id === "files" && x.enabled);
+  return on ? <FilesGroup /> : null;
+}
+
+function FilesGroup() {
   const outDir = settings.use().files.outDir;
-  const [status, setStatus] = useState<EngineStatus | null>(null);
+  const status = engine.use();
   const [license, setLicense] = useState<License | null>(null);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const refresh = () =>
-    filesEngine
-      .status()
-      .then((s) => {
-        setStatus(s);
-        if (s.version) return filesEngine.license("status").then(setLicense);
-      })
+    loadEngine()
+      .then(() => (engine.get()?.version ? filesEngine.license("status").then(setLicense) : setLicense(null)))
       .catch(() => setLicense(null));
   useEffect(() => void refresh(), []);
 
@@ -52,13 +54,16 @@ export function FilesSettings() {
       void refresh();
     });
   };
-  const activate = () =>
+  const canActivate = !busy && key.trim().length >= 8;
+  const activate = () => {
+    if (!canActivate) return;
     act(
       filesEngine
         .license<Activation>("activate", key)
         .then((a) => (a.ok ? setKey("") : setNote(activationError(a))))
         .catch((e) => setNote(activationError(String(e)))),
     );
+  };
   const setOut = (dir: string) => updateSettings((s) => ({ files: { ...s.files, outDir: dir } }));
   const installed = !!status?.version;
   const unlocked = license?.state === "unlocked";
@@ -90,7 +95,7 @@ export function FilesSettings() {
           hint={license?.state === "not-configured" ? t("Schlüssel gibt es noch nicht zu kaufen") : t("Einmalig 4,99 USD, gilt in jeder Version von Crest")}
         >
           <TextField value={key} onChange={setKey} placeholder="XXXXXXXX-XXXX-…" onSubmit={activate} width="w-48" />
-          <Button primary disabled={busy || key.trim().length < 8} onClick={activate}>
+          <Button primary disabled={!canActivate} onClick={activate}>
             {t("Aktivieren")}
           </Button>
         </Row>

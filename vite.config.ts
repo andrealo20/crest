@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => ({
       load: (id: string) => (/[\\/]assets[\\/]wallpapers[\\/]\d+\.jpg$/.test(id) ? 'export default "";' : undefined),
     },
   ],
+  // The Store package's build, for the tools it leaves out (src/platform/storeBuild.ts).
+  define: { "import.meta.env.CREST_STORE": JSON.stringify(process.env.CREST_STORE ?? "") },
   clearScreen: false,
   // More pages: the detached timer window, the copies of the closed notch on other monitors, the settings window and the
   // taskbar (the demo has none of them).

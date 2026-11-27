@@ -4,6 +4,7 @@
 import { normalizeFavorites, type Favorite } from "../launcher/apps.ts";
 import { PART_IDS, partTool, type PartId } from "../../notch/row/parts.ts";
 import { TOOL_IDS } from "../../settings/tools.ts";
+import { NOT_IN_STORE, storeBuild } from "../../platform/storeBuild.ts";
 import { folderKey, normalizeFolders, type Folder } from "./folderModel.ts";
 import { dropSlot } from "./panelModel.ts";
 import { WHATSAPP, normalizeUnread } from "./unread.ts";
@@ -215,7 +216,7 @@ const ZONES: Zone[] = ["left", "center", "right"];
 /** The tools whose widget opens the same panel, a part named as its tool (partTool): a button would repeat it, so the bar does not offer them. */
 const WIDGET_TOOLS: readonly string[] = PART_IDS.filter((p) => partTool(p) === p);
 /** The tools a button on the bar can open: Crest's tools but those, then Find on screen, a page (tabs.ts findOnScreenTab). */
-export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDGET_TOOLS.includes(id)), "find"];
+export const TOOL_BUTTONS: readonly string[] = [...TOOL_IDS.filter((id) => !WIDGET_TOOLS.includes(id) && !(storeBuild && NOT_IN_STORE.includes(id))), "find"];
 /** Every item a zone may hold. */
 const ITEMS: string[] = [...FIXED_ITEMS, "crest", "tray", "status", ...PART_IDS, ...TOOL_BUTTONS.map((id) => `tool:${id}`), ...SYS_IDS.map((id) => `sys:${id}`)];
 
