@@ -8,6 +8,20 @@ import { fold } from "../../settings/search.ts";
 import type { BarItem, Zone } from "../model.ts";
 import type { Hit, Tr } from "./model.ts";
 
+/** The tools whose button on the bar is their widget, so toolInfo has no entry for them: their names as src/notch/tabs.ts has them. */
+export const WIDGET_TOOLS: Record<string, string> = {
+  timer: "Timer",
+  weather: "Wetter",
+  discord: "Discord",
+  github: "GitHub",
+  leetcode: "LeetCode",
+  calendar: "Kalender",
+  screentime: "Bildschirmzeit",
+};
+
+/** A tool's name (a t() key): toolInfo's (handed in, it loads icons), else WIDGET_TOOLS'; undefined for a plugin's, which has its own. */
+export const toolLabel = (id: string, info: Record<string, { label: string }>): string | undefined => info[id]?.label ?? WIDGET_TOOLS[id];
+
 /** A tool or a widget: its id and its name, a t() key. */
 export interface Named<Id extends string = string> {
   id: Id;

@@ -84,7 +84,16 @@ export function isColourQuery(query: string, ctx: NamesContext): boolean {
     .some((w) => w.length > 2 && names.has(w));
 }
 
-/** The setting rows for the text: set to its number, a step up and down and its page, a switch flipped, or an option picked. */
+/** A name's folded words, in the interface's language and in English. */
+const nameWords = (key: string, ctx: NamesContext): string[][] => [ctx.tr(key), ctx.en(key)].map((s) => fold(s).split(/\s+/).filter(Boolean));
+const startsOne = (words: string[], w: string) => words.some((n) => n.startsWith(w));
+
+/**
+ * The setting rows for the text: set to its number, a step up and down and its page, a switch flipped, or an option picked.
+ * A word counts where it starts a word of the setting's own name; the bar's name ("Taskleiste") only joins one that does, so
+ * "bar" or "app" alone finds nothing. A row is weak (never the one Enter runs unasked) unless the whole own name was typed, in
+ * either language, and it says what to do: a step or an option not named is weak too.
+ */
 export function settingHits(query: string, ctx: NamesContext): Hit[] {
   const { tr } = ctx;
   if (isColourQuery(query, ctx)) {
@@ -94,20 +103,31 @@ export function settingHits(query: string, ctx: NamesContext): Hit[] {
   if (!words.length) return [];
   const hits: Hit[] = [];
   for (const spec of SETTINGS) {
-    const names = spec.names.map((n) => both(n, ctx)).join(" ");
-    const rest = words.filter((w) => !names.includes(w));
-    const name = tr(spec.names[0]);
-    const row = (suffix: string, title: string, action: Hit["action"]): Hit => ({ key: `setting:${spec.id}:${suffix}`, kind: "setting", title, icon: { glyph: "setting" }, action });
+    const [own, ...aliases] = spec.names;
+    const ownWords = nameWords(own, ctx);
+    const named = words.filter((w) => ownWords.some((ws) => startsOne(ws, w)));
+    if (!named.length) continue;
+    const aliasWords = aliases.flatMap((a) => nameWords(a, ctx).flat());
+    const rest = words.filter((w) => !named.includes(w) && !startsOne(aliasWords, w));
+    const whole = ownWords.some((ws) => ws.join("") === named.join(""));
+    const name = tr(own);
+    const row = (suffix: string, title: string, action: Hit["action"], sure = whole): Hit => ({
+      key: `setting:${spec.id}:${suffix}`,
+      kind: "setting",
+      title,
+      icon: { glyph: "setting" },
+      action,
+      ...(!sure && { weak: true }),
+    });
     if (spec.kind === "choice") {
-      // A word of the name, then any words left pick the option.
-      if (rest.length === words.length) continue;
+      // Any words left pick the option; with none, every option shows and none is taken unasked.
       if (spec.id === "theme") {
         if (!rest.length) hits.push(row("page", tr("{name} in den Einstellungen öffnen", { name }), { do: "settings", section: spec.section }));
         else for (const theme of ctx.themes) if (rest.every((w) => fold(theme.name).includes(w))) hits.push(row(theme.id, `${name}: ${theme.name}`, { do: "set", id: "theme", to: theme.id }));
         continue;
       }
       for (const option of spec.options) {
-        if (rest.every((w) => both(option.label, ctx).includes(w))) hits.push(row(option.value, `${name}: ${tr(option.label)}`, { do: "set", id: spec.id, to: option.value }));
+        if (rest.every((w) => both(option.label, ctx).includes(w))) hits.push(row(option.value, `${name}: ${tr(option.label)}`, { do: "set", id: spec.id, to: option.value }, whole && rest.length > 0));
       }
       continue;
     }
@@ -121,8 +141,8 @@ export function settingHits(query: string, ctx: NamesContext): Hit[] {
       hits.push(row("set", tr("{name} auf {value} setzen", { name, value: `${to} ${spec.unit}` }), { do: "set", id: spec.id, to }));
       continue;
     }
-    hits.push(row("up", tr("{name} erhöhen", { name }), { do: "nudge", id: spec.id, by: 1 }));
-    hits.push(row("down", tr("{name} verringern", { name }), { do: "nudge", id: spec.id, by: -1 }));
+    hits.push(row("up", tr("{name} erhöhen", { name }), { do: "nudge", id: spec.id, by: 1 }, false));
+    hits.push(row("down", tr("{name} verringern", { name }), { do: "nudge", id: spec.id, by: -1 }, false));
     if (spec.section) hits.push(row("page", tr("{name} in den Einstellungen öffnen", { name }), { do: "settings", section: spec.section }));
   }
   return hits;

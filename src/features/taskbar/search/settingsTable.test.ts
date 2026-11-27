@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { SETTINGS, clampSetting, isColourQuery, nudged, settingHits, type NamesContext } from "./settingsTable.ts";
 
 const tr = (key: string, values?: Record<string, string | number>) => key.replace(/\{(\w+)\}/g, (_, k: string) => String(values?.[k] ?? ""));
-const EN: Record<string, string> = { Höhe: "Height", Taskleiste: "Taskbar", Transparenz: "Transparency", Lautstärke: "Volume", Glas: "Glass", Aus: "Off", Themen: "Themes", Rosa: "Pink" };
+const EN: Record<string, string> = { Desktopsymbole: "Desktop icons", Höhe: "Height", Taskleiste: "Taskbar", Transparenz: "Transparency", Lautstärke: "Volume", Glas: "Glass", Aus: "Off", Themen: "Themes", Rosa: "Pink" };
 const ctx: NamesContext = { tr, en: (key) => EN[key] ?? key, themes: [{ id: "dracula", name: "Dracula" }, { id: "dark", name: "Dark" }] };
 const spec = (id: string) => {
   const s = SETTINGS.find((x) => x.id === id);
@@ -60,4 +60,22 @@ test("a colour by name or by code opens Themes and nothing else", () => {
 test("words that name no setting, or a number alone, give nothing", () => {
   assert.deepEqual(actions("holiday"), []);
   assert.deepEqual(actions("48"), []);
+});
+
+const IT: Record<string, string> = { Taskleiste: "Barra delle applicazioni", Höhe: "Altezza" };
+
+test("a setting is found by the start of its name's words; the bar's own name alone finds none", () => {
+  for (const q of ["bar", "task", "ask", "taskbar"]) assert.deepEqual(actions(q), [], q);
+  const it: NamesContext = { ...ctx, tr: (key, values) => tr(IT[key] ?? key, values) };
+  for (const q of ["barra", "app", "applicazioni"]) assert.deepEqual(settingHits(q, it), [], q);
+  assert.deepEqual(settingHits("altezza barra 48", it)[0]?.action, { do: "set", id: "height", to: 48 });
+  assert.equal(settingHits("altezza barra 48", it)[0]?.weak, undefined);
+});
+
+test("part of a name is a weak guess, which never takes Enter; the whole name is not", () => {
+  const rows = (q: string) => settingHits(q, ctx).map((h) => [h.action.do, h.weak === true]);
+  assert.deepEqual(rows("desktop"), [["toggle", true]]);
+  assert.deepEqual(rows("aus"), [["toggle", true]]);
+  assert.deepEqual(rows("desktop icons"), [["toggle", false]]);
+  assert.deepEqual(rows("höhe 48"), [["set", false]]);
 });

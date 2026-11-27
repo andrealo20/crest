@@ -31,3 +31,10 @@ test("the time in a city, with the word for time or the city's whole name", () =
   assert.match(answerHit("time in tokyo", ctx)?.title ?? "", /^\d{2}:\d{2}$/);
   assert.equal(answerHit("time in tokyo", ctx)?.icon && "glyph" in answerHit("time in tokyo", ctx)!.icon, true);
 });
+
+test("a date as in a file name is no sum, and a city alone is a weak guess that never takes Enter", () => {
+  for (const q of ["2026-11-26", "2026-11-26 screenshot"]) assert.equal(answerHit(q, ctx), null, q);
+  assert.equal(answerHit("rome", ctx)?.weak, true);
+  assert.equal(answerHit("time in tokyo", ctx)?.weak, undefined);
+  assert.equal(answerHit("12*8.5", ctx)?.weak, undefined);
+});

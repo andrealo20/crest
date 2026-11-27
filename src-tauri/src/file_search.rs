@@ -67,11 +67,24 @@ pub async fn search_files(query: String, limit: u32) -> Vec<Found> {
     tokio::time::timeout(DEADLINE, rx).await.ok().and_then(Result::ok).unwrap_or_default()
 }
 
+/// Whether attributes mark a file that lives only in the cloud: reading it, even opening it, would download it.
+fn cloud_only_attrs(attrs: u32) -> bool {
+    const OFFLINE: u32 = 0x1000;
+    const RECALL_ON_OPEN: u32 = 0x4_0000;
+    const RECALL_ON_DATA_ACCESS: u32 = 0x40_0000;
+    attrs & (OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS) != 0
+}
+
+/// A path the thumbnail may read: a local drive's ("C:\\..."), never a network share or a device path, which would reach out
+/// (and hand a server this PC's sign-in) before any picture comes back.
+fn local_path_ok(path: &str) -> bool {
+    let b = path.as_bytes();
+    b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/')
+}
+
 /// Whether reading the file would download it from the cloud (OneDrive and the like): those get their icon only.
 fn cloud_only(path: &str) -> bool {
-    const OFFLINE: u32 = 0x1000;
-    const RECALL_ON_DATA_ACCESS: u32 = 0x40_0000;
-    std::fs::metadata(path).is_ok_and(|m| m.file_attributes() & (OFFLINE | RECALL_ON_DATA_ACCESS) != 0)
+    std::fs::metadata(path).is_ok_and(|m| cloud_only_attrs(m.file_attributes()))
 }
 
 /// Explorer's picture of the item as a PNG data URL: a photo's or a video's thumbnail, else its icon.
@@ -90,6 +103,9 @@ fn thumb(path: &str, size: i32) -> Option<String> {
 /// The picture of a found item, `size` px square at most. One STA thread per call, as the shell expects.
 #[tauri::command]
 pub async fn search_file_thumb(path: String, size: u32) -> Option<String> {
+    if !local_path_ok(&path) {
+        return None;
+    }
     let (tx, rx) = tokio::sync::oneshot::channel();
     std::thread::spawn(move || {
         unsafe {
@@ -110,6 +126,20 @@ mod tests {
         assert_eq!(aqs_name_filter("my \"file\"").as_deref(), Some("System.FileName:~=\"my\" System.FileName:~=\"file\""));
         assert_eq!(aqs_name_filter("a:b (c)*").as_deref(), Some("System.FileName:~=\"a:b\" System.FileName:~=\"(c)*\""));
         assert_eq!(aqs_name_filter("  \"\" "), None);
+    }
+
+    #[test]
+    fn a_file_only_in_the_cloud_is_known_by_any_of_its_three_attributes() {
+        assert!(cloud_only_attrs(0x1000) && cloud_only_attrs(0x40_0000) && cloud_only_attrs(0x4_0000));
+        assert!(!cloud_only_attrs(0x20) && !cloud_only_attrs(0));
+    }
+
+    #[test]
+    fn thumbnails_read_local_drives_only() {
+        assert!(local_path_ok(r"C:\Users\me\Pictures\a.jpg") && local_path_ok("D:/Videos/b.mp4"));
+        for bad in [r"\\server\share\a.jpg", "//server/share/a.jpg", r"\\?\C:\a.jpg", r"\\.\pipe\x", "relative\\a.jpg", "C:a.jpg", ""] {
+            assert!(!local_path_ok(bad), "{bad}");
+        }
     }
 
     /// On this PC: what the index finds for a word, and a thumbnail of the first hit.

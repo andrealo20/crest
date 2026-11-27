@@ -279,8 +279,9 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         let app = app.clone();
         std::thread::spawn(move || crate::mic::toggle(&app));
     } else if search {
-        // A Crest hidden with its key comes back with its bar; the bar on the monitor in front opens its search.
-        display::unhide(app);
+        // A Crest hidden with its key comes back with its bar, but nothing opens: a "hide" rule keeps its say (`bring_back`).
+        // The bar on the monitor in front opens its search.
+        display::bring_back(app);
         #[cfg(windows)]
         crate::taskbar::keys::pressed(app, "search");
     } else if let Some(tool) = tool {

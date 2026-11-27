@@ -306,6 +306,8 @@ export function TextField(props: {
   /** Red outline, for a value that is not accepted. */
   invalid?: boolean;
   onBlur?: () => void;
+  /** A field that drives a list of choices (a combobox): the list's id and the active choice's, so a screen reader follows the arrows. */
+  list?: { id: string; active?: string };
 }) {
   const [reveal, setReveal] = useState(false);
   useEffect(() => {
@@ -329,6 +331,11 @@ export function TextField(props: {
         }}
         onChange={(e) => props.onChange(e.target.value)}
         onBlur={props.onBlur}
+        role={props.list ? "combobox" : undefined}
+        aria-controls={props.list?.id}
+        aria-expanded={props.list ? true : undefined}
+        aria-autocomplete={props.list ? "list" : undefined}
+        aria-activedescendant={props.list?.active}
         onKeyDown={(e) => e.key === "Enter" && props.onSubmit?.()}
         className="min-w-0 flex-1 bg-transparent text-footnote text-label outline-none placeholder:text-label-4"
       />

@@ -20,6 +20,8 @@ export interface AnswerContext {
 // are only typed, and a row repeating them would push the apps down.
 const DIGIT = /\d/;
 const WORK = /[+\-*/^%×÷()]|\b(in|to|as|into)\b/i;
+/** A date as file names carry it ("2026-11-26"): the dashes are no sum, and Enter belongs to the file. */
+const DATE = /^\d{4}-\d{1,2}-\d{1,2}\b/;
 
 /** Words for the time and the small words around a city, in Crest's languages; what is left is the city. */
 const TIME_WORDS = new Set(["time", "ora", "orario", "hora", "horario", "heure", "uhrzeit", "zeit", "время", "時間", "時刻", "时间", "समय", "الوقت", "الساعة"]);
@@ -28,7 +30,7 @@ const LINKS = new Set(["in", "a", "at", "en", "de", "di", "em", "no", "na", "в"
 /** The one answer row, or null: Calc's value when it worked something out, else the time in a city. */
 export function answerHit(query: string, ctx: AnswerContext): Hit | null {
   const text = query.trim();
-  if (DIGIT.test(text) && WORK.test(text)) {
+  if (DIGIT.test(text) && WORK.test(text) && !DATE.test(text)) {
     const line = evaluate(text, { now: ctx.now, money: ctx.money }).lines[0];
     if (line?.kind === "value") {
       const shown = formatValue(line.value, ctx.locale);
@@ -39,19 +41,21 @@ export function answerHit(query: string, ctx: AnswerContext): Hit | null {
   if (!city) return null;
   const ms = ctx.now.getTime();
   const shown = formatClock(wallTime(ms, city.zone), ctx.locale, ctx.h12);
-  return { key: "answer", kind: "answer", title: shown, subtitle: `${city.name}, ${formatUtc(zoneOffset(ms, city.zone))}`, icon: { glyph: "clock" }, action: { do: "copy", text: shown } };
+  const hit: Hit = { key: "answer", kind: "answer", title: shown, subtitle: `${city.name}, ${formatUtc(zoneOffset(ms, city.zone))}`, icon: { glyph: "clock" }, action: { do: "copy", text: shown } };
+  // A city's name alone ("nome", "davis") may be just a word: shown, but Enter stays with what comes after.
+  return city.asked ? hit : { ...hit, weak: true };
 }
 
 /** Whether the text names a currency, so the panel loads the rates first. */
 export const needsRates = (query: string): boolean => evaluate(query.trim()).usesMoney;
 
 /** The city in "time in tokyo", "ora a Tokyo" or a city's whole name alone; a part of a name needs the word for the time. */
-export function cityTime(query: string, zones: string[]): { zone: string; name: string } | null {
+export function cityTime(query: string, zones: string[]): { zone: string; name: string; asked: boolean } | null {
   const words = fold(query).split(/\s+/).filter(Boolean);
   const asked = words.some((w) => TIME_WORDS.has(w));
   const rest = words.filter((w) => !TIME_WORDS.has(w) && !LINKS.has(w)).join(" ");
   if (!rest) return null;
   const hit = searchHits(rest, zones, 1)[0];
   if (!hit) return null;
-  return asked || fold(hit.name) === rest ? hit : null;
+  return asked || fold(hit.name) === rest ? { ...hit, asked } : null;
 }

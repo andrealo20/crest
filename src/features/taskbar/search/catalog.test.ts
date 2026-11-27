@@ -1,8 +1,10 @@
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { LauncherApp } from "../../launcher/apps.ts";
 import type { BarItem, Zone } from "../model.ts";
-import { appHits, toolHits, widgetHits } from "./catalog.ts";
+import { TOOL_IDS } from "../../../settings/tools.ts";
+import { appHits, toolHits, toolLabel, widgetHits } from "./catalog.ts";
 
 const tr = (key: string) => key;
 const EN: Record<string, string> = { Wetter: "Weather", Uhr: "Clock" };
@@ -38,4 +40,13 @@ test("a widget offers to go on the bar, or to come off it when it is there", () 
   assert.deepEqual(widgetHits("wetter", widgets, zones, ctx).map((h) => h.action), [{ do: "widget", id: "weather", add: true }]);
   assert.deepEqual(widgetHits("clock", widgets, zones, ctx).map((h) => h.action), [{ do: "widget", id: "clock", add: false }]);
   assert.deepEqual(widgetHits("xyz", widgets, zones, ctx), []);
+});
+
+test("every tool has a name to be found by, the widgets' own tools too", () => {
+  // toolInfo.ts loads icons, which these tests cannot: its names are read from its source.
+  const src = readFileSync(new URL("../toolInfo.ts", import.meta.url), "utf8");
+  const info = Object.fromEntries([...src.matchAll(/^\s+([a-zA-Z]+): \{ label: "([^"]+)"/gm)].map((m) => [m[1], { label: m[2] }]));
+  for (const id of TOOL_IDS) assert.ok(toolLabel(id, info), id);
+  assert.equal(toolLabel("weather", info), "Wetter");
+  assert.equal(toolLabel("plugin:x", info), undefined);
 });

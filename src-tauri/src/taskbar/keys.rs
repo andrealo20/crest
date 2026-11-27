@@ -412,8 +412,8 @@ pub(crate) fn pressed(app: &AppHandle, name: &str) {
     let bars: Vec<(String, isize)> = all.iter().map(|(l, h)| (l.clone(), tasks::monitor_of(HWND(*h as _)))).collect();
     let Some(label) = target(tasks::monitor_of(unsafe { GetForegroundWindow() }), &bars) else { return };
     let hidden = all.iter().any(|(l, h)| *l == label && !unsafe { IsWindowVisible(HWND(*h as _)) }.as_bool());
-    // The search key shows Crest first (shell.rs), and it rests over full-screen apps (window/store.ts), so it goes through.
-    if hidden && !matches!(key, Key::Number { .. } | Key::Search) {
+    // A bar hidden over a full-screen app takes no search either: the panel would open unseen, over the game.
+    if hidden && !matches!(key, Key::Number { .. }) {
         return;
     }
     let _ = app.emit_to(label.as_str(), "taskbar://key", key);

@@ -18,6 +18,15 @@ export interface IntentCatalog {
   sections: readonly string[];
 }
 
+/** What is matched here and never sent: this PC's apps and every theme, the user's own included. */
+export interface IntentLocal {
+  apps: LauncherApp[];
+  themes: readonly { id: string; name: string }[];
+}
+
+/** The tools that may be named to Ask: Crest's own, never a plugin's (its id names what the user installed). */
+export const askableTools = (ids: readonly string[]): string[] => ids.filter((id) => !id.startsWith("plugin:"));
+
 /** Ask can answer: a model, and a key or, for a server of the user's own, its address (ai.rs needs no key there). */
 export const askReady = (provider: AskProvider, config: AskProviderConfig, hasKey: boolean): boolean =>
   config.model.trim() !== "" && (hasKey || (provider === "custom" && config.baseUrl.trim() !== ""));
@@ -53,7 +62,7 @@ export function intentPrompt(c: IntentCatalog): string {
 }
 
 /** The first JSON object in Ask's reply as an action Crest has, held to its limits, or null for anything else. */
-export function parseIntent(reply: string, c: IntentCatalog, apps: LauncherApp[]): SearchAction | null {
+export function parseIntent(reply: string, c: IntentCatalog, local: IntentLocal): SearchAction | null {
   const text = reply.replace(/```(?:json)?/gi, "");
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -71,14 +80,15 @@ export function parseIntent(reply: string, c: IntentCatalog, apps: LauncherApp[]
     case "set": {
       if (!spec) return null;
       if (spec.kind === "number") {
-        const n = typeof a.to === "number" ? a.to : typeof a.to === "string" ? Number(a.to) : NaN;
+        // A blank string is no number: Number("") is 0, which would mute the PC or shrink the bar.
+        const n = typeof a.to === "number" ? a.to : typeof a.to === "string" && a.to.trim() ? Number(a.to) : NaN;
         return Number.isFinite(n) ? { do: "set", id: spec.id, to: clampSetting(spec, n) } : null;
       }
       if (spec.kind === "toggle") return typeof a.to === "boolean" ? { do: "set", id: spec.id, to: a.to } : null;
       if (typeof a.to !== "string") return null;
       const to = a.to;
       if (spec.id === "theme") {
-        const theme = c.themes.find((t) => t.id === to || fold(t.name) === fold(to));
+        const theme = local.themes.find((t) => t.id === to || fold(t.name) === fold(to));
         return theme ? { do: "set", id: "theme", to: theme.id } : null;
       }
       return spec.options.some((o) => o.value === to) ? { do: "set", id: spec.id, to } : null;
@@ -88,8 +98,8 @@ export function parseIntent(reply: string, c: IntentCatalog, apps: LauncherApp[]
     case "toggle":
       return spec?.kind === "toggle" ? { do: "toggle", id: spec.id } : null;
     case "app": {
-      // The name is matched here, on this PC's list, which never goes to Ask.
-      const app = typeof a.name === "string" ? searchApps(apps, a.name, 1)[0] : undefined;
+      // The name is matched here, on this PC's list, which never goes to Ask. A blank one would match every app.
+      const app = typeof a.name === "string" && a.name.trim() ? searchApps(local.apps, a.name.trim(), 1)[0] : undefined;
       return app ? { do: "app", id: app.id } : null;
     }
     case "widget":

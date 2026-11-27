@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { LauncherApp } from "../../launcher/apps.ts";
 import { SETTINGS } from "./settingsTable.ts";
-import { askReady, intentPrompt, parseIntent, type IntentCatalog } from "./understand.ts";
+import { askReady, askableTools, intentPrompt, parseIntent, type IntentCatalog } from "./understand.ts";
 
 const catalog: IntentCatalog = {
   settings: SETTINGS,
@@ -12,7 +12,8 @@ const catalog: IntentCatalog = {
   sections: ["themes", "taskbar-look"],
 };
 const apps: LauncherApp[] = [{ id: "shell:AppsFolder\\Code", name: "Visual Studio Code", source: "start" }];
-const parse = (reply: string) => parseIntent(reply, catalog, apps);
+const local = { apps, themes: [{ id: "dracula", name: "Dracula" }, { id: "custom-1", name: "Il mio tramonto" }] };
+const parse = (reply: string) => parseIntent(reply, catalog, local);
 
 test("the reply's JSON is read clean, in a code block or after a sentence", () => {
   const want = { do: "set", id: "height", to: 48 };
@@ -50,4 +51,13 @@ test("Ask is ready with a model and a key, or a model and an address of its own"
 test("the prompt names the settings with their limits, the themes and where colours go", () => {
   const prompt = intentPrompt(catalog);
   for (const part of ["height", "32", "64", "Dracula", "themes", "weather", "timer", "JSON"]) assert.ok(prompt.includes(part), part);
+});
+
+test("blank values from Ask are not actions: no muted PC, no first app launched", () => {
+  for (const reply of ['{"do":"set","id":"volume","to":""}', '{"do":"set","id":"height","to":"  "}', '{"do":"app","name":""}', '{"do":"app","name":"  "}']) assert.equal(parse(reply), null, reply);
+});
+
+test("only Crest's own names go to Ask: the user's themes are matched here, plugins never named", () => {
+  assert.deepEqual(parse('{"do":"set","id":"theme","to":"il mio tramonto"}'), { do: "set", id: "theme", to: "custom-1" });
+  assert.deepEqual(askableTools(["timer", "plugin:my-thing", "weather"]), ["timer", "weather"]);
 });

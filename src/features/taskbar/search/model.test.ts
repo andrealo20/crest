@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GROUP_LIMIT, arrange, firstSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitKind } from "./model.ts";
+import { GROUP_LIMIT, arrange, firstSelected, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitKind } from "./model.ts";
 
 const tr = (key: string, values?: Record<string, string | number>) => key.replace(/\{(\w+)\}/g, (_, k: string) => String(values?.[k] ?? ""));
 const hit = (kind: HitKind, key: string): Hit => ({ key, kind, title: key, icon: { glyph: "web" }, action: { do: "web", query: key } });
@@ -33,4 +33,13 @@ test("a typed path opens, other text searches the web, nothing typed gives no ro
 test("the Settings row carries the text, and Capisci the sentence", () => {
   assert.deepEqual(settingsSearchHit("dock", tr).action, { do: "settings", section: null, query: "dock" });
   assert.deepEqual(understandHit("make it pink", tr).action, { do: "understand", text: "make it pink" });
+});
+
+test("a weak row, a guess from part of a name, never starts selected; a row picked with the arrows stays picked as rows arrive", () => {
+  const weak: Hit = { ...hit("setting", "g"), weak: true };
+  assert.equal(firstSelected([weak, hit("file", "f"), hit("web", "w")]), 1);
+  const list = [hit("app", "p"), hit("file", "f1"), hit("web", "w")];
+  assert.equal(keepSelected("f1", list), 1);
+  assert.equal(keepSelected("gone", list), 0);
+  assert.equal(keepSelected(null, list), 0);
 });

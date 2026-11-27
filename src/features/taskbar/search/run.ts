@@ -6,7 +6,6 @@ import { settingsWindow } from "../../../platform/native";
 import { launcher, openFile, revealFile, systemControls, taskbar, webSearch } from "../../../platform/services";
 import { settings } from "../../../settings/store";
 import type { SearchEngine } from "../../overview/search";
-import { searchSection } from "../../settings/searchLink";
 import { activeThemeId } from "../../themes/daynight";
 import { allThemes, pickTheme } from "../../themes/store";
 import { openPanel, panel } from "../panel";
@@ -132,7 +131,7 @@ export async function runAction(action: SearchAction, engine: SearchEngine): Pro
         return {};
       }
       case "settings":
-        await settingsWindow.open(action.query ? searchSection(action.query) : action.section);
+        await settingsWindow.open(action.query ? null : action.section, action.query);
         return { close: true };
       case "widget":
         setTaskbar((cur) => ({ zones: action.add ? addWidget(cur.zones, action.id, "right") : removeWidget(cur.zones, action.id) }));

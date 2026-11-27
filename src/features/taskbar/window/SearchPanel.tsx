@@ -2,25 +2,26 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Calculator, Check, Clock, File, Folder, FolderOpen, GearSix, Globe, MagnifyingGlass, SlidersHorizontal, Sparkle, type Icon } from "../../../ui/iconset";
 import { TextField } from "../../../ui/controls";
 import { english, locale, t } from "../../../i18n";
-import { fileSearch, launcher, type FoundFile, type LauncherAppEntry } from "../../../platform/services";
+import { fileSearch, launcher, type FoundFile } from "../../../platform/services";
 import { fetchRates } from "../../../platform/portfolio";
 import { isMac } from "../../../platform/native";
 import { settings, updateSettings } from "../../../settings/store";
-import { PART_IDS } from "../../../notch/row/parts";
+import { PART_IDS, type PartId } from "../../../notch/row/parts";
 import { partInfo } from "../../../notch/row/partInfo";
 import { allZones } from "../../clocks/zones";
 import { convertMoney } from "../../convert/fx";
 import { AppIcon } from "../../launcher/AppIcon";
+import { mergeApps, type LauncherApp } from "../../launcher/apps";
 import { barEngine } from "../../overview/search";
 import { allThemes } from "../../themes/store";
 import { effectiveBase } from "../../trading/base";
 import type { Rates } from "../../trading/portfolio";
 import { closePanel } from "../panel";
 import { answerHit, needsRates } from "../search/answers";
-import { appHits, toolHits, widgetHits } from "../search/catalog";
+import { appHits, toolHits, toolLabel, widgetHits } from "../search/catalog";
 import { fileHits, latestSearch } from "../search/files";
 import { askIntent, askReadyNow } from "../search/askIntent";
-import { arrange, firstSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
+import { arrange, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
 import { runAction, type RunOutcome } from "../search/run";
 import { settingHits } from "../search/settingsTable";
 import { barWindows } from "../store";
@@ -37,8 +38,7 @@ const GLYPHS: Record<Extract<HitIcon, { glyph: string }>["glyph"], Icon> = {
   path: FolderOpen,
 };
 
-// The Launcher's apps and their icons, kept while the bar's window lives: every key reads them.
-let appList: Promise<LauncherAppEntry[]> | null = null;
+// The apps' icons, kept while the bar's window lives: every key reads them.
 const appIcons = new Map<string, string | null>();
 
 /** Files' pictures by path and size, the oldest dropped past THUMBS, so a long evening of searches keeps memory flat. */
@@ -57,7 +57,7 @@ export function SearchPanel() {
   const s = settings.use();
   const engine = barEngine(s.productivity.search);
   const [query, setQuery] = useState("");
-  const [apps, setApps] = useState<LauncherAppEntry[]>([]);
+  const [apps, setApps] = useState<LauncherApp[]>([]);
   const [rates, setRates] = useState<Rates | null>(null);
   const [, setIconsIn] = useState(0);
   const [files, setFiles] = useState<{ q: string; found: FoundFile[] }>({ q: "", found: [] });
@@ -78,10 +78,13 @@ export function SearchPanel() {
     };
   }, []);
 
+  // The Launcher's list as the Launcher shows it (mergeApps: no uninstallers, no exe twice), read at each opening; Rust caches it.
   useEffect(() => {
-    appList ??= launcher.apps().catch(() => []);
     let live = true;
-    void appList.then((a) => live && setApps(a));
+    launcher.apps().then(
+      (a) => live && setApps(mergeApps(a)),
+      () => {},
+    );
     return () => {
       live = false;
     };
@@ -114,7 +117,10 @@ export function SearchPanel() {
     const names = { tr: t, en: (key: string) => english(t(key)) };
     const running = (id: string) => barWindows.get().groups.some((g) => g.windows.length > 0 && g.pins.some((p) => p.id === id));
     const money = rates ? (amount: number, from: string, to: string) => convertMoney(amount, from, to, rates) : undefined;
-    const tools = s.tools.filter((x) => x.enabled && toolInfo[x.id]).map((x) => ({ id: x.id, label: toolInfo[x.id].label }));
+    const tools = s.tools.filter((x) => x.enabled).flatMap((x) => {
+      const label = toolLabel(x.id, toolInfo);
+      return label ? [{ id: x.id, label }] : [];
+    });
     const widgets = PART_IDS.map((id) => ({ id, label: partInfo[id].label }));
     const themes = allThemes().map((th) => ({ id: th.id, name: th.name }));
     return arrange(
@@ -132,9 +138,11 @@ export function SearchPanel() {
     );
   }, [query, apps, rates, s, engine, zones, files, askOn]);
 
-  // A new list starts on its best row; the selected row stays in view.
+  // A new list starts on its best row, unless a row was picked with the arrows or the pointer and is still there (files arrive
+  // late: Enter must run what was picked). The selected row stays in view.
+  const chosen = useRef<string | null>(null);
   const keys = hits.map((h) => h.key).join("\n");
-  useEffect(() => setSel(firstSelected(hits)), [keys]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setSel(keepSelected(chosen.current, hits)), [keys]); // eslint-disable-line react-hooks/exhaustive-deps
   // In braces: Chromium's scrollIntoView now returns a Promise, which React would keep as the effect's clean-up and then call.
   useEffect(() => {
     list.current?.querySelector(`[data-row="${sel}"]`)?.scrollIntoView({ block: "nearest" });
@@ -205,7 +213,9 @@ export function SearchPanel() {
       e.preventDefault();
       if (!hits.length) return;
       const by = e.key === "ArrowDown" ? 1 : -1;
-      setSel((i) => Math.min(hits.length - 1, Math.max(0, i + by)));
+      const next = Math.min(hits.length - 1, Math.max(0, sel + by));
+      chosen.current = hits[next]?.key ?? null;
+      setSel(next);
     } else if (e.key === "Enter") {
       e.preventDefault();
       e.stopPropagation();
@@ -216,14 +226,24 @@ export function SearchPanel() {
   const tries = ["12*8.5", "100 usd to eur", "time in tokyo", t("Wetter"), `${t("Lautstärke")} 30`, `${t("Höhe")} 44`];
   return (
     <div className="flex h-full flex-col gap-2 p-3" onKeyDownCapture={onKey}>
-      <div ref={list} role="listbox" aria-label={t("Suchergebnisse")} className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+      <div ref={list} id="bar-search-results" role="listbox" aria-label={t("Suchergebnisse")} className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
         {query.trim() ? (
           <>
             {preview && thumbs.get(thumbKey(preview, PREVIEW)) && (
               <img src={thumbs.get(thumbKey(preview, PREVIEW)) ?? undefined} alt="" draggable={false} className="mb-2 h-36 w-full rounded-[10px] bg-fill-2 object-contain" />
             )}
             {hits.map((h, i) => (
-              <Row key={h.key} hit={h} index={i} selected={i === sel} onPick={() => void run(i)} onHover={() => setSel(i)} />
+              <Row
+                key={h.key}
+                hit={h}
+                index={i}
+                selected={i === sel}
+                onPick={() => void run(i)}
+                onHover={() => {
+                  chosen.current = h.key;
+                  setSel(i);
+                }}
+              />
             ))}
           </>
         ) : (
@@ -247,6 +267,7 @@ export function SearchPanel() {
           onChange={(v) => {
             setQuery(v);
             setOutcome(null);
+            chosen.current = null;
             // New text: a question still out to Ask no longer fits it.
             asking.current?.abort();
             setThinking(false);
@@ -255,6 +276,7 @@ export function SearchPanel() {
           width="flex-1"
           autoFocus
           invalid={!!outcome?.error}
+          list={{ id: "bar-search-results", active: sel >= 0 ? `bar-search-row-${sel}` : undefined }}
         />
       </div>
       <p role="status" className={`flex h-4 min-w-0 items-center gap-1.5 text-caption ${outcome?.error ? "text-red" : "text-label-3"}`}>
@@ -276,6 +298,7 @@ function Row({ hit, index, selected, onPick, onHover }: { hit: Hit; index: numbe
     <button
       type="button"
       role="option"
+      id={`bar-search-row-${index}`}
       aria-selected={selected}
       data-row={index}
       tabIndex={-1}
@@ -299,7 +322,7 @@ function RowIcon({ icon }: { icon: HitIcon }) {
   const picture = "file" in icon ? thumbs.get(thumbKey(icon.file, ROW_THUMB)) : null;
   if (picture) return <img src={picture} alt="" draggable={false} className="h-6 w-6 shrink-0 rounded-[5px] object-cover" />;
   const Glyph: Icon | undefined =
-    "tool" in icon ? toolInfo[icon.tool]?.icon : "part" in icon ? partInfo[icon.part]?.icon : "glyph" in icon ? GLYPHS[icon.glyph] : icon.folder ? Folder : File;
+    "tool" in icon ? (toolInfo[icon.tool]?.icon ?? partInfo[icon.tool as PartId]?.icon) : "part" in icon ? partInfo[icon.part]?.icon : "glyph" in icon ? GLYPHS[icon.glyph] : icon.folder ? Folder : File;
   return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-fill-2 text-label-2">{Glyph && <Glyph size={14} weight="bold" />}</span>;
 }
 

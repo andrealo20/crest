@@ -57,6 +57,8 @@ export interface Hit {
   icon: HitIcon;
   action: SearchAction;
   alt?: SearchAction;
+  /** A guess from part of a name, or a row with no value given: shown, never the row Enter runs before an arrow or the pointer picks it. */
+  weak?: boolean;
 }
 
 /** The groups top to bottom, and the most rows each shows. */
@@ -68,9 +70,15 @@ export const arrange = (hits: Hit[]): Hit[] => ORDER.flatMap((kind) => hits.filt
 
 /**
  * The row Enter runs as the list appears: the first, never Capisci, which spends the user's tokens only when chosen, nor the
- * Settings' search, so with nothing found Enter still opens the path or searches the web as the box always did. -1 for none.
+ * Settings' search, nor a weak guess, so with nothing sure Enter still opens the path or searches the web as the box always did. -1 for none.
  */
-export const firstSelected = (hits: Hit[]): number => hits.findIndex((h) => h.kind !== "understand" && h.kind !== "settings");
+export const firstSelected = (hits: Hit[]): number => hits.findIndex((h) => h.kind !== "understand" && h.kind !== "settings" && !h.weak);
+
+/** The selected row once the list changed (files arrive late): the same row while it is there, so Enter runs what was picked. */
+export function keepSelected(key: string | null, hits: Hit[]): number {
+  const at = key === null ? -1 : hits.findIndex((h) => h.key === key);
+  return at >= 0 ? at : firstSelected(hits);
+}
 
 /** Capisci: the sentence goes to Ask only when this row is chosen. */
 export const understandHit = (text: string, tr: Tr): Hit => ({
