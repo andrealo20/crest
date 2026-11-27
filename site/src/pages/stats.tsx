@@ -65,25 +65,11 @@ function Shares({ title, rows, total, limit }: { title: string; rows: [string, n
 function Today() {
   const s = useStats();
   if (s === undefined) return <p className="lead">Reading today's count…</p>;
-  // No counter answering, or nobody counted in 30 days: the live figure still shows, at zero, with when it starts
-  if (s === null || s.days.every((d) => d.n === 0))
-    return (
-      <div className="today">
-        <p className="today-n">0</p>
-        <p className="today-what">
-          computers counted today. Counting starts with the next release of Crest, the first to send the daily count, and this number then follows it live.
-        </p>
-      </div>
-    );
+  // No counter answering, or nobody counted in 30 days: the head says 0, and there is nothing to break down here.
+  if (s === null || s.days.every((d) => d.n === 0)) return <p className="lead">No computer counted yet today.</p>;
   const t = s.today;
   return (
     <>
-      <div className="today">
-        <p className="today-n">{num(t.total)}</p>
-        <p className="today-what">
-          computers ran Crest today, {s.day} in UTC. Yesterday, {num(s.yesterday)}.
-        </p>
-      </div>
       <WorldMap counts={t.country} />
       <div className="share-grid">
         <Shares title="Where" rows={Object.entries(t.country).map(([k, n]) => [country(k), n])} total={t.total} limit={10} />
@@ -116,8 +102,8 @@ function HeadFigures() {
 function StatsPage() {
   return (
     <Page color="#bfe03a" title="Stats" lead={<HeadFigures />}>
-      <section className="sec stats" aria-labelledby="today-title">
-        <Rise><h2 id="today-title">Today</h2></Rise>
+      {/* Today's count is in the head; this is where those computers are, and what they run. */}
+      <section className="sec stats" aria-label="Today, by country, system and version">
         <Today />
       </section>
       <section className="sec stats" aria-labelledby="downloads-title">
