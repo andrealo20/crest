@@ -83,24 +83,54 @@ fn refresh(app: &AppHandle) {
     }
 }
 
-/// Watches the bin from the taskbar thread's window; without the registration the button keeps its first count.
-pub(super) fn begin(app: AppHandle, window: HWND) {
-    unsafe {
-        if let Ok(pidl) = SHGetKnownFolderIDList(&FOLDERID_RecycleBinFolder, 0, None) {
-            let entry = SHChangeNotifyEntry { pidl, fRecursive: true.into() };
-            let sources = SHCNRF_ShellLevel | SHCNRF_InterruptLevel | SHCNRF_NewDelivery;
-            let id = SHChangeNotifyRegister(window, sources, SHCNE_ALLEVENTS.0 as i32, RECYCLE_MSG, 1, &entry);
-            if id == 0 {
-                eprintln!("taskbar: no Recycle Bin notifications");
-            }
-            WATCH.set((id, pidl as usize));
-        }
+/// Asks the shell for the bin's change notices, sent to `window`: the registration's id, 0 when the shell refuses.
+fn register(window: HWND, pidl: *mut ITEMIDLIST) -> u32 {
+    let entry = SHChangeNotifyEntry { pidl, fRecursive: true.into() };
+    let sources = SHCNRF_ShellLevel | SHCNRF_InterruptLevel | SHCNRF_NewDelivery;
+    let id = unsafe { SHChangeNotifyRegister(window, sources, SHCNE_ALLEVENTS.0 as i32, RECYCLE_MSG, 1, &entry) };
+    if id == 0 {
+        eprintln!("taskbar: no Recycle Bin notifications");
     }
+    id
+}
+
+/// Watches the bin from the taskbar thread's window; without the registration the button keeps the count it has.
+fn watch_bin(window: HWND) {
+    if let Ok(pidl) = unsafe { SHGetKnownFolderIDList(&FOLDERID_RecycleBinFolder, 0, None) } {
+        WATCH.set((register(window, pidl), pidl as usize));
+    }
+}
+
+pub(super) fn begin(app: AppHandle, window: HWND) {
+    watch_bin(window);
     APP.set(Some(app.clone()));
     std::thread::spawn(move || refresh(&app));
 }
 
-pub(super) fn end(window: HWND) {
+/// Explorer restarted (TaskbarCreated, mod.rs). The bin's watch lived in the old Explorer, so the new one is asked for it again (or for
+/// the first time, when Explorer was not ready as the bar started), and the bin is read again, as it may have changed meanwhile (#107).
+pub(super) fn renew(window: HWND) {
+    let (id, pidl) = WATCH.get();
+    if id != 0 {
+        let _ = unsafe { SHChangeNotifyDeregister(id) };
+    }
+    if pidl == 0 {
+        watch_bin(window);
+    } else {
+        WATCH.set((register(window, pidl as *mut ITEMIDLIST), pidl));
+    }
+    arm(window);
+}
+
+/// One read 300 ms from now, unless one is on its way already: a burst of notices makes a single read.
+fn arm(window: HWND) {
+    if !ARMED.get() {
+        ARMED.set(unsafe { SetTimer(Some(window), RECYCLE_TIMER, RECYCLE_MS, None) } != 0);
+    }
+}
+
+/// Stops watching the bin: the registration, the bin's pidl and a read still to come.
+fn unwatch(window: HWND) {
     let (id, pidl) = WATCH.replace((0, 0));
     unsafe {
         if id != 0 {
@@ -112,6 +142,10 @@ pub(super) fn end(window: HWND) {
         let _ = KillTimer(Some(window), RECYCLE_TIMER);
     }
     ARMED.set(false);
+}
+
+pub(super) fn end(window: HWND) {
+    unwatch(window);
     APP.set(None);
     // The bin may change while the bar is off: the next bar's first ask reads it again.
     LAST.lock().unwrap_or_else(|e| e.into_inner()).1 = None;
@@ -126,10 +160,8 @@ pub(super) fn on_notify(window: HWND, wparam: WPARAM, lparam: LPARAM) {
         if !lock.is_invalid() {
             let _ = SHChangeNotification_Unlock(lock);
         }
-        if !ARMED.get() {
-            ARMED.set(SetTimer(Some(window), RECYCLE_TIMER, RECYCLE_MS, None) != 0);
-        }
     }
+    arm(window);
 }
 
 pub(super) fn on_timer(window: HWND) {
@@ -141,8 +173,13 @@ pub(super) fn on_timer(window: HWND) {
     }
 }
 
+/// The bin's count: the last one read, or with `fresh` (the panel opening) read again first, so the panel shows what is in the bin
+/// even when no notice came (#107); a new count also reaches the button.
 #[tauri::command]
-pub async fn taskbar_recycle() -> Option<Recycle> {
+pub async fn taskbar_recycle(app: AppHandle, fresh: Option<bool>) -> Option<Recycle> {
+    if fresh == Some(true) {
+        let _ = tauri::async_runtime::spawn_blocking(move || refresh(&app)).await;
+    }
     let last = LAST.lock().unwrap_or_else(|e| e.into_inner()).1;
     match last {
         Some(r) => Some(r),
@@ -223,5 +260,39 @@ mod tests {
         assert!(!take(&mut last, 3, Some(full)));
         assert_eq!(last, (4, Some(empty)));
         assert!(take(&mut last, 5, Some(full)));
+    }
+
+    #[test]
+    fn a_restarted_explorer_gets_the_bins_watch_again() {
+        // The bin's watch is kept by Explorer: a new Explorer knows none, so the bar renews it as Explorer announces its new
+        // taskbar (#107), with the appbars and the shell hook.
+        let bar = include_str!("mod.rs");
+        let created = bar.split("msg == TASKBAR_CREATED.load").nth(1).expect("the TaskbarCreated handler");
+        let handler = &created[..created.find("return LRESULT(0);").expect("its end")];
+        assert!(handler.contains("recycle::renew(hwnd)"), "TaskbarCreated does not renew the Recycle Bin's watch");
+    }
+
+    #[test]
+    #[ignore = "registers with the running shell"]
+    fn renewing_watches_the_bin_again_and_reads_it() {
+        use windows::core::w;
+        use windows::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, HWND_MESSAGE, WINDOW_EX_STYLE, WINDOW_STYLE};
+        unsafe {
+            let window = CreateWindowExW(WINDOW_EX_STYLE(0), w!("STATIC"), PCWSTR::null(), WINDOW_STYLE(0), 0, 0, 0, 0, Some(HWND_MESSAGE), None, None, None)
+                .expect("a message window");
+            watch_bin(window);
+            let (first, pidl) = WATCH.get();
+            assert!(first != 0 && pidl != 0, "the shell refused the first watch");
+            renew(window);
+            let (second, kept) = WATCH.get();
+            assert!(second != 0 && second != first, "no new watch");
+            assert_eq!(kept, pidl);
+            // The bin may have changed while no one watched it: a read follows.
+            assert!(ARMED.get(), "no read after the renewal");
+            // Not end(): it drops the app's handle, which would link Tauri's windows, and with them a call the test binary,
+            // without Crest's manifest, cannot load.
+            unwatch(window);
+            let _ = DestroyWindow(window);
+        }
     }
 }

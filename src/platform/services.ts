@@ -1651,8 +1651,8 @@ export const taskbar = {
   allDesktops: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_all_desktops", { on }) : Promise.resolve()),
   /** Whether Rust lets a bar end an app (End task in the app menu). The notch only. */
   endTask: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_end_task", { on }) : Promise.resolve()),
-  /** The Recycle Bin's count, null when Windows could not say. */
-  recycle: (): Promise<RecycleBin | null> => (isNative ? invoke<RecycleBin | null>("taskbar_recycle") : Promise.resolve(null)),
+  /** The Recycle Bin's count, null when Windows could not say; `fresh` reads the bin again first (recycle.rs). */
+  recycle: (fresh = false): Promise<RecycleBin | null> => (isNative ? invoke<RecycleBin | null>("taskbar_recycle", { fresh }) : Promise.resolve(null)),
   /** A new count each time the shell reports a change in the bin; to the primary bar. */
   onRecycle(handler: (r: RecycleBin) => void): () => void {
     if (!isNative) return () => {};

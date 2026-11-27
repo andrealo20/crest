@@ -32,6 +32,10 @@ function Frees({ bytes }: { bytes: number }) {
 export function RecyclePanel({ focus }: { focus?: boolean }) {
   const bin = recycleBin.use();
   const cancel = useRef<HTMLButtonElement>(null);
+  // Read again as it opens: a change Windows did not report (#107) would leave the count the bar had.
+  useEffect(() => {
+    void taskbar.recycle(true).then((r) => r && recycleBin.set(r), () => {});
+  }, []);
   // Opened by the keyboard or from the bin's menu: the keyboard lands on Cancel, the safe answer, as a confirmation does.
   useEffect(() => {
     if (focus) cancel.current?.focus({ preventScroll: true });
