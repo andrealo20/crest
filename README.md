@@ -60,6 +60,16 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
+## What's new in 1.4.0
+
+- **Search or open** on the taskbar finds apps, settings, widgets, files and quick answers, and with Ask it does what a sentence says ("set the volume to 30").
+- **Pomelo comes to Crest**: the **Files** tool converts and edits images, PDFs, audio and video, and the **Pomelo wheel** works on files dragged in File Explorer. Both run on Pomelo's engine, a separate program Crest downloads only when you ask. Windows only.
+- **Translate**, a new tool, on the PC with the lyrics' offline models.
+- **Stocks and your Portfolio** in the crypto widget, the battery, Wi-Fi and volume drawn as on an iPhone and a Mac, **Keep room for the bar** on every shape, and auto-hide only on the screen you're working on.
+- **Behind other windows** keeps the notch under every window, and Overview gets **Hibernate**.
+
+The [1.4.0 release](https://github.com/andrealo20/crest/releases/tag/v1.4.0) has the downloads and the full notes, with the fixes and the issue behind each change.
+
 ## What's new in 1.3.3
 
 - **Text and QR codes from copied images** in the Clipboard: Copy text, and a link opens in the browser. All of it on this PC.

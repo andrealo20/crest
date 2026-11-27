@@ -1,5 +1,41 @@
 [
   {
+    "version": "1.4.0",
+    "date": "2026-11-27",
+    "items": [
+      {
+        "en": "The bar's search box finds apps, tools, settings, widgets, files and quick answers, and with Ask it does what a sentence says. On Windows, not in the Microsoft Store version"
+      },
+      {
+        "en": "Files, a new tool: convert and edit images, PDFs, audio and video with Pomelo's engine, a separate program downloaded only when you ask. On Windows"
+      },
+      {
+        "en": "The Pomelo wheel: drag files in File Explorer and hold Shift, Ctrl or Alt for Pomelo's conversions. On Windows, off by default"
+      },
+      {
+        "en": "A Pomelo key costs US$4.99 once until 31 December 2026, bought on Stripe and filled in by a crest:// link"
+      },
+      {
+        "en": "Translate, a new tool: text translated on the PC with the lyrics' offline models, or by the Ask provider"
+      },
+      {
+        "en": "The tool bar shows the selected tool's name, and Behind other windows keeps the notch under every window"
+      },
+      {
+        "en": "Hibernate in Overview when hibernation is on, and Pure black and Material's shapes for the Material style"
+      },
+      {
+        "en": "On the taskbar, battery, Wi-Fi and volume as on an iPhone and a Mac, stocks and the Portfolio in the crypto widget, Keep room for the bar on every shape and auto-hide only on the screen in use"
+      },
+      {
+        "en": "Crest no longer restarts Explorer as it starts with Windows keys on the bar, and the Recycle Bin widget stays up to date after Explorer restarts"
+      },
+      {
+        "en": "A daily install count, with no ID, public at crestisland.app/stats; Count this install turns it off"
+      }
+    ]
+  },
+  {
     "version": "1.3.3",
     "date": "2026-11-25",
     "items": [
