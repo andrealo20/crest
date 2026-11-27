@@ -48,7 +48,8 @@ test("a weak row, a guess from part of a name, never starts selected; a row pick
 
 test("without Ask set up, Capisci takes to the AI page, where a provider and its API key turn it on", () => {
   const row = aiSetupHit("make it pink", tr);
-  assert.deepEqual(row.action, { do: "settings", section: "ai" });
+  // Ask's own section, where the provider and its API key go, as Ask's view links to it.
+  assert.deepEqual(row.action, { do: "settings", section: "ask" });
   assert.equal(row.kind, "understand");
   assert.equal(firstSelected([row, hit("web", "w")]), 1);
 });

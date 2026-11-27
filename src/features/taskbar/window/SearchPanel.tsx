@@ -21,7 +21,7 @@ import { answerHit, needsRates } from "../search/answers";
 import { appHits, toolHits, toolLabel, widgetHits } from "../search/catalog";
 import { fileHits, latestSearch } from "../search/files";
 import { askIntent, askReadyNow } from "../search/askIntent";
-import { aiSetupHit, arrange, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
+import { AI_SETTINGS, aiSetupHit, arrange, keepSelected, settingsSearchHit, understandHit, webOrPathHit, type Hit, type HitIcon, type SearchAction } from "../search/model";
 import { runAction, type RunOutcome } from "../search/run";
 import { settingHits } from "../search/settingsTable";
 import { barWindows } from "../store";
@@ -254,7 +254,7 @@ export function SearchPanel() {
                 type="button"
                 className="pressable mb-1 flex items-center gap-2.5 rounded-[10px] bg-fill-2 p-2.5 text-left"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => void runAction({ do: "settings", section: "ai" }, engine).then(show)}
+                onClick={() => void runAction(AI_SETTINGS, engine).then(show)}
               >
                 <Sparkle size={18} weight="fill" className="shrink-0 text-accent material:text-primary" />
                 <span className="min-w-0 flex-1">

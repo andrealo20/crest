@@ -90,6 +90,9 @@ export const understandHit = (text: string, tr: Tr): Hit => ({
   action: { do: "understand", text },
 });
 
+/** Ask's section of the AI page, where a provider and its API key turn Capisci on; Ask's own view links there too. */
+export const AI_SETTINGS: SearchAction = { do: "settings", section: "ask" };
+
 /** Capisci without Ask set up: the row takes to the AI page, where a provider and its API key turn it on. Never selected unasked. */
 export const aiSetupHit = (text: string, tr: Tr): Hit => ({
   key: "understand",
@@ -97,7 +100,7 @@ export const aiSetupHit = (text: string, tr: Tr): Hit => ({
   title: tr("„{text}“ verstehen", { text }),
   subtitle: tr("KI einschalten"),
   icon: { glyph: "sparkle" },
-  action: { do: "settings", section: "ai" },
+  action: AI_SETTINGS,
 });
 
 /** The Settings window opened on its own search with the text, for the settings the search does not change itself. */

@@ -135,16 +135,21 @@ const allPages: { id: PageId; label: string; icon: Icon; hue: Hue }[] = [
 type Scope = "notch" | "taskbar";
 const scopeOf = (page: PageId): Scope => (page.startsWith("taskbar") ? "taskbar" : "notch");
 
-/** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. */
+/** Deep links from other tools (`navigate("settings", "<section>")`) → page holding that section. Every page's own id opens it too, at its top. */
 const sectionPage: Record<string, PageId> = {
+  general: "general",
   weather: "general",
   updates: "general",
   display: "display",
   presentation: "display",
   window: "window",
+  timer: "timer",
   alarm: "timer",
+  ai: "ai",
   ask: "ai",
   usage: "ai",
+  accounts: "accounts",
+  tools: "tools",
   discord: "accounts",
   trading: "accounts",
   vault: "tools",
