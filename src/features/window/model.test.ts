@@ -48,6 +48,13 @@ test("the tool bar stays at the bottom with its background unless saved otherwis
   assert.equal(normalizeWindow(undefined).toolBarFill, true);
 });
 
+test("the selected tool's name shows unless saved off, also in settings saved before the switch", () => {
+  assert.equal(WINDOW_DEFAULTS.toolNames, true);
+  assert.equal(normalizeWindow({}).toolNames, true);
+  assert.equal(normalizeWindow({ toolNames: false }).toolNames, false);
+  assert.equal(normalizeWindow({ toolNames: "no" }).toolNames, true);
+});
+
 test("hotkeys: missing open takes the default, an empty one stays unset, invalid ones are dropped", () => {
   assert.equal(normalizeWindow({}).hotkeys.open, "Ctrl+Alt+Space");
   assert.equal(normalizeWindow({ hotkeys: { open: "" } }).hotkeys.open, "");
