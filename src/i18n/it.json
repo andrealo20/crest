@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "Nuova cartella",
  "Aus Ordner nehmen": "Togli dalla cartella",
  "Ordner auflösen": "Separa le app",
- "Ordnername": "Nome della cartella"
+ "Ordnername": "Nome della cartella",
+ "Diese Installation mitzählen": "Conta questa installazione",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "Una volta al giorno a crestisland.app: solo la versione, Windows o macOS e da dove viene Crest. Nessun identificativo; il paese si ricava dall'IP, che non viene salvato."
 }

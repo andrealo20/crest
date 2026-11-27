@@ -802,10 +802,25 @@ function Updates() {
       </AnimatePresence>
       {!u.store && (
         <Row icon="update" label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
-          <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
+          <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings((cur) => ({ updates: { ...cur.updates, auto: on } }))} />
         </Row>
       )}
+      <CountRow />
     </Group>
+  );
+}
+
+/** The anonymous daily count (src/lib/dailyCount.ts), here and in the first-run setup; the hint says all that goes out. */
+export function CountRow() {
+  const on = settings.use().updates.count;
+  return (
+    <Row
+      icon="monitoring"
+      label={t("Diese Installation mitzählen")}
+      hint={t("Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.")}
+    >
+      <Switch label={t("Diese Installation mitzählen")} checked={on} onChange={(count) => updateSettings((cur) => ({ updates: { ...cur.updates, count } }))} />
+    </Row>
   );
 }
 

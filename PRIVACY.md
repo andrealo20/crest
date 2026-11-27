@@ -1,8 +1,8 @@
 # Crest privacy policy
 
-Last updated: 23 November 2026.
+Last updated: 27 November 2026.
 
-Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no account, no server of its own, no analytics and no tracking. Nothing is sent to the developer.
+Crest is a free, open-source Windows and Mac app by Andrea Loroni. It has no account and no tracking. The only thing that reaches the developer is the anonymous daily count described below, which you can turn off.
 
 ## What Crest keeps on your PC
 
@@ -38,7 +38,7 @@ To remove your data, delete those folders (or the portable folder) and the "Cres
 
 ## Which network requests it makes, and when
 
-Every request goes straight from your PC to the service named here. On by default are the AI usage rings, the weather in Overview (its switch under Settings → Tools, To-dos and Overview, turns it off) and the update check every 4 hours. Everything else makes no request until you set it up or turn it on.
+Every request goes straight from your PC to the service named here. On by default are the AI usage rings, the weather in Overview (its switch under Settings → Tools, To-dos and Overview, turns it off), the update check every 4 hours and the daily count. Everything else makes no request until you set it up or turn it on.
 
 | Feature | Sent to | When |
 | --- | --- | --- |
@@ -59,6 +59,7 @@ Every request goes straight from your PC to the service named here. On by defaul
 | Lyrics translation | firefox.settings.services.mozilla.com, firefox-settings-attachments.cdn.mozilla.net (Mozilla's translation engine and models, anonymous; the lyrics are translated on your PC and never sent) | Only when you download the engine and a language's models for **Translate offline** |
 | Kanji dictionary | github.com and release-assets.githubusercontent.com (a fixed JMdict release, anonymous) | Only when you press **Download** under Romanisation |
 | Wallpapers | github.com and release-assets.githubusercontent.com (the pictures of a fixed release of Crest, anonymous) | The first time you use a picture of the collection (a click on it, Next, or Change automatically), and when you press **Download** in the Wallpapers tool; never once a picture is on the PC |
+| Daily count | crestisland.app, Crest's own site on Cloudflare: the version (`1.3.3`), `windows` or `macos`, and `store`, `github` or `portable` for where Crest came from. No ID, no install token, nothing else. Cloudflare reads the country from your IP, which is not stored or logged; the site keeps per UTC day the total and the counts by country, platform, version and channel, deletes the breakdown when the day is over and keeps only the daily total, shown on [crestisland.app/stats](https://crestisland.app/stats/) | A few seconds after Crest starts and then once an hour, but sent at most once per UTC day (Crest keeps the date of the last counted day on the PC); never in the web demo. Turned off with **Count this install** in **Settings → General → Updates** or in the first-run setup |
 | Updates | github.com and raw.githubusercontent.com (anonymous) | 15 seconds after Crest starts, then every 4 hours; can be turned off in **Settings → General → Updates** |
 | Plugins | Only the hosts each plugin you install declares in its `crest-plugin.json`, over https, with whatever the plugin sends them | When the plugin's tool is open and it asks; Crest shows these hosts before you install it |
 

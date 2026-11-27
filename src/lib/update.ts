@@ -2,7 +2,9 @@ import { askNotch } from "./tauriTransport";
 import { isNotchWindow } from "./windowKind";
 import { createStore } from "./store";
 import { settings } from "../settings/store";
-import { build, fetchChangelog, updater, type ChangelogEntry, type UpdateHandle } from "../platform/services";
+import { build, dailyCount, fetchChangelog, updater, type ChangelogEntry, type UpdateHandle } from "../platform/services";
+import { isNative } from "../platform/native";
+import { countCheck } from "./dailyCount";
 
 /*
  * Updates: check (anonymously, only the latest.json of the newest GitHub release), show the
@@ -73,4 +75,16 @@ export function startUpdateWatch() {
   const auto = () => settings.get().updates.auto && void checkForUpdate();
   setTimeout(auto, 15_000);
   setInterval(auto, EVERY);
+  // Never in the web demo or the showcase (no Tauri there) nor under the dev server.
+  if (!isNative || import.meta.env.DEV) return;
+  const count = async () => {
+    const day = await countCheck(settings.get().updates.count, counted.get().day, new Date(), dailyCount);
+    if (day !== counted.get().day) counted.set({ day });
+  };
+  setTimeout(count, 10_000);
+  // Hourly, so a PC left on past midnight UTC counts the new day.
+  setInterval(count, 60 * 60 * 1000);
 }
+
+/** The last UTC day the daily count was counted on (dailyCount.ts). */
+const counted = createStore<{ day: string | null }>({ day: null }, { persist: "dailyCount" });

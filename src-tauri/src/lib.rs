@@ -16,6 +16,7 @@ mod capture;
 mod clipboard;
 #[cfg(windows)]
 mod controls;
+mod count;
 #[cfg(windows)]
 mod quick;
 pub mod convert;
@@ -512,6 +513,7 @@ pub fn run() {
             autostart_set,
             app_quit,
             build_info,
+            count::daily_count,
             diagnostics_info,
             open_sponsors,
             open_store_review,

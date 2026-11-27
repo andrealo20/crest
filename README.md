@@ -209,7 +209,7 @@ Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple s
 
 ## Your data stays on your PC
 
-No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview (which has its own switch), the update check every 4 hours and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+No account, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview (which has its own switch), the update check every 4 hours, the AI usage rings of the services you are signed in to and an anonymous daily count for [crestisland.app/stats](https://crestisland.app/stats/) (once a day the version, Windows or macOS and where Crest came from, with no ID; **Count this install** in Settings or the first-run setup turns it off); everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
 
 ## Support the project
 

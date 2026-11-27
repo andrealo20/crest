@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "新しいフォルダー",
  "Aus Ordner nehmen": "フォルダーから出す",
  "Ordner auflösen": "アプリのグループを解除",
- "Ordnername": "フォルダー名"
+ "Ordnername": "フォルダー名",
+ "Diese Installation mitzählen": "このインストールを数える",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "1日1回 crestisland.app へ：バージョン、Windows か macOS か、Crest の入手元だけ。ID はなく、国は IP から判断され、IP は保存されません。"
 }

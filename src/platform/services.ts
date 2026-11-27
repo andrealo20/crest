@@ -381,6 +381,9 @@ export const build = {
   info: (): Promise<BuildInfo> => (buildInfo ??= isNative ? invoke<BuildInfo>("build_info") : Promise.resolve({ store: false, taskbar: false })),
 };
 
+/** The anonymous daily count (src-tauri count.rs): true once crestisland.app counted this install today. */
+export const dailyCount = (): Promise<boolean> => (isNative ? invoke<boolean>("daily_count") : Promise.resolve(false));
+
 export interface SystemDiagnostics {
   os: string | null;
   build: string | null;

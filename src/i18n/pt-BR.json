@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "Nova pasta",
  "Aus Ordner nehmen": "Tirar da pasta",
  "Ordner auflösen": "Desagrupar apps",
- "Ordnername": "Nome da pasta"
+ "Ordnername": "Nome da pasta",
+ "Diese Installation mitzählen": "Contar esta instalação",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "Uma vez por dia para crestisland.app: só a versão, Windows ou macOS e de onde veio o Crest. Sem identificador; o país vem do IP, que não é guardado."
 }

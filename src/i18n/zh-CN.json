@@ -2206,5 +2206,7 @@
  "Neuer Ordner": "新建文件夹",
  "Aus Ordner nehmen": "移出文件夹",
  "Ordner auflösen": "取消分组",
- "Ordnername": "文件夹名称"
+ "Ordnername": "文件夹名称",
+ "Diese Installation mitzählen": "统计此安装",
+ "Einmal am Tag an crestisland.app: nur Version, Windows oder macOS und woher Crest stammt. Keine Kennung; das Land ergibt sich aus der IP, die nicht gespeichert wird.": "每天一次发送到 crestisland.app：仅版本、Windows 或 macOS 以及 Crest 的来源。没有任何标识；国家由 IP 得出，IP 不会被保存。"
 }
