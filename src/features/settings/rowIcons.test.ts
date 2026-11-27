@@ -28,6 +28,7 @@ const FILES = [
   "features/usage/ForecastSettings.tsx",
   "features/timer/LookSettings.tsx",
   "features/launcher/LauncherSettings.tsx",
+  "features/files/FilesSettings.tsx",
   "features/clipboard/ClipboardSettings.tsx",
   "features/translate/TranslateSettings.tsx",
   "features/usage/UsageSettings.tsx",

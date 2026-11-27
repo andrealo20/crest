@@ -13,8 +13,6 @@ use std::time::Duration;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, WebviewWindow};
-#[cfg(not(all(windows, feature = "store")))]
-use tauri::Manager;
 
 const BASE_URL: &str = "https://github.com/andrealo20/crest/releases/download/wallpapers-1/";
 /// The largest picture is 2.4 MB; the cap only guards against a wrong answer.
@@ -164,18 +162,7 @@ fn usable(path: &str) -> Result<PathBuf, String> {
 
 /// Where the collection's pictures are kept (see the module's comment).
 fn pack_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    #[cfg(all(windows, feature = "store"))]
-    let base = {
-        let _ = app;
-        let folder = windows::Storage::ApplicationData::Current().and_then(|d| d.LocalCacheFolder()).and_then(|f| f.Path());
-        PathBuf::from(folder.map_err(|_| "app-data".to_string())?.to_os_string())
-    };
-    #[cfg(not(all(windows, feature = "store")))]
-    let base = match crate::portable::data_dir() {
-        Some(dir) => dir,
-        None => app.path().app_local_data_dir().map_err(|_| "app-data".to_string())?,
-    };
-    Ok(base.join("wallpapers"))
+    Ok(crate::portable::local_data_dir(app)?.join("wallpapers"))
 }
 
 fn sha256_matches(body: &[u8], sha256: &str) -> bool {

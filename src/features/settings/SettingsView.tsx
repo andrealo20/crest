@@ -83,6 +83,7 @@ import { setMusic } from "../now-playing/music";
 import { UsageSettings } from "../usage/UsageSettings";
 import { SystemSettings } from "../system/SystemSettings";
 import { LauncherSettings } from "../launcher/LauncherSettings";
+import { FilesSettings } from "../files/FilesSettings";
 import { GithubSettings } from "../github/GithubSettings";
 import { LeetcodeSettings } from "../leetcode/LeetcodeSettings";
 import { CalendarSettings } from "../calendar/CalendarSettings";
@@ -162,6 +163,7 @@ const sectionPage: Record<string, PageId> = {
   system: "tools",
   launcher: "tools",
   translate: "tools",
+  files: "tools",
   github: "accounts",
   leetcode: "accounts",
   calendar: "accounts",
@@ -700,6 +702,7 @@ function PageContent({ page }: { page: PageId }) {
           <ScreenTimeSettings />
           {findTab("terminal") && <TerminalSettings />}
           {findTab("launcher") && <LauncherSettings />}
+          {findTab("files") && <FilesSettings />}
           <ClipboardSettings />
           <TranslateSettings />
         </>
