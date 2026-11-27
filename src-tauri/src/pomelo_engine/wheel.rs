@@ -19,12 +19,14 @@ use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
-use super::{command, data_dir, exit_error, id_ok, installed, lang_ok, lock, once, GRACE, MAX_ANSWER, WHEEL_EXE};
+use super::{command, data_dir, exit_error, id_ok, installed, lang_ok, lock, once, wheel_path, GRACE, MAX_ANSWER};
 use crate::agents::job::Job;
 
 const EVENT: &str = "pomelo-wheel://state";
 /// `Pomelo.exe --hosted` exits with this when another Pomelo already runs.
 const CONFLICT_EXIT: i32 = 5;
+/// It exits with this for wrong arguments or a `--parent` already gone; 0 is an exit it chose.
+const USAGE_EXIT: i32 = 2;
 /// At most this many restarts within `WINDOW`; one more fall leaves it down.
 const RESTARTS: usize = 3;
 const WINDOW: Duration = Duration::from_secs(300);
@@ -45,6 +47,22 @@ pub enum Phase {
     Crashed,
     /// The package has no `Pomelo.exe`.
     Missing,
+    /// It exited by itself (code 0): not restarted.
+    Stopped,
+    /// It refused to start (code 2): not restarted.
+    Failed,
+}
+
+/// The other Pomelo a conflict names.
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub enum With {
+    /// Pomelo from the Microsoft Store.
+    Store,
+    /// A copy started from a folder.
+    Copy,
+    /// Another hosted wheel on the same data folder.
+    Hosted,
 }
 
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -52,7 +70,13 @@ pub struct State {
     phase: Phase,
     /// A job was refused for the licence since it started.
     locked: bool,
+    /// The free files left when it was refused.
+    left: Option<u64>,
+    /// Who the wheel conflicts with, when it said.
+    with: Option<With>,
 }
+
+const OFF: State = State { phase: Phase::Off, locked: false, left: None, with: None };
 
 struct Wheel {
     /// Bumped by every start and stop: a supervisor of an older generation leaves everything alone.
@@ -62,9 +86,13 @@ struct Wheel {
     stdin: Option<ChildStdin>,
     /// Tied: dropping it ends whatever still runs.
     job: Option<Job>,
+    /// A `Pomelo.exe` of this wheel is running, until its exit is seen.
+    alive: bool,
+    /// The language it was started in, for a start after an update.
+    lang: Option<String>,
 }
 
-static WHEEL: Mutex<Wheel> = Mutex::new(Wheel { generation: 0, state: State { phase: Phase::Off, locked: false }, stdin: None, job: None });
+static WHEEL: Mutex<Wheel> = Mutex::new(Wheel { generation: 0, state: OFF, stdin: None, job: None, alive: false, lang: None });
 
 /// Whether the wheel runs (or is being started), which holds the package's files.
 pub fn running() -> bool {
@@ -75,8 +103,9 @@ pub fn running() -> bool {
 #[derive(Debug, PartialEq)]
 enum Line {
     Ready,
-    Conflict,
-    Locked,
+    Conflict(With),
+    /// The free files left, when it says.
+    Locked(Option<u64>),
     /// The settings page it asks for, None for the scope's first.
     OpenSettings(Option<String>),
 }
@@ -85,8 +114,13 @@ fn parse_line(line: &str) -> Option<Line> {
     let v: Value = serde_json::from_str(line.trim().trim_start_matches('\u{feff}')).ok()?;
     match v.get("type")?.as_str()? {
         "ready" => Some(Line::Ready),
-        "conflict" => Some(Line::Conflict),
-        "locked" => Some(Line::Locked),
+        "conflict" => Some(Line::Conflict(match v.get("with").and_then(Value::as_str) {
+            Some("store") => With::Store,
+            Some("hosted") => With::Hosted,
+            // Any other Pomelo is a copy of its own.
+            _ => With::Copy,
+        })),
+        "locked" => Some(Line::Locked(v.get("left").and_then(Value::as_u64))),
         "open-settings" => Some(Line::OpenSettings(v.get("page").and_then(Value::as_str).filter(|p| page_ok(p)).map(str::to_owned))),
         _ => None,
     }
@@ -109,10 +143,15 @@ fn may_restart(falls: &mut Vec<Instant>, now: Instant) -> bool {
     falls.len() <= RESTARTS
 }
 
-/// What follows an exit the user did not ask for: a conflict stays down, a fall starts again while it may.
+/// What follows an exit Crest did not ask for: a conflict, an exit Pomelo chose (0) or a refused start (2) stay down; a fall (any
+/// other code, or none) starts again while it may.
 fn after_exit(code: i32, conflict: bool, falls: &mut Vec<Instant>, now: Instant) -> Phase {
     if conflict || code == CONFLICT_EXIT {
         Phase::Conflict
+    } else if code == 0 {
+        Phase::Stopped
+    } else if code == USAGE_EXIT {
+        Phase::Failed
     } else if may_restart(falls, now) {
         Phase::Starting
     } else {
@@ -121,7 +160,7 @@ fn after_exit(code: i32, conflict: bool, falls: &mut Vec<Instant>, now: Instant)
 }
 
 fn wheel_exe(app: &AppHandle) -> Option<PathBuf> {
-    installed(app).ok().map(|e| e.with_file_name(WHEEL_EXE)).filter(|e| e.is_file())
+    installed(app).ok().as_deref().and_then(wheel_path)
 }
 
 fn hosted_args(data: &Path, lang: Option<&str>) -> Vec<OsString> {
@@ -150,7 +189,8 @@ fn start(app: AppHandle, lang: Option<String>) {
         return;
     }
     wheel.generation += 1;
-    wheel.state = State { phase: Phase::Starting, locked: false };
+    wheel.state = State { phase: Phase::Starting, ..OFF };
+    wheel.lang = lang.clone();
     let (generation, state) = (wheel.generation, wheel.state);
     drop(wheel);
     let _ = app.emit(EVENT, state);
@@ -159,18 +199,57 @@ fn start(app: AppHandle, lang: Option<String>) {
 
 /// Closes its stdin, after which it ends by itself; whatever still runs after `GRACE` goes with the job.
 fn stop(app: &AppHandle) {
-    let mut wheel = lock(&WHEEL);
-    wheel.generation += 1;
-    wheel.state = State { phase: Phase::Off, locked: false };
-    let (stdin, job, state) = (wheel.stdin.take(), wheel.job.take(), wheel.state);
-    drop(wheel);
-    let _ = app.emit(EVENT, state);
-    drop(stdin);
-    if let Some(job) = job {
+    if let Some(job) = begin_stop(app) {
         std::thread::spawn(move || {
             std::thread::sleep(GRACE);
             drop(job);
         });
+    }
+}
+
+/// Turns the wheel off and closes its stdin; the job, to end what is left later.
+fn begin_stop(app: &AppHandle) -> Option<Job> {
+    let mut wheel = lock(&WHEEL);
+    wheel.generation += 1;
+    wheel.state = OFF;
+    let (stdin, job, state) = (wheel.stdin.take(), wheel.job.take(), wheel.state);
+    drop(wheel);
+    let _ = app.emit(EVENT, state);
+    drop(stdin);
+    job
+}
+
+/// Before an update replaces the package: stops a running wheel and waits for its exit (ending it after `GRACE`), so no file of
+/// the package is in use. Returns the language to start it again in, None when it was not running; Err when it would not end.
+pub fn stop_for_update(app: &AppHandle) -> Result<Option<Option<String>>, String> {
+    if !lock(&WHEEL).alive {
+        return Ok(None);
+    }
+    let lang = lock(&WHEEL).lang.clone();
+    let job = begin_stop(app);
+    let ended = |limit: Duration| {
+        let start = Instant::now();
+        while lock(&WHEEL).alive {
+            if start.elapsed() > limit {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        true
+    };
+    if !ended(GRACE) {
+        drop(job);
+        if !ended(Duration::from_secs(5)) {
+            return Err("busy".into());
+        }
+    }
+    Ok(Some(lang))
+}
+
+/// After an update: the wheel starts again if `stop_for_update` stopped it.
+pub fn resume_after_update(app: &AppHandle, stopped: Option<Option<String>>) {
+    if let Some(lang) = stopped {
+        start(app.clone(), lang);
     }
 }
 
@@ -209,16 +288,23 @@ fn run(app: &AppHandle, generation: u64, mut cmd: Command) -> Option<(i32, bool)
         }
         wheel.stdin = child.stdin.take();
         wheel.job = job;
+        wheel.alive = true;
     }
     let mut conflict = false;
     for line in stdout.into_iter().flat_map(|out| BufReader::new(out.take(MAX_ANSWER)).lines()) {
         let Ok(line) = line else { break };
         match parse_line(&line) {
             Some(Line::Ready) => update(app, generation, |s| s.phase = Phase::Ready),
-            Some(Line::Conflict) => conflict = true,
+            Some(Line::Conflict(with)) => {
+                conflict = true;
+                update(app, generation, |s| s.with = Some(with));
+            }
             // Crest shows the licence, with the key's field, on the scope's first page.
-            Some(Line::Locked) => {
-                update(app, generation, |s| s.locked = true);
+            Some(Line::Locked(left)) => {
+                update(app, generation, |s| {
+                    s.locked = true;
+                    s.left = left;
+                });
                 crate::settings_window::open_settings(app, Some(section(None)));
             }
             Some(Line::OpenSettings(page)) => crate::settings_window::open_settings(app, Some(section(page.as_deref()))),
@@ -227,6 +313,7 @@ fn run(app: &AppHandle, generation: u64, mut cmd: Command) -> Option<(i32, bool)
     }
     let code = child.wait().ok().and_then(|s| s.code()).unwrap_or(-1);
     let mut wheel = lock(&WHEEL);
+    wheel.alive = false;
     if wheel.generation != generation {
         return None;
     }
@@ -323,9 +410,13 @@ mod tests {
     #[test]
     fn reads_the_lines_crest_acts_on() {
         assert_eq!(parse_line(r#"{"type":"ready"}"#), Some(Line::Ready));
-        assert_eq!(parse_line("\u{feff}{\"type\":\"conflict\",\"with\":\"store\"}\r"), Some(Line::Conflict));
-        assert_eq!(parse_line(r#"{"type":"locked","left":0}"#), Some(Line::Locked));
-        assert_eq!(parse_line(r#"{"type":"open-settings","page":"wheel"}"#), Some(Line::OpenSettings(Some("wheel".into()))));
+        assert_eq!(parse_line("\u{feff}{\"type\":\"conflict\",\"with\":\"store\"}\r"), Some(Line::Conflict(With::Store)));
+        assert_eq!(parse_line(r#"{"type":"conflict","with":"hosted"}"#), Some(Line::Conflict(With::Hosted)));
+        assert_eq!(parse_line(r#"{"type":"conflict","with":"copy"}"#), Some(Line::Conflict(With::Copy)));
+        assert_eq!(parse_line(r#"{"type":"conflict"}"#), Some(Line::Conflict(With::Copy)));
+        assert_eq!(parse_line(r#"{"type":"locked","left":3}"#), Some(Line::Locked(Some(3))));
+        assert_eq!(parse_line(r#"{"type":"locked"}"#), Some(Line::Locked(None)));
+        assert_eq!(parse_line(r#"{"type":"open-settings","page":"general"}"#), Some(Line::OpenSettings(Some("general".into()))));
         // A page that would not make a section opens the scope's first page.
         assert_eq!(parse_line(r#"{"type":"open-settings","page":"../Wheel"}"#), Some(Line::OpenSettings(None)));
         assert_eq!(parse_line(r#"{"type":"open-settings"}"#), Some(Line::OpenSettings(None)));
@@ -342,17 +433,20 @@ mod tests {
         let at = |s: u64| t0 + Duration::from_secs(s);
         let mut falls = Vec::new();
         assert_eq!(after_exit(1, false, &mut falls, at(0)), Phase::Starting);
+        // Dead without a code.
         assert_eq!(after_exit(-1, false, &mut falls, at(10)), Phase::Starting);
-        assert_eq!(after_exit(0, false, &mut falls, at(20)), Phase::Starting);
+        assert_eq!(after_exit(0xC000_0005_u32 as i32, false, &mut falls, at(20)), Phase::Starting);
         assert_eq!(after_exit(1, false, &mut falls, at(30)), Phase::Crashed);
         // Falls older than five minutes no longer count.
         let mut falls = vec![at(0), at(10), at(20)];
         assert_eq!(after_exit(1, false, &mut falls, at(305)), Phase::Starting);
         assert_eq!(falls.len(), 3);
-        // A conflict never restarts, and does not use up a restart.
+        // A conflict, an exit Pomelo chose and a refused start never restart, and use up no restart.
         let mut falls = Vec::new();
         assert_eq!(after_exit(CONFLICT_EXIT, false, &mut falls, at(0)), Phase::Conflict);
         assert_eq!(after_exit(0, true, &mut falls, at(0)), Phase::Conflict);
+        assert_eq!(after_exit(0, false, &mut falls, at(0)), Phase::Stopped);
+        assert_eq!(after_exit(USAGE_EXIT, false, &mut falls, at(0)), Phase::Failed);
         assert!(falls.is_empty());
     }
 
@@ -396,10 +490,12 @@ mod tests {
     #[test]
     fn reads_the_fake_wheel() {
         let (lines, code) = fake_run("ready");
-        assert_eq!(lines, [Line::Ready, Line::Locked, Line::OpenSettings(Some("wheel".into()))]);
+        assert_eq!(lines, [Line::Ready, Line::Locked(Some(4)), Line::OpenSettings(Some("general".into()))]);
         assert_eq!(after_exit(code, false, &mut Vec::new(), Instant::now()), Phase::Starting);
         let (lines, code) = fake_run("conflict");
-        assert_eq!((lines.as_slice(), code), ([Line::Conflict].as_slice(), CONFLICT_EXIT));
+        assert_eq!((lines.as_slice(), code), ([Line::Conflict(With::Store)].as_slice(), CONFLICT_EXIT));
+        let (lines, code) = fake_run("quit");
+        assert_eq!((lines.as_slice(), after_exit(code, false, &mut Vec::new(), Instant::now())), ([Line::Ready].as_slice(), Phase::Stopped));
     }
 
     #[test]

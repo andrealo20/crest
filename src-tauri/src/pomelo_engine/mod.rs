@@ -45,6 +45,12 @@ fn manifest_url() -> String {
 const EXE: &str = "pomelo-engine.exe";
 /// The whole Pomelo app, hosted by Crest as the wheel (wheel.rs); packages before 1.1.0 lack it.
 const WHEEL_EXE: &str = "Pomelo.exe";
+
+/// The wheel's program beside the engine, or in `wheel\` where the package keeps Pomelo apart (a DLL of the same name that differs).
+fn wheel_path(engine: &Path) -> Option<PathBuf> {
+    let dir = engine.parent()?;
+    [dir.join(WHEEL_EXE), dir.join("wheel").join(WHEEL_EXE)].into_iter().find(|p| p.is_file())
+}
 /// The licence's checkout page, opened in the browser by Buy; empty hides the button until the shop exists.
 const CHECKOUT_URL: &str = "";
 /// No engine is near this; a larger manifest is refused.
@@ -107,7 +113,7 @@ pub fn files_engine_status(app: AppHandle) -> Status {
     let outdated = exe.is_none() && engine_dir(&app).is_ok_and(|dir| older_package(&dir));
     Status {
         version: exe.as_ref().map(|_| VERSION),
-        wheel: exe.is_some_and(|e| e.with_file_name(WHEEL_EXE).is_file()),
+        wheel: exe.as_deref().and_then(wheel_path).is_some(),
         outdated,
         available: available(ARCHIVE_SHA256),
         size: ARCHIVE_SIZE,
@@ -210,6 +216,22 @@ pub async fn files_engine_download(app: AppHandle, on_progress: Channel<Progress
     download(&app, &on_progress).await.map(|_| VERSION.to_string())
 }
 
+/// Installs a checked archive, never over a folder in use: no run of the engine meanwhile, and a running wheel is stopped first
+/// and started again after.
+fn install_unused(app: &AppHandle, dir: &Path, archive: &Path) -> Result<(), String> {
+    if lock(&RUN).is_some() {
+        return Err("busy".into());
+    }
+    #[cfg(not(feature = "store"))]
+    let stopped = wheel::stop_for_update(app)?;
+    #[cfg(feature = "store")]
+    let _ = app;
+    let result = install(dir, archive);
+    #[cfg(not(feature = "store"))]
+    wheel::resume_after_update(app, stopped);
+    result
+}
+
 /// Stops a running download; nothing of it is kept.
 #[tauri::command]
 pub fn files_engine_download_cancel() {
@@ -242,8 +264,8 @@ async fn download(app: &AppHandle, progress: &Channel<Progress>) -> Result<(), S
     let fetched = fetch_parts(&client, &manifest, &archive, total, progress).await;
     let result = match fetched {
         Ok(()) => {
-            let (dir, archive) = (dir.clone(), archive.clone());
-            tauri::async_runtime::spawn_blocking(move || install(&dir, &archive)).await.map_err(|_| "failed")?
+            let (app, dir, archive) = (app.clone(), dir.clone(), archive.clone());
+            tauri::async_runtime::spawn_blocking(move || install_unused(&app, &dir, &archive)).await.map_err(|_| "failed")?
         }
         Err(e) => Err(e),
     };
@@ -875,6 +897,20 @@ mod tests {
         assert!(panicked.is_err());
         assert!(Downloading::start().is_some());
         assert!(manifest_url().ends_with(&format!("/engine/{VERSION}/manifest.json")));
+    }
+
+    #[test]
+    fn finds_the_wheel_beside_the_engine_or_in_its_folder() {
+        let dir = std::env::temp_dir().join(format!("crest-engine-wheel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("wheel")).unwrap();
+        let engine = dir.join(EXE);
+        assert_eq!(wheel_path(&engine), None);
+        std::fs::write(dir.join("wheel").join(WHEEL_EXE), b"MZ").unwrap();
+        assert_eq!(wheel_path(&engine), Some(dir.join("wheel").join(WHEEL_EXE)));
+        std::fs::write(dir.join(WHEEL_EXE), b"MZ").unwrap();
+        assert_eq!(wheel_path(&engine), Some(dir.join(WHEEL_EXE)));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
