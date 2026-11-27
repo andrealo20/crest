@@ -141,11 +141,13 @@ export function startTaskbar() {
     }
     // The bar's Windows keys, in a queue of their own so two changes never overlap (each may restart Explorer), and each only after
     // the bar's changes sent so far: the bar turned off gives Windows' taskbar back before the keys' Explorer restart. The first
-    // sync sends the saved state, so a start after a crash with the switch or the bar off gives the keys back.
+    // sync sends the saved state, so a start after a crash with the switch or the bar off gives the keys back; as the start, it
+    // never restarts Explorer (#104).
     const wantKeys = keysWanted(settings.get().taskbar);
     if (wantKeys !== keys) {
+      const start = keys === null;
       keys = wantKeys;
-      const send = () => taskbar.keys(wantKeys).then(() => {}, () => {});
+      const send = () => taskbar.keys(wantKeys, start).then(() => {}, () => {});
       const bar = queue;
       keysQueue = keysQueue.then(() => bar).then(send, send);
     }

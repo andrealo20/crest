@@ -75,9 +75,11 @@ export function TaskbarGeneral() {
         ? t("Ein anderes Programm belegt einige dieser Tasten")
         : keys === "held"
           ? t("Windows gibt diese Tasten auf diesem PC nicht frei, sie bleiben bei Windows")
-          : keys === "failed"
-            ? t("Der Explorer ließ sich nicht neu starten, die Tasten bleiben bei Windows")
-            : null;
+          : keys === "later"
+            ? t("Windows behält diese Tasten bis zur nächsten Anmeldung, dann gehen sie an die Leiste")
+            : keys === "failed"
+              ? t("Crest konnte diese Tasten nicht übernehmen, sie bleiben bei Windows")
+              : null;
   return (
     <Group id="settings-taskbar">
       <Row
