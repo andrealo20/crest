@@ -7,13 +7,16 @@ export const LOGO_TINTS: [Rgb, Rgb] = [rgb("#7b61ff"), rgb("#e0559e")];
 /** Black lines, which read as a deeper shade of whatever colour the section has. */
 export const SHADE_TINTS: [Rgb, Rgb] = [[0, 0, 0], [0, 0, 0]];
 
+/** At the screen's own density, up to 3, and 8 million pixels: a page is wider than the settings window, whose limits would blur the lines. */
+const SHARP = { ratio: 3, pixels: 8e6 };
+
 /** The contour field on its own canvas, from mount to unmount. */
 function Field({ tints }: { tints: [Rgb, Rgb] }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
   useLayoutEffect(() => {
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const field = startContours(canvas.current!, { page: "general", tints, reduced, forced: false, onFail: setFailed });
+    const field = startContours(canvas.current!, { page: "general", tints, reduced, forced: false, onFail: setFailed, cap: SHARP });
     return () => field.stop();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <canvas ref={canvas} className="waves-canvas" aria-hidden="true" hidden={failed} />;

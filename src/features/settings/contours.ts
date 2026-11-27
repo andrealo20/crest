@@ -129,14 +129,17 @@ export function nextDraw(now: number, last: number, busy: boolean): { draw: bool
   return { draw: true, last: last + FRAME };
 }
 
-/** Canvas pixels per CSS px: the screen's, at most 1.5 as in Stellaria, and at most 1.2 million pixels in all. */
-export function densityOf(dpr: number, cssW: number, cssH: number): number {
-  return Math.min(dpr, 1.5, Math.sqrt(1.2e6 / Math.max(1, cssW * cssH)));
+/** The settings window's limits on the canvas: Stellaria's 1.5 pixels per CSS px, and 1.2 million pixels in all. */
+export const WINDOW_CAP = { ratio: 1.5, pixels: 1.2e6 };
+
+/** Canvas pixels per CSS px: the screen's, at most `cap.ratio`, and at most `cap.pixels` in all. */
+export function densityOf(dpr: number, cssW: number, cssH: number, cap = WINDOW_CAP): number {
+  return Math.min(dpr, cap.ratio, Math.sqrt(cap.pixels / Math.max(1, cssW * cssH)));
 }
 
 /** The canvas's pixel size, rounded down so the pixel cap holds, and never 0 so the context keeps a drawing buffer. */
-export function canvasSize(dpr: number, cssW: number, cssH: number): { w: number; h: number; k: number } {
-  const k = densityOf(dpr, cssW, cssH);
+export function canvasSize(dpr: number, cssW: number, cssH: number, cap = WINDOW_CAP): { w: number; h: number; k: number } {
+  const k = densityOf(dpr, cssW, cssH, cap);
   return { w: Math.max(1, Math.floor(cssW * k)), h: Math.max(1, Math.floor(cssH * k)), k };
 }
 
@@ -159,7 +162,8 @@ export function tintsOf(theme: Pick<ResolvedTheme, "vars" | "m3Tertiary">): [Rgb
   return [[a[0], a[1], a[2]], [b[0], b[1], b[2]]];
 }
 
-export interface ContourOpts { page: string; tints: [Rgb, Rgb]; reduced: boolean; forced: boolean; onFail: (failed: boolean) => void }
+/** `cap`: the canvas's limits, the settings window's unless a page asks for its own (the site's sharper ones). */
+export interface ContourOpts { page: string; tints: [Rgb, Rgb]; reduced: boolean; forced: boolean; onFail: (failed: boolean) => void; cap?: typeof WINDOW_CAP }
 export interface ContourHandle { page(id: string): void; tints(next: [Rgb, Rgb]): void; forced(on: boolean): void; stop(): void }
 
 /** The program and the empty vertex array the full canvas triangle draws from; null when the program does not link. */
@@ -212,7 +216,7 @@ export function startContours(canvas: HTMLCanvasElement, opts: ContourOpts): Con
   let focused = document.hasFocus(), visible = document.visibilityState === "visible", forced = opts.forced;
   // dead: the context is lost, a draw threw or the canvas stopped. pending: one draw asked for, whatever the loop does.
   let raf = 0, dead = false, pending = true, wasBusy = false, draws = 0;
-  let css = { w: canvas.clientWidth, h: canvas.clientHeight }, size = canvasSize(devicePixelRatio, css.w, css.h);
+  let css = { w: canvas.clientWidth, h: canvas.clientHeight }, size = canvasSize(devicePixelRatio, css.w, css.h, opts.cap);
 
   const runs = (now: number) => loopRuns({ focused, visible, reduced, forced, now, lastInput });
   const busyNow = () => x.isAnimating() || y.isAnimating() || scale.isAnimating() || fading;
@@ -283,7 +287,7 @@ export function startContours(canvas: HTMLCanvasElement, opts: ContourOpts): Con
   };
   // Setting width or height clears the drawing buffer, so a resize always draws again, with the loop stopped too.
   const resize = () => {
-    size = canvasSize(devicePixelRatio, css.w, css.h);
+    size = canvasSize(devicePixelRatio, css.w, css.h, opts.cap);
     if (canvas.width !== size.w) canvas.width = size.w;
     if (canvas.height !== size.h) canvas.height = size.h;
     pending = true;

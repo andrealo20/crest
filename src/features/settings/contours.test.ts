@@ -86,6 +86,14 @@ test("the canvas keeps Stellaria's 1.5 cap and at most 1.2 million pixels", () =
   assert.ok(none.w >= 1 && none.h >= 1, `${none.w} x ${none.h}`);
 });
 
+test("a page that asks for more draws at the screen's own density", () => {
+  const sharp = { ratio: 3, pixels: 8e6 };
+  assert.equal(densityOf(2, 1440, 900, sharp), 2);
+  assert.deepEqual(canvasSize(2, 1440, 900, sharp), { w: 2880, h: 1800, k: 2 });
+  const big = canvasSize(3, 2560, 1440, sharp);
+  assert.ok(big.w * big.h <= 8e6, `${big.w} x ${big.h}`);
+});
+
 test("the loop runs only with focus, visibility, motion, normal colours and input in the last minute", () => {
   const ok = { focused: true, visible: true, reduced: false, forced: false, now: 100_000, lastInput: 100_000 - 59_000 };
   assert.equal(loopRuns(ok), true);

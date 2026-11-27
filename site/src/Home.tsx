@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { HUE, LOGO, TOOLS, TOOL_BAR } from "./data";
 import { ArrowUpRight, DownloadSimple, GithubLogo } from "./icons";
-import { SHADE_TINTS, Waves } from "./Waves";
+import { Waves } from "./Waves";
 import { News } from "./News";
 import { Catalog } from "./Catalog";
 import { DEMO_FULL, DEMO_ORIGIN } from "./demo";
@@ -255,8 +255,7 @@ const BAR_FACTS: [string, string][] = [
 
 function Bar() {
   return (
-    <section id="bar" className="sec bar-sec has-waves" aria-labelledby="bar-title">
-      <Waves tints={SHADE_TINTS} />
+    <section id="bar" className="sec bar-sec" aria-labelledby="bar-title">
       <div className="bar-head">
         <Rise><h2 id="bar-title">A taskbar of its own</h2></Rise>
         <Rise i={1}>
@@ -290,7 +289,6 @@ function Bar() {
 function Closing() {
   return (
     <section className="sec closing" aria-labelledby="closing-title">
-      <Waves />
       <Rise><h2 id="closing-title">Rebuild yours in a minute.</h2></Rise>
       <Rise i={1} className="actions">
         <a className="btn btn-bounce" href="#install"><DownloadSimple size={18} weight="bold" aria-hidden="true" /> Get Crest {RELEASE}</a>
@@ -434,8 +432,7 @@ function Custom() {
 function Closed() {
   const img = files["./shots/closed.png"];
   return (
-    <section className="sec closed-sec has-waves" aria-labelledby="closed-title">
-      <Waves tints={SHADE_TINTS} />
+    <section className="sec closed-sec" aria-labelledby="closed-title">
       <Rise><h2 id="closed-title">Closed, it keeps count</h2></Rise>
       <Rise i={1}>
         <p className="lead">A running timer, the song or its lyric line, AI quota rings, CPU, RAM and GPU, the network, power, battery, temperature, the clock and today's GitHub count. Notices drop over the row and leave by themselves.</p>

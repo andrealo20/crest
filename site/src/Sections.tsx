@@ -2,7 +2,6 @@ import { DEMO_FULL } from "./demo";
 import { useEffect, useState } from "react";
 import { useRise } from "./rise";
 import { ArrowUpRight, DownloadSimple, GithubLogo } from "./icons";
-import { SHADE_TINTS, Waves } from "./Waves";
 import { FAQ, HUE, LOGO, NOTIFY_ASK, NOTIFY_CODE, NOTIFY_PART, PLUGIN_JSON } from "./data";
 import { RELEASE } from "./release";
 
@@ -153,8 +152,7 @@ function useRequests() {
 export function Privacy() {
   const seen = useRequests();
   return (
-    <section id="privacy" className="sec privacy has-waves" aria-labelledby="privacy-title">
-      <Waves tints={SHADE_TINTS} />
+    <section id="privacy" className="sec privacy" aria-labelledby="privacy-title">
       <Rise><h2 id="privacy-title">It all stays on your PC</h2></Rise>
       <div className="privacy-row">
         <div className="copy">
@@ -225,8 +223,7 @@ export function Install() {
   const [sys, setSys] = useState(() => (/Mac/.test(navigator.platform) ? "macos" : "windows"));
   const s = SYSTEMS.find((t) => t.id === sys) ?? SYSTEMS[0];
   return (
-    <section id="install" className="sec install has-waves" aria-labelledby="install-title">
-      <Waves tints={SHADE_TINTS} />
+    <section id="install" className="sec install" aria-labelledby="install-title">
       <div className="split">
         <div className="copy">
           <Rise><h2 id="install-title" className="giant">Get Crest</h2></Rise>
