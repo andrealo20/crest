@@ -4,7 +4,7 @@ import { TextField } from "../../../ui/controls";
 import { english, locale, t } from "../../../i18n";
 import { fileSearch, launcher, type FoundFile } from "../../../platform/services";
 import { fetchRates } from "../../../platform/portfolio";
-import { isMac } from "../../../platform/native";
+import { noWinApis } from "../../../platform/native";
 import { settings, updateSettings } from "../../../settings/store";
 import { PART_IDS, type PartId } from "../../../notch/row/parts";
 import { partInfo } from "../../../notch/row/partInfo";
@@ -271,7 +271,7 @@ export function SearchPanel() {
                 </button>
               ))}
             </div>
-            {!isMac && <ShortcutLine keys={s.behavior.hotkeys.search} />}
+            {!noWinApis && <ShortcutLine keys={s.behavior.hotkeys.search} />}
           </div>
         )}
       </div>

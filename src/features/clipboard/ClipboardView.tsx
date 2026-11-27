@@ -30,7 +30,7 @@ import { HeaderActions, HeaderButton } from "../../notch/header";
 import { MAX_SIZE, requestSize } from "../../notch/size";
 import { findTab } from "../../notch/tabs";
 import { clipboard, useClipboard, type ClipItem, type ClipPreview } from "../../platform/clipboard";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { Redacted, Segmented } from "../../ui/controls";
 import { settings } from "../../settings/store";
 import { usePresenting } from "../privacy/store";
@@ -320,7 +320,7 @@ function PreviewPane({ id, preview, paste, onPick, onClose }: { id: number; prev
             </HeaderButton>
           )}
           {/* Windows' OCR: a Mac has none here. */}
-          {!isMac && (
+          {!noWinApis && (
             <HeaderButton label={t("Text kopieren")} disabled={words.busy} onClick={words.copyText}>
               <TextAa size={13} weight="bold" />
             </HeaderButton>

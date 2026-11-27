@@ -9,7 +9,7 @@ import { liveSupport } from "../../notch/glass/live";
 import { nav } from "../../notch/nav";
 import type { PartId } from "../../notch/row/parts";
 import { partInfo } from "../../notch/row/partInfo";
-import { isMac, isNative } from "../../platform/native";
+import { isNative, noWinApis } from "../../platform/native";
 import { build, taskbar, type KeysStatus } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { CrestMark } from "../../ui/CrestMark";
@@ -40,7 +40,7 @@ export function useTaskbarShown(): boolean {
   const demo = demoBarOffered.use();
   const [offered, setOffered] = useState(false);
   useEffect(() => void build.info().then((b) => setOffered(b.taskbar)), []);
-  return taskbarShown({ native: isNative, mac: isMac, dev: import.meta.env.DEV, offered, enabled, demo });
+  return taskbarShown({ native: isNative, mac: noWinApis, dev: import.meta.env.DEV, offered, enabled, demo });
 }
 
 /** The bar's zones, physical: left stays left in a right-to-left language. */
@@ -409,7 +409,7 @@ export function TaskbarLook() {
   const theme = activeTheme.use();
   const appDesign = design.use();
   // The glass's switch only where the live glass can run (src/notch/glass/live.ts), as in Notch → Themes.
-  const support = liveSupport.use(), live = !isMac && support?.supported === true;
+  const support = liveSupport.use(), live = !noWinApis && support?.supported === true;
   const plus = barLook({ glass, glassLook }, live) === "plus";
   // A name in Latin letters, isolated left to right, so in Arabic its plus stays after it.
   const name = "\u2066" + t("Liquid Glass +") + "\u2069";

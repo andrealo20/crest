@@ -9,7 +9,7 @@ import { SEARCH_ENGINES, type SearchSetting } from "../overview/search";
 import { OVERVIEW_PARTS, TILES, setOverviewPart, type OverviewPart } from "../overview/parts";
 import { stopAwake } from "../overview/store";
 import { hueVar, useIconColors, type Hue } from "../themes/hues";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { Clock, CloudSun, Coffee, Moon, Play, SlidersHorizontal, SpeakerHigh, Sun, type Icon } from "../../ui/iconset";
 
 /** Each Overview part's name (a key for t()), icon and hue, in Overview's order. */
@@ -31,10 +31,10 @@ const partInfo: Record<OverviewPart, { label: string; icon: Icon; hue: Hue }> = 
 function OverviewParts() {
   const parts = settings.use().productivity.overview;
   const iconColors = useIconColors();
-  const shown = OVERVIEW_PARTS.filter((id) => !(isMac && (TILES as readonly OverviewPart[]).includes(id)));
+  const shown = OVERVIEW_PARTS.filter((id) => !(noWinApis && (TILES as readonly OverviewPart[]).includes(id)));
   const set = (id: OverviewPart, on: boolean) => {
     // Read now, as the Dock's trash does: the switch that cannot go off writes nothing.
-    const cur = settings.get().productivity.overview, next = setOverviewPart(cur, id, on, isMac);
+    const cur = settings.get().productivity.overview, next = setOverviewPart(cur, id, on, noWinApis);
     if (next === cur) return;
     updateSettings((s) => ({ productivity: { ...s.productivity, overview: next } }));
     // Its tile is keep awake's switch in the notch (the bar's Keep awake widget is the other), and the closed row's cup opens

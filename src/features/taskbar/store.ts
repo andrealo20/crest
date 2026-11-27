@@ -1,7 +1,7 @@
 import { followStores } from "../../lib/bridge";
 import { createStore } from "../../lib/store";
 import { listening, tauriTransport } from "../../lib/tauriTransport";
-import { isMac, isNative } from "../../platform/native";
+import { isNative, noWinApis } from "../../platform/native";
 import { status, taskbar, type RecycleBin } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { normalizeFavorites } from "../launcher/apps";
@@ -30,7 +30,7 @@ export function setTaskbar(patch: Partial<TaskbarSettings> | ((cur: TaskbarSetti
  * while the bar is on, what is pinned or unpinned on Windows' taskbar follows on it (followPins).
  */
 export function startTaskbar() {
-  if (!isNative || isMac) return;
+  if (!isNative || noWinApis) return;
   let last = "";
   let hides: string | null = null;
   let tray: boolean | null = null;

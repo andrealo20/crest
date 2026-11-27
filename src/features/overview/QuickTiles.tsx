@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Check, Headphones, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerSimpleHigh, SpeakerSimpleSlash, Sun, SunDim } from "../../ui/iconset";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { content, springs } from "../../design/motion";
 import { systemControls, type AudioOutput, type VolumeState } from "../../platform/services";
 import { MIXER_ROW, sendSystemVolume } from "../now-playing/Mixer";
@@ -21,7 +21,7 @@ export function useOutputs(on = true): { outputs: AudioOutput[]; choice: boolean
   const [outputsOpen, setOutputsOpen] = useState(false);
   const loadOutputs = () => void systemControls.outputs().then(setOutputs).catch(() => setOutputs([]));
   useEffect(() => {
-    if (!isMac && on) loadOutputs();
+    if (!noWinApis && on) loadOutputs();
   }, [on]);
   const choice = outputs.length > 1;
   const listOpen = outputsOpen && choice;

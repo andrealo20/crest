@@ -35,7 +35,7 @@ import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
 import { useBtPart } from "./parts/BtPart";
 import { useDayPart, useScreenTimePart } from "./parts/ScreenTimePart";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { downloads } from "../../features/downloads/store";
 
 /** True while `on`, and for `ms` after it turns off: GSMTC reports a short pause on seek and track change. */
@@ -94,7 +94,7 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
   const dl = downloads.use();
   const screen = useScreenTimePart(closed.parts.screentime);
   const day = useDayPart(closed.parts.timeline);
-  const bt = useBtPart(closed.parts.bluetooth && !isMac);
+  const bt = useBtPart(closed.parts.bluetooth && !noWinApis);
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
