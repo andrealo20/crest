@@ -24,6 +24,8 @@ export const offlineStatus = createStore<OfflineStatus>({ engine: false, pairs: 
 
 export function refreshOfflineStatus() {
   if (isNative) void invoke<OfflineStatus>("translate_status").then(offlineStatus.set, () => {});
+  // In the browser a made-up Spanish to English model that knows a few sentences only (src/dev/translate-sample.ts)
+  else void import("../../dev/translate-sample").then((m) => offlineStatus.set(m.SAMPLE_STATUS));
 }
 refreshOfflineStatus();
 
@@ -81,7 +83,7 @@ const file = (pair: string | null, kind: string) => invoke<ArrayBuffer>("transla
 
 /** The lines translated along `pairs` (one model, or two through English). */
 export async function translateOffline(pairs: [string, string][], lines: string[]): Promise<string[]> {
-  if (!isNative) throw new Error("app only");
+  if (!isNative) return (await import("../../dev/translate-sample")).translateSample(pairs, lines);
   window.clearTimeout(idle);
   // A song in another language starts a new worker, unless a translation still waits on this one: closing it would drop that answer.
   if (worker && waiting.size === 0 && lacksPair(inWorker, pairs)) closeWorker();

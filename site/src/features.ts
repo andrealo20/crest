@@ -75,7 +75,7 @@ export const CATALOG: Group[] = [
       { name: "To-dos and notes", text: "Projects, due times and reminders. Type \"call Marco tomorrow 9am\" and the task gets the time. Notes save as you type.", img: "/img/cat/todos.webp", w: 767, h: 285, alt: "To-dos with projects and due times", demo: "focus" },
       { name: "Clipboard", text: "Text, links, images and files, never written to disk. Password managers are left out on purpose.", img: "/img/cat/clipboard.webp", w: 767, h: 245, alt: "The clipboard history with an image, a link and text", demo: "clipboard" },
       { name: "Shelf and Send to phone", text: "Drop files on the notch to park them, then scan a QR code and the phone downloads them from your PC over your own network.", img: "/img/cat/shelf.webp", w: 767, h: 245, alt: "The Shelf with four files and Send to phone", win: true, demo: "clipboard" },
-      { name: "Translate", text: "Text translated on your PC with the lyrics' offline models, in ten languages, or by the Ask provider when you allow it.", tool: "convert", fresh: "1.4" },
+      { name: "Translate", text: "Text translated on your PC with the lyrics' offline models, in ten languages, or by the Ask provider when you allow it.", img: "/img/cat/translate.webp", w: 767, h: 348, alt: "Translate with a Spanish sentence, the language detected, and its English translation", fresh: "1.4" },
       { name: "Prompter", text: "A teleprompter that scrolls your script at the speed you set, with a mirror mode.", img: "/img/cat/teleprompter.webp", w: 767, h: 348, alt: "The Prompter with a short script and its word count" },
     ],
   },
