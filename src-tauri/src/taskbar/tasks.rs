@@ -731,8 +731,9 @@ pub async fn taskbar_window(id: isize, action: String) -> Result<(), String> {
         "toggle" => bring(hwnd),
         "minimize" => minimize(hwnd, pid, &listed),
         "close" => close(hwnd, pid, &listed),
-        "restore" => sys(hwnd, SC_RESTORE).and_then(|_| activate(hwnd)),
-        "maximize" if style(hwnd) & WS_MAXIMIZEBOX.0 != 0 => sys(hwnd, SC_MAXIMIZE).and_then(|_| activate(hwnd)),
+        // Their own command, then only the front: activate's restore would follow it and undo a maximize.
+        "restore" => sys(hwnd, SC_RESTORE).and_then(|_| foreground(hwnd)),
+        "maximize" if style(hwnd) & WS_MAXIMIZEBOX.0 != 0 => sys(hwnd, SC_MAXIMIZE).and_then(|_| foreground(hwnd)),
         "move" => activate(hwnd).and_then(|_| sys(hwnd, SC_MOVE)),
         "size" if style(hwnd) & WS_THICKFRAME.0 != 0 => activate(hwnd).and_then(|_| sys(hwnd, SC_SIZE)),
         "end" if !END_TASK.load(Ordering::SeqCst) => Err("end-task-off".into()),
@@ -942,12 +943,17 @@ fn answers_to(start: Vec<launcher::App>, own: impl FnOnce() -> Vec<launcher::App
 /// Brings a window forward: restored if minimized, then the dialog it has open, or itself, in front. "refused" when Windows keeps
 /// it back (its foreground lock); a click then tries again (`bring`). Never waits on the app: the main thread calls it too.
 pub(crate) fn activate(hwnd: HWND) -> Result<(), String> {
-    unsafe {
-        if IsIconic(hwnd).as_bool() {
-            let _ = ShowWindowAsync(hwnd, SW_RESTORE);
-        }
-        if SetForegroundWindow(front_of(hwnd)).as_bool() { Ok(()) } else { Err("refused".into()) }
+    // Restored by the command its own restore button sends, as Windows' taskbar does: an app that minimizes on its own terms
+    // (PotPlayer, AMD Software, #109) stayed down after ShowWindow alone. ShowWindow only if the command could not be posted.
+    if unsafe { IsIconic(hwnd) }.as_bool() && sys(hwnd, SC_RESTORE).is_err() {
+        let _ = unsafe { ShowWindowAsync(hwnd, SW_RESTORE) };
     }
+    foreground(hwnd)
+}
+
+/// The dialog the window has open, or the window, in front; "refused" when Windows keeps it back.
+fn foreground(hwnd: HWND) -> Result<(), String> {
+    if unsafe { SetForegroundWindow(front_of(hwnd)) }.as_bool() { Ok(()) } else { Err("refused".into()) }
 }
 
 /// The dialog `hwnd` has open, as Windows' taskbar brings it forward, else `hwnd`: never a popup hidden since it was last active.
@@ -1033,6 +1039,17 @@ fn command(hwnd: HWND, sc: u32, listed: &[isize]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_minimized_window_comes_back_by_its_own_restore_command() {
+        // #109: ShowWindow left apps that minimize on their own terms down; the window menu's own commands are not followed by a second.
+        let src = include_str!("tasks.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let body = &code[code.find("pub(crate) fn activate").unwrap()..code.find("fn foreground(").unwrap()];
+        assert!(body.find("sys(hwnd, SC_RESTORE)").unwrap() < body.find("ShowWindowAsync").unwrap());
+        assert!(code.contains("\"restore\" => sys(hwnd, SC_RESTORE).and_then(|_| foreground(hwnd))"));
+        assert!(code.contains("sys(hwnd, SC_MAXIMIZE).and_then(|_| foreground(hwnd))"));
+    }
 
     #[test]
     fn an_open_app_answers_to_its_start_entries_else_to_the_bars_own_pins() {
