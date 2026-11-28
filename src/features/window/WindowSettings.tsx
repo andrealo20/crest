@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLineUp, Plus, X } from "../../ui/iconset";
-import { isMac } from "../../platform/native";
+import { isLinux, isMac, noWinApis } from "../../platform/native";
 import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { tabs, settingsTab, findTab, type NotchTab } from "../../notch/tabs";
@@ -34,7 +34,7 @@ export function WindowSettings() {
   return (
     <>
       <Rules />
-      {!isMac && <AppRules />}
+      {!noWinApis && <AppRules />}
       <Shortcuts />
       <Panel />
       <Mouse />
@@ -47,9 +47,9 @@ function Rules() {
   const r = s.behavior.rules;
   const gaming = s.gaming.mode !== "off";
   return (
-    <Group title={isMac ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
+    <Group title={noWinApis ? undefined : t("Wenn ein Fenster den Bildschirm füllt")} id="settings-window">
       {/* The window watcher behind the rules is Windows only. */}
-      {!isMac && (
+      {!noWinApis && (
         <>
           {CONTEXTS.map((c) => (
             <Row key={c} icon={contextSymbol[c]} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
@@ -190,8 +190,8 @@ const hotkeyHint: Record<HotkeyKind, string> = {
   search: "Öffnet die Suche von Crests Leiste aus jeder App; ruht, solange eine App im Vollbild läuft",
 };
 const recordErrors: Record<RecordError, string> = {
-  "need-modifier": isMac ? "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein" : "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
-  "resize-modifiers": isMac ? "Option und eine weitere Taste (Ctrl, Umschalt oder Cmd) halten" : "Alt und eine weitere Taste (Strg, Umschalt oder Win) halten",
+  "need-modifier": isMac ? "Buchstaben und Ziffern brauchen Ctrl, Option oder Cmd; F1 bis F24 gehen allein" : isLinux ? "Buchstaben und Ziffern brauchen Strg, Alt oder Super; F1 bis F24 gehen allein" : "Buchstaben und Ziffern brauchen Strg, Alt oder Win; F1 bis F24 gehen allein",
+  "resize-modifiers": isMac ? "Option und eine weitere Taste (Ctrl, Umschalt oder Cmd) halten" : isLinux ? "Alt und eine weitere Taste (Strg, Umschalt oder Super) halten" : "Alt und eine weitere Taste (Strg, Umschalt oder Win) halten",
   "resize-arrow": "Halte die Tasten und drücke eine Pfeiltaste",
   "unsupported-key": "Diese Taste geht nicht als Tastenkürzel",
 };
@@ -202,17 +202,17 @@ function Shortcuts() {
       <HotkeyRow kind="open" icon="keyboard" />
       <HotkeyRow kind="hide" icon="visibility_off" />
       <HotkeyRow kind="resize" icon="aspect_ratio" />
-      {!isMac && <HotkeyRow kind="find" icon="screen_search_desktop" />}
+      {!noWinApis && <HotkeyRow kind="find" icon="screen_search_desktop" />}
       <HotkeyRow kind="mic" icon="mic_off" />
-      {!isMac && <HotkeyRow kind="search" icon="search" />}
+      {!noWinApis && <HotkeyRow kind="search" icon="search" />}
       <ToolHotkeys />
     </Group>
   );
 }
 
-/** A keycap in the interface language: Ctrl is "Strg" and Space "Leertaste" in German; on a Mac the Win key is Cmd and Alt is Option. */
+/** A keycap in the interface language: Ctrl is "Strg" and Space "Leertaste" in German; on a Mac the Win key is Cmd and Alt is Option, on Linux it is Super. */
 export const keyText = (k: string) =>
-  k === "Space" ? t("Leertaste") : isMac ? (k === "Win" ? "Cmd" : k === "Alt" ? "Option" : k) : k === "Ctrl" ? t("Strg") : k === "Alt" ? t("Alt") : k;
+  k === "Space" ? t("Leertaste") : isMac ? (k === "Win" ? "Cmd" : k === "Alt" ? "Option" : k) : k === "Ctrl" ? t("Strg") : k === "Alt" ? t("Alt") : isLinux && k === "Win" ? "Super" : k;
 
 const toolName = (id: string) => {
   const tab = findTab(id);
@@ -275,7 +275,7 @@ function shortcutHint(r: { error: RecordError | null; clash: Holder | null; stat
           : r.status === "invalid"
             ? t("Nicht erkannt, bitte neu aufnehmen")
             : r.altGr
-              ? t("Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen")
+              ? t(isLinux ? "Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Super dazunehmen" : "Strg+Alt ist auf vielen Tastaturen AltGr und tippt dann z. B. @ oder €; besser Umschalt oder Win dazunehmen")
               : fallback;
   const warn = !!r.error || !!r.clash || !!r.off || r.status === "in-use" || r.status === "invalid" || r.altGr;
   return <span className={warn ? "text-orange" : undefined}>{text}</span>;

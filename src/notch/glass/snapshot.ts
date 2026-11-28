@@ -1,5 +1,5 @@
 import { createStore } from "../../lib/store";
-import { glassBackdrop, isMac, isNative, onSharedBuffer } from "../../platform/native";
+import { glassBackdrop, noWinApis, isNative, onSharedBuffer } from "../../platform/native";
 import { BUFFER_WAIT_MS, takes, type SnapshotMeta } from "./params";
 import { receiveLive } from "./live";
 
@@ -78,7 +78,7 @@ function receive(meta: unknown, data: ArrayBuffer) {
  * a NotchShape, which loads this file, and the bar's page has a listener of its own for its live frames (taskbar/window/main.tsx).
  */
 export function startSnapshots() {
-  if (isNative && !isMac) onSharedBuffer(receive);
+  if (isNative && !noWinApis) onSharedBuffer(receive);
 }
 
 /** The browser's stand-in for Rust: the fake desktop as BGRA bytes after ?glassDelay ms (30 by default). */

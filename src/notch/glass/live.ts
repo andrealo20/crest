@@ -5,7 +5,7 @@
 // bar is drawn as the taskbar's Liquid Glass + over a session around it (liveForDock).
 
 import { createStore } from "../../lib/store";
-import { glassLive, isMac, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
+import { glassLive, noWinApis, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
 import { settings } from "../../settings/store";
 import { viewZoom } from "../viewZoom";
 import { GLASS, LIVE_SETTLE_MS, liveAccepts, liveMetaOk, liveStep, liveZone, sameZone, zoneHolds, type LiveMeta, type LiveStep } from "./params";
@@ -214,7 +214,7 @@ const notchWants = () => {
  * `wants` holds, listens to Rust.
  */
 export function startGlassLive(wants: () => boolean = notchWants) {
-  if (isMac) return;
+  if (noWinApis) return;
   if (!isNative) {
     if (!new URLSearchParams(location.search).has("glassLive")) return;
     void import("../../dev/glassBackdrop").then(({ fakeLive }) => {

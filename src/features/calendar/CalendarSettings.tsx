@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Plus, X } from "../../ui/iconset";
-import { isMac } from "../../platform/native";
+import { isLinux, noWinApis } from "../../platform/native";
 import { secrets } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
@@ -139,7 +139,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
       {d.kind === "ics" ? (
         <Row icon="link"
           label={t("Link")}
-          hint={isMac ? t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt im Schlüsselbund") : t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt in der Anmeldeinformationsverwaltung")}
+          hint={isLinux ? t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt im Schlüsselbund des Desktops") : noWinApis ? t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt im Schlüsselbund") : t("Die geheime iCal-Adresse aus Google, Outlook oder iCloud; liegt in der Anmeldeinformationsverwaltung")}
         >
           <TextField secret value={d.secret} onChange={(secret) => set({ secret })} placeholder={isNew ? "webcal://…" : t("Gespeichert")} width="w-52" onSubmit={() => void save()} autoFocus />
         </Row>
@@ -151,7 +151,7 @@ function SourceForm({ draft: d, onChange, onDone }: { draft: Draft; onChange: (d
           <Row icon="person" label={t("Nutzername")}>
             <TextField value={d.user} onChange={(user) => set({ user })} width="w-52" />
           </Row>
-          <Row icon="password" label={t("App-Passwort")} hint={isMac ? t("Ein App-Passwort, nicht das Konto-Passwort; liegt im Schlüsselbund") : t("Ein App-Passwort, nicht das Konto-Passwort; liegt in der Anmeldeinformationsverwaltung")}>
+          <Row icon="password" label={t("App-Passwort")} hint={isLinux ? t("Ein App-Passwort, nicht das Konto-Passwort; liegt im Schlüsselbund des Desktops") : noWinApis ? t("Ein App-Passwort, nicht das Konto-Passwort; liegt im Schlüsselbund") : t("Ein App-Passwort, nicht das Konto-Passwort; liegt in der Anmeldeinformationsverwaltung")}>
             <TextField secret value={d.secret} onChange={(secret) => set({ secret })} placeholder={isNew ? "" : t("Gespeichert")} width="w-52" onSubmit={() => void save()} />
           </Row>
         </>

@@ -39,7 +39,7 @@ export function createStore<T>(state: T) {
     },
   };
 }
-export const isMac = false, isNative = true;
+export const noWinApis = false, isNative = true;
 export const viewZoom = () => 1;
 export const settings = { get: () => page.settings.get(), subscribe: (l: () => void) => page.settings.subscribe(l) };
 export const glassLive: typeof import("../../platform/native").glassLive = {

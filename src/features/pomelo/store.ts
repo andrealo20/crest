@@ -1,5 +1,5 @@
 import { createStore } from "../../lib/store";
-import { isMac, isNative } from "../../platform/native";
+import { isNative, noWinApis } from "../../platform/native";
 import { pomeloWheel } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { language, t } from "../../i18n";
@@ -13,7 +13,7 @@ import { defaultsOf, parseSchema, valuesOf, type SchemaPage, type WheelState } f
  */
 
 /** Windows only (the Store build too, with the package inside its own); in the browser while developing and in the site's demo, on src/dev/pomelo-sample.ts. */
-export const pomeloOffered = !isMac && (isNative || import.meta.env.DEV || import.meta.env.MODE === "demo");
+export const pomeloOffered = !noWinApis && (isNative || import.meta.env.DEV || import.meta.env.MODE === "demo");
 
 export const wheelState = createStore<WheelState>({ phase: "off", locked: false });
 

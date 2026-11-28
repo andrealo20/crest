@@ -111,6 +111,18 @@ mod wallpaper;
 mod macos;
 #[cfg(target_os = "macos")]
 use macos::{audio, media, mirror};
+// Linux (src/linux/): the same stand-ins, until each tool has its own version there.
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux::{audio, media, mirror};
+// The shared code calls whichever of the two this build has.
+#[cfg(target_os = "macos")]
+use macos as native;
+#[cfg(target_os = "linux")]
+use linux as native;
+#[cfg(target_os = "linux")]
+pub use linux::prefer_x11;
 
 use std::sync::Mutex;
 
@@ -264,17 +276,38 @@ pub(crate) fn open_url(url: &str) -> Result<(), String> {
         if ok { Ok(()) } else { Err("open-failed".into()) }
     }
     #[cfg(not(windows))]
-    opener().arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    {
+        let mut opener = opener();
+        opener.arg(url);
+        spawn_and_reap(opener).map_err(|e| e.to_string())
+    }
+}
+
+/// Starts a program and lets it go. A thread waits for it, because a child that is dropped without a wait stays a zombie until
+/// Crest exits: every link or folder opened would leave one.
+#[cfg_attr(windows, allow(dead_code))]
+pub(crate) fn spawn_and_reap(mut command: std::process::Command) -> std::io::Result<()> {
+    let mut child = command.spawn()?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 /// Opens files and folders: Explorer on Windows, by its full path, since a bare "explorer" is looked up next
-/// to crest.exe first, and a portable copy's folder may be one other users can write to. `open` on a Mac.
+/// to crest.exe first, and a portable copy's folder may be one other users can write to. `open` on a Mac, `xdg-open` on Linux (where
+/// `open` is a different program: the virtual-terminal tool).
 pub(crate) fn opener() -> std::process::Command {
     if cfg!(windows) {
         let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
         std::process::Command::new(std::path::Path::new(&root).join("explorer.exe"))
-    } else {
+    } else if cfg!(target_os = "macos") {
         std::process::Command::new("open")
+    } else {
+        let mut open = std::process::Command::new("xdg-open");
+        #[cfg(target_os = "linux")]
+        linux::own_environment_out(&mut open);
+        open
     }
 }
 
@@ -470,6 +503,10 @@ pub fn run() {
             mixer::mixer_set,
             #[cfg(windows)]
             mixer::media_open_source,
+            #[cfg(target_os = "linux")]
+            linux::mixer::mixer_list,
+            #[cfg(target_os = "linux")]
+            linux::mixer::mixer_set,
             tray_texts,
             #[cfg(windows)]
             controls::focus_get,
@@ -562,12 +599,12 @@ pub fn run() {
             macos::quick::quick_dark,
             #[cfg(target_os = "macos")]
             macos::quick::quick_power,
-            #[cfg(target_os = "macos")]
-            macos::memory_low,
-            #[cfg(target_os = "macos")]
-            macos::status_configure,
-            #[cfg(target_os = "macos")]
-            macos::privacy_state,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::memory_low,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::status_configure,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::privacy_state,
             translate::translate_status,
             translate::translate_download,
             translate::translate_remove,
@@ -852,14 +889,14 @@ pub fn run() {
             capture::glass_live::glass_live_start,
             #[cfg(windows)]
             capture::glass_live::glass_live_stop,
-            #[cfg(target_os = "macos")]
-            macos::glass_live_supported,
-            #[cfg(target_os = "macos")]
-            macos::glass_live_exclude,
-            #[cfg(target_os = "macos")]
-            macos::glass_live_start,
-            #[cfg(target_os = "macos")]
-            macos::glass_live_stop,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::glass_live_supported,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::glass_live_exclude,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::glass_live_start,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::glass_live_stop,
             #[cfg(target_os = "macos")]
             macos::colour::colour_pick,
             wallpaper::wallpaper_current,
@@ -918,15 +955,30 @@ pub fn run() {
                 display::keep_below(&window);
             }
             display::place(&window, &app.state::<display::DisplayState>())?;
+            // Before show(): a window that is shown first takes the keyboard, and then has to be unmapped to give it up.
+            #[cfg(target_os = "linux")]
+            linux::refuse_keyboard(&window);
             window.show()?;
-            #[cfg(target_os = "macos")]
-            macos::raise(&window);
+            // On every workspace, like the Mac's CanJoinAllSpaces.
+            #[cfg(target_os = "linux")]
+            window.set_visible_on_all_workspaces(true)?;
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native::raise(&window);
             // Only after show(): this fails on a window that was never shown.
+            #[cfg(not(target_os = "linux"))]
             window.set_ignore_cursor_events(true)?;
+            // Nothing takes the pointer until the page reports its zone (linux/input.rs).
+            #[cfg(target_os = "linux")]
+            {
+                linux::input::install(&window);
+                linux::clipboard::install();
+                linux::input::apply(&window, Some(Vec::new()));
+            }
             #[cfg(windows)]
             drop::install(&window);
             #[cfg(windows)]
             camera::install(&window);
+            #[cfg(not(target_os = "linux"))]
             hit_test::spawn(app.handle().clone(), window.clone());
             // Started by a crest:// link.
             #[cfg(windows)]
@@ -1025,11 +1077,11 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
 }
 
 /// The same on a Mac, with the frontmost app's process id in place of the foreground window.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusState>) {
     let own = std::process::id() as isize;
-    let foreground = macos::frontmost_pid() as isize;
+    let foreground = native::frontmost_pid() as isize;
     let mut previous = state.0.lock().unwrap();
 
     if focus {
@@ -1038,8 +1090,17 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
         } else if settings_window::focused() {
             *previous = SETTINGS_KEYBOARD;
         }
+        #[cfg(target_os = "linux")]
+        linux::take_keyboard(&window);
         let _ = window.set_focus();
         return;
+    }
+    #[cfg(target_os = "linux")]
+    if linux::give_keyboard_back(&window) {
+        // Mapped again, the window is where the compositor chose: back to its place, on every workspace, on top.
+        let _ = display::place(&window, &window.app_handle().state::<display::DisplayState>());
+        let _ = window.set_visible_on_all_workspaces(true);
+        native::raise(&window);
     }
     if foreground == own {
         match std::mem::take(&mut *previous) {
@@ -1050,7 +1111,7 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
                 }
             }
             pid => {
-                macos::activate_pid(pid as i32);
+                native::activate_pid(pid as i32);
             }
         }
     }
@@ -1058,7 +1119,7 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
 }
 
 /// On a Mac, FocusState's value when Crest's own settings window had the keyboard (a process id cannot name a window).
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const SETTINGS_KEYBOARD: isize = -1;
 
 /// A paste from the clipboard history (clipboard.rs): gives the keyboard back to the app that had it before the notch
@@ -1071,10 +1132,10 @@ pub(crate) fn return_keyboard(app: &AppHandle) -> Option<isize> {
 }
 
 /// The same on a Mac, with the app's process id.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) fn return_keyboard(app: &AppHandle) -> Option<isize> {
     let previous = std::mem::take(&mut *app.state::<FocusState>().0.lock().unwrap());
-    (previous > 0 && macos::activate_pid(previous as i32)).then_some(previous)
+    (previous > 0 && native::activate_pid(previous as i32)).then_some(previous)
 }
 
 /// The settings window opens: the notch closing behind it must not give the keyboard to the app it had before.
@@ -1097,9 +1158,10 @@ fn remember_foreground(window: &WebviewWindow) {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn remember_foreground(window: &WebviewWindow) {
-    let foreground = macos::frontmost_pid() as isize;
+    let foreground = native::frontmost_pid() as isize;
     let state = window.state::<FocusState>();
     let mut previous = state.0.lock().unwrap();
     if foreground != std::process::id() as isize {

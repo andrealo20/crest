@@ -45,7 +45,7 @@ import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
 import { LeetcodePart, leetcodeWidth, useLeetcodeToday } from "./parts/LeetcodePart";
 import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 import { useBtPart } from "./parts/BtPart";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 
 interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 
@@ -184,7 +184,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
   const s = settings.use(), closed = s.closed;
   const weather = useWeatherNow(parts && closed.parts.weather);
   // Screen Time and the Day timeline stay out of the column: a 144 px strip would widen all of it.
-  const bt = useBtPart(parts && closed.parts.bluetooth && !isMac);
+  const bt = useBtPart(parts && closed.parts.bluetooth && !noWinApis);
   const np = useNowPlaying();
   const playing = useHeld(!!np?.isPlaying, RELEASE_CAPTURE_MS);
   const running = timer.use().endsAt !== null;

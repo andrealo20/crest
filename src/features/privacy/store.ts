@@ -1,7 +1,7 @@
 import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { fetchPrivacy, type PrivacyState } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { privacyOnBar } from "../taskbar/widgets";
@@ -22,7 +22,7 @@ let poll: number | undefined;
 
 function syncPolling() {
   const s = settings.get();
-  const needed = !isMac && (s.privacyDots || s.presentation.auto || privacyOnBar(s.taskbar));
+  const needed = !noWinApis && (s.privacyDots || s.presentation.auto || privacyOnBar(s.taskbar));
   if (needed && poll === undefined) {
     const load = () =>
       void fetchPrivacy().then((next) => {

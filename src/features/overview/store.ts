@@ -1,7 +1,7 @@
 import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { keepAwake } from "../../platform/services";
 import { awakeStart, type Awake } from "./awake";
 
@@ -26,8 +26,8 @@ export function stopAwake() {
   if (!isNotchWindow) return askNotch({ kind: "awakeOff" });
   window.clearTimeout(ends);
   awake.set(null);
-  if (!isMac) void keepAwake(false, null).catch(() => {});
+  if (!noWinApis) void keepAwake(false, null).catch(() => {});
 }
 
 // A reloaded notch starts off, so the backend must too. Another window loading must not end the notch's keep-awake.
-if (!isMac && isNotchWindow) void keepAwake(false, null).catch(() => {});
+if (!noWinApis && isNotchWindow) void keepAwake(false, null).catch(() => {});

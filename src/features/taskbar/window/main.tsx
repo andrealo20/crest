@@ -6,7 +6,7 @@ import "../../../styles/global.css";
 import { settings } from "../../../settings/store";
 import { language, startLanguage } from "../../../i18n";
 import { receiveLive, restartLive, startGlassLive } from "../../../notch/glass/live";
-import { isMac, isNative, onSharedBuffer } from "../../../platform/native";
+import { isNative, onSharedBuffer, noWinApis } from "../../../platform/native";
 import { startThemes } from "../../themes/store";
 import { startCrashLog } from "../../window/store";
 import { taskbar } from "../../../platform/services";
@@ -59,7 +59,7 @@ if (import.meta.env.DEV && !isNative) void import("../../../dev/barSample").then
 // live frames come through the shared buffers here, and this is the page's one listener: snapshot.ts, loaded with the panel's
 // NotchShape, listens only where the notch starts it.
 startGlassLive(() => settings.get().taskbar.glass);
-if (isNative && !isMac) {
+if (isNative && !noWinApis) {
   onSharedBuffer((meta, data) => {
     if ((meta as { kind?: unknown } | null)?.kind === "glass-live") receiveLive(meta, data);
   });

@@ -2,6 +2,7 @@
 //! previewing and revealing them. Originals are never modified.
 
 use std::path::{Path, PathBuf};
+#[cfg(any(windows, target_os = "macos"))]
 use std::process::Command;
 
 use serde::Serialize;
@@ -91,7 +92,7 @@ pub async fn file_preview(path: String) -> Option<String> {
     .flatten()
 }
 
-/// Shows the file selected in Explorer.
+/// Shows the file selected in Explorer (Finder, the file manager).
 #[tauri::command(async)]
 pub fn reveal_file(path: String) -> Result<(), String> {
     // Explorer opens Documents for a path it cannot find.
@@ -108,8 +109,12 @@ pub fn reveal_file(path: String) -> Result<(), String> {
         // and Explorer then falls back to opening Documents.
         crate::opener().raw_arg(format!("/select,\"{path}\"")).spawn()
     };
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     let opened = Command::new("open").arg("-R").arg(&path).spawn();
+    // The file manager's own interface, so the file is selected in whichever one the desktop uses.
+    #[cfg(target_os = "linux")]
+    return crate::linux::files::reveal(&path);
+    #[cfg(not(target_os = "linux"))]
     opened.map(|_| ()).map_err(|e| e.to_string())
 }
 

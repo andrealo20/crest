@@ -1,7 +1,7 @@
 import { askNotch } from "../../lib/tauriTransport";
 import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
-import { isMac } from "../../platform/native";
+import { noWinApis } from "../../platform/native";
 import { windowShell, type HotkeyState, type ScreenBehavior } from "../../platform/services";
 import { settings, updateSettings, type Settings } from "../../settings/store";
 import { hotkeysPaused } from "../launcher/shortcuts";
@@ -47,7 +47,7 @@ export function takenByLauncher(s: Settings = settings.get()): string[] {
 
 /** Crest's shortcuts as they can be registered: Find on screen reads the screens with Windows' OCR and has no Mac version yet. */
 export function usableHotkeys(s: Settings = settings.get()): Record<HotkeyKind, string> {
-  return isMac ? { ...s.behavior.hotkeys, find: "" } : s.behavior.hotkeys;
+  return noWinApis ? { ...s.behavior.hotkeys, find: "" } : s.behavior.hotkeys;
 }
 
 /** The tools' own shortcuts that can work now, `[tool id, shortcut]`: tools that are on, in dock order. */
@@ -61,7 +61,7 @@ function applyHotkeys() {
   const h = usableHotkeys(), launcher = takenByLauncher(), tools = activeToolHotkeys();
   const s = settings.get();
   // The bar's search only with the bar on, and resting over a full-screen app or in gaming mode as Alt+1..6 do: those keep Alt+Space.
-  const barSearch = !isMac && s.taskbar.enabled && !hotkeysPaused(s.gaming.mode, fullscreen.get());
+  const barSearch = !noWinApis && s.taskbar.enabled && !hotkeysPaused(s.gaming.mode, fullscreen.get());
   const key = `${paused}|${h.open}|${h.hide}|${h.resize}|${h.find}|${h.mic}|${barSearch ? h.search : ""}|${launcher.join()}|${JSON.stringify(tools)}`;
   if (key === lastHotkeys) return;
   lastHotkeys = key;
@@ -103,8 +103,8 @@ export function startCrashLog() {
   // Only the first line: a rejected value can carry a whole response body.
   window.addEventListener("unhandledrejection", (e) => {
     const reason = String(e.reason).split("\n")[0];
-    // A Mac has no handler for the Windows-only commands, which some stores call at start: expected, not worth a crash.log line.
-    if (isMac && /^Command \S+ not found$/.test(reason)) return;
+    // A Mac or Linux has no handler for the Windows-only commands, which some stores call at start: expected, not worth a crash.log line.
+    if (noWinApis && /^Command \S+ not found$/.test(reason)) return;
     log(`unhandled rejection: ${reason}`);
   });
 }

@@ -14,7 +14,7 @@ import { ringProps, ringProviders } from "../../notch/row/parts/Rings";
 import { barParts } from "../../notch/row/visibility";
 import { holdLevels } from "../../platform/audio";
 import { useNowPlaying } from "../../platform/media";
-import { isMac, isNative } from "../../platform/native";
+import { isNative, noWinApis } from "../../platform/native";
 import { build, taskbar } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { useDiscordCall } from "../discord/store";
@@ -58,7 +58,7 @@ const noBar = createStore(false);
 
 /** The Windows app only: shares the widgets' data with the bar from its hello on, the panel's stores while the panel shows a tool, and follows whether the bar shows. */
 export function startBarShare() {
-  if (!isNative || isMac) return;
+  if (!isNative || noWinApis) return;
   // The panel's raw stores go to the bar only while a tool shows there.
   barPanels.subscribe(() => panelOpen.set(anyBarTool()));
   onBarShows("media", (on) => barMedia.set(on));
