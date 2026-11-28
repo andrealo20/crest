@@ -212,6 +212,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **安装程序：** 从[最新版本](https://github.com/andrealo20/crest/releases/latest)下载 `Crest_x.y.z_x64-setup.exe`（Windows on ARM 电脑请下载 `Crest_x.y.z_arm64-setup.exe`）并运行。它只为当前用户安装。安装程序暂未进行代码签名，首次运行时 SmartScreen 可能会提示：点击 **更多信息 → 仍要运行**。
 - **便携版：** 把 `Crest-x.y.z-Portable-x64.zip`（或 `-Portable-arm64.zip`）解压到任意可写的位置，运行 `Crest.exe`。不会安装任何东西。
 - **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。1.2.1 及更早的版本完全没有签名，macOS 会提示应用已损坏：请在“终端”中运行一次 `xattr -dr com.apple.quarantine /Applications/Crest.app`。暂存区、硬件、Discord、保险库、终端、启动器、通知、截取、录音机、摄像头、插件和任务栏目前只支持 Windows，在 Mac 上不会显示；概览里的专注、保持唤醒和音量磁贴、FPS、录制指示点，以及“跟随鼠标指针”和“所有显示器”两种显示器模式也不会出现。“在屏幕上查找”在 Mac 上没有快捷键。
+- **Linux（实验性）：** 暂无可下载的版本，请按照 [CONTRIBUTING.md](CONTRIBUTING.md#linux) 从源码构建。移植版本由社区维护，已在 Wayland 上的 GNOME（通过 XWayland）中试用过。它不会检查更新，上面列出的 Mac 上没有的仅限 Windows 的工具，在 Linux 上同样没有。
 
 每个版本都附带 `SHA256SUMS` 文件，列出每个下载文件的 SHA-256，可以用 `sha256sum -c SHA256SUMS --ignore-missing` 或 `Get-FileHash` 校验。
 
